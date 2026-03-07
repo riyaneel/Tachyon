@@ -1,0 +1,20 @@
+---
+Language: Cpp
+Standard: Latest
+BasedOnStyle: LLVM
+ColumnLimit: 120
+IndentWidth: 4
+ContinuationIndentWidth: 4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignOperands: Align
+AlignTrailingComments: true
+SpaceAfterCStyleCast: false
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: All
+FixNamespaceComments: true
+SortIncludes: true
+---

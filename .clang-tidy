@@ -1,0 +1,21 @@
+---
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-vararg
+
+CheckOptions:
+  - key: cppcoreguidelines-owning-memory
+    value: true
+  - key: modernize-make-unique
+    value: true
+  - key: bugprone-unused-return-value.CheckedFunctions
+    value: '::std::expected'
+
+WarningsAsErrors: "*"
+---
