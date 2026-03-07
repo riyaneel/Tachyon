@@ -19,16 +19,17 @@ namespace tachyon::core {
 		SealFailed
 	};
 
-	class TACHYON_API SharedMemory {
+	class TACHYON_API alignas(64) SharedMemory {
 		void	   *ptr_{nullptr};
 		size_t		size_{0};
-		std::string name_;
 		int			fd_{-1};
 		bool		owner_{false};
-		uint8_t		padding_[11]{};
+		std::string name_;
 
 		explicit SharedMemory(void *ptr, const size_t size, std::string name, const int fd, const bool owner)
-			: ptr_(ptr), size_(size), name_(std::move(name)), fd_(fd), owner_(owner) {}
+			: ptr_(ptr), size_(size), fd_(fd), owner_(owner), name_(std::move(name)) {}
+
+		void release() noexcept;
 
 	public:
 		~SharedMemory();
@@ -45,15 +46,15 @@ namespace tachyon::core {
 
 		static auto join(std::string_view name, size_t size) -> std::expected<SharedMemory, ShmError>;
 
-		[[nodiscard]] auto data() const noexcept -> std::span<std::byte> {
+		[[nodiscard]] inline auto data() const noexcept -> std::span<std::byte> {
 			return {static_cast<std::byte *>(ptr_), size_};
 		}
 
-		[[nodiscard]] auto get_ptr() const noexcept -> void * {
+		[[nodiscard]] inline auto get_ptr() const noexcept -> void * {
 			return ptr_;
 		}
 
-		[[nodiscard]] auto get_size() const noexcept -> size_t {
+		[[nodiscard]] inline auto get_size() const noexcept -> size_t {
 			return size_;
 		}
 	};
