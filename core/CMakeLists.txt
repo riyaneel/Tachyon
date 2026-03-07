@@ -1,6 +1,14 @@
 add_library(tachyon SHARED
-
+		src/arena.cpp
 )
+
+target_compile_options(tachyon PRIVATE
+		${TACHYON_FLAGS}
+		$<$<CONFIG:Release>:${TACHYON_RELEASE_FLAGS}>
+		$<$<CONFIG:Debug>:${TACHYON_DEBUG_FLAGS}>
+)
+
+target_link_options(tachyon PRIVATE ${LINK_OPTIONS})
 
 set_target_properties(tachyon PROPERTIES
 		CXX_VISIBILITY_PRESET hidden
@@ -19,8 +27,9 @@ target_include_directories(tachyon
 		PRIVATE src
 )
 
-if (UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE)
 	target_link_libraries(tachyon PRIVATE rt)
-endif ()
+	target_link_options(tachyon PRIVATE "-Wl,-z,defs" "-Wl,-z,now" "-Wl,-z,relro")
+endif()
 
 set(TACHYON_LIBRARY tachyon PARENT_SCOPE)
