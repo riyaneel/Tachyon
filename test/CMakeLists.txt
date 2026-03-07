@@ -1,7 +1,7 @@
 find_package(GTest REQUIRED)
 
 add_executable(tachyon_tests
-		src/test_main.cpp
+		src/test_shm.cpp
 )
 
 target_compile_options(tachyon_tests PRIVATE
