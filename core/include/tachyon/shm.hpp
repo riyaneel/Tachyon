@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 
+#include <tachyon.hpp>
+
 namespace tachyon::core {
 	enum class ShmError : uint8_t {
 		OpenFailed,
@@ -17,7 +19,7 @@ namespace tachyon::core {
 		SealFailed
 	};
 
-	class SharedMemory {
+	class TACHYON_API SharedMemory {
 		void	   *ptr_{nullptr};
 		size_t		size_{0};
 		std::string name_;

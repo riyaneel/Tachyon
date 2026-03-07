@@ -3,10 +3,6 @@
 #include <unistd.h>
 #include <utility>
 
-#if defined(__linux__)
-#include <linux/fcntl.h>
-#endif // #if defined(__linux__)
-
 #include <tachyon/shm.hpp>
 
 namespace tachyon::core {
