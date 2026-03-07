@@ -1,5 +1,6 @@
 add_library(tachyon SHARED
 		src/arena.cpp
+		src/shm.cpp
 )
 
 target_compile_options(tachyon PRIVATE
