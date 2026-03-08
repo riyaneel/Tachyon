@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <utility>
 
@@ -43,6 +44,11 @@ namespace tachyon::core {
 		if (::ftruncate(fd, static_cast<off_t>(size)) == -1) [[unlikely]] {
 			::close(fd);
 			return std::unexpected(ShmError::TruncateFailed);
+		}
+
+		if (::fchmod(fd, 0600) == -1) [[unlikely]] {
+			::close(fd);
+			return std::unexpected(ShmError::ChmodFailed);
 		}
 
 #if defined(__linux__)

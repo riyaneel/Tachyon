@@ -16,7 +16,8 @@ namespace tachyon::core {
 		UnlinkFailed,
 		CloseFailed,
 		InvalidSize,
-		SealFailed
+		SealFailed,
+		ChmodFailed
 	};
 
 	class TACHYON_API alignas(64) SharedMemory {
