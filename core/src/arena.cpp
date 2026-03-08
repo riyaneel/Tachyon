@@ -1,6 +1,14 @@
 #include <cstring>
 #include <utility>
 
+#if defined(__linux__)
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#elif defined(__APPLE__)
+#include <time.h>
+#endif
+
 #include <tachyon/arena.hpp>
 
 namespace tachyon::core {
@@ -11,6 +19,22 @@ namespace tachyon::core {
 			[[maybe_unused]] uint8_t padding_[8];
 		};
 		constexpr uint32_t SKIP_MARKER = 0xFFFFFFFF;
+
+		inline auto platform_wait(std::atomic<uint32_t> *addr) noexcept -> void {
+#if defined(__linux__)
+			syscall(SYS_futex, addr, FUTEX_WAIT, 1, nullptr, nullptr, 0);
+#elif defined(__APPLE__)
+			struct timespec ts = {0, 50000};
+			nanosleep(&ts, nullptr);
+#else
+			std::this_thread::yield();
+#endif
+		}
+		inline void platform_wake(std::atomic<uint32_t> *addr) noexcept {
+#if defined(__linux__)
+			syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
+#endif
+		}
 	} // namespace
 
 	[[nodiscard]] static constexpr bool is_power_of_two(const size_t v) noexcept {
@@ -54,6 +78,7 @@ namespace tachyon::core {
 		layout->header.capacity = static_cast<uint32_t>(capacity);
 		layout->indices.head.store(0, std::memory_order_relaxed);
 		layout->indices.tail.store(0, std::memory_order_relaxed);
+		layout->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
 		layout->header.state.store(BusState::Ready, std::memory_order_release);
 
 		return Arena(layout, capacity);
@@ -97,13 +122,13 @@ namespace tachyon::core {
 		}
 
 		if (need_skip) {
-			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, {0, 0}};
+			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, {}};
 			std::memcpy(&layout_->data_arena()[physical_idx], &skip_hdr, sizeof(MessageHeader));
 			local_head_ += space_until_end;
 			physical_idx = 0;
 		}
 
-		const MessageHeader hdr{static_cast<uint32_t>(msg_size), type_id, {0, 0}};
+		const MessageHeader hdr{static_cast<uint32_t>(msg_size), type_id, {}};
 		std::memcpy(&layout_->data_arena()[physical_idx], &hdr, sizeof(MessageHeader));
 		std::memcpy(&layout_->data_arena()[physical_idx + sizeof(MessageHeader)], data.data(), msg_size);
 
@@ -112,6 +137,10 @@ namespace tachyon::core {
 
 		if ((pending_tx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
 			layout_->indices.head.store(local_head_, std::memory_order_release);
+			std::atomic_thread_fence(std::memory_order_seq_cst);
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
+				platform_wake(&layout_->indices.consumer_sleeping);
+			}
 		}
 
 		return true;
@@ -160,20 +189,52 @@ namespace tachyon::core {
 	) noexcept {
 		uint32_t spins = 0;
 		while (!try_pop(out_type_id, out_buffer, out_size)) {
-			if (max_spins != 0 && spins >= max_spins) {
+			if (max_spins != 0 && spins >= max_spins)
 				return false;
-			}
 			cpu_relax();
 			spins++;
 		}
 		return true;
 	}
 
+	bool Arena::pop_blocking(
+		uint32_t &out_type_id, const std::span<std::byte> out_buffer, size_t &out_size, const uint32_t spin_threshold
+	) noexcept {
+		uint32_t spins = 0;
+		while (!try_pop(out_type_id, out_buffer, out_size)) {
+			if (spins < spin_threshold) {
+				cpu_relax();
+				spins++;
+			} else {
+				layout_->indices.consumer_sleeping.store(1, std::memory_order_release);
+				std::atomic_thread_fence(std::memory_order_seq_cst);
+				if (try_pop(out_type_id, out_buffer, out_size)) {
+					layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+					return true;
+				}
+				platform_wait(&layout_->indices.consumer_sleeping);
+				layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+				spins = 0;
+			}
+		}
+		return true;
+	}
+
 	void Arena::flush() noexcept {
+		bool published_tx = false;
 		if ((pending_tx_ & (BATCH_SIZE - 1)) != 0) {
 			layout_->indices.head.store(local_head_, std::memory_order_release);
-			pending_tx_ = 0;
+			pending_tx_	 = 0;
+			published_tx = true;
 		}
+
+		if (published_tx) {
+			std::atomic_thread_fence(std::memory_order_seq_cst);
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
+				platform_wake(&layout_->indices.consumer_sleeping);
+			}
+		}
+
 		if ((pending_rx_ & (BATCH_SIZE - 1)) != 0) {
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;

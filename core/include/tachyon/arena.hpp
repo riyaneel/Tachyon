@@ -33,6 +33,7 @@ namespace tachyon::core {
 	struct SPSCIndices {
 		alignas(128) std::atomic<size_t> head{0};
 		alignas(128) std::atomic<size_t> tail{0};
+		alignas(128) std::atomic<uint32_t> consumer_sleeping{0};
 	};
 
 	struct alignas(128) MemoryLayout {
@@ -79,6 +80,10 @@ namespace tachyon::core {
 
 		[[nodiscard]] bool pop_spin(
 			uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size, uint32_t max_spins = 0
+		) noexcept;
+
+		[[nodiscard]] bool pop_blocking(
+			uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size, uint32_t spin_threshold = 10000
 		) noexcept;
 
 		void flush() noexcept;
