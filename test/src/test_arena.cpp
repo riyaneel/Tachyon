@@ -21,7 +21,7 @@ namespace tachyon::core::test {
 	protected:
 		const std::string			test_name		  = "tachyon_test_arena";
 		const size_t				arena_capacity	  = 4096;
-		const size_t				required_shm_size = 384 + arena_capacity;
+		const size_t				required_shm_size = sizeof(MemoryLayout) + arena_capacity;
 		std::optional<SharedMemory> shm_owner;
 
 		void SetUp() override {
@@ -136,6 +136,41 @@ namespace tachyon::core::test {
 
 		start_flag.store(true, std::memory_order_release);
 		t_prod.join();
+		t_cons.join();
+	}
+
+	TEST_F(ArenaTest, AdaptiveSpinningFutex) {
+		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		auto consumer = Arena::attach(shm_owner->data()).value();
+
+		std::atomic start_flag{false};
+		std::atomic consumer_ready{false};
+
+		std::thread t_cons([&]() {
+			consumer_ready.store(true, std::memory_order_release);
+			while (!start_flag.load(std::memory_order_acquire)) {
+			}
+
+			uint32_t  type_id	= 0;
+			size_t	  recv_size = 0;
+			std::byte buf[128];
+
+			const bool res = consumer.pop_blocking(type_id, buf, recv_size, 1);
+			EXPECT_TRUE(res);
+			EXPECT_EQ(type_id, 99);
+		});
+
+		while (!consumer_ready.load(std::memory_order_acquire)) {
+		}
+		start_flag.store(true, std::memory_order_release);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+		const std::string msg = "WakeUP!";
+		const std::span		  send_data(reinterpret_cast<const std::byte *>(msg.data()), msg.size());
+
+		(void)producer.try_push(99, send_data);
+		producer.flush();
 		t_cons.join();
 	}
 } // namespace tachyon::core::test

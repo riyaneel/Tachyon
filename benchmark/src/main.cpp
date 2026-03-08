@@ -11,7 +11,7 @@
 using namespace tachyon::core;
 
 constexpr size_t ARENA_CAPACITY = 65536 * 16;
-constexpr size_t SHM_SIZE		= 384 + ARENA_CAPACITY;
+constexpr size_t SHM_SIZE		= sizeof(MemoryLayout) + ARENA_CAPACITY;
 constexpr size_t ITERATIONS		= 10'000'000;
 
 void pin_thread_to_core(const int core_id) {
@@ -33,12 +33,11 @@ int main() {
 	const auto &shm = shm_res.value();
 	Arena::format(shm.data(), ARENA_CAPACITY).value();
 
-	std::cout << "--- Tachyon Raw Throughput Benchmark ---\n";
+	std::cout << "--- Tachyon IPC Benchmark ---\n";
 	std::cout << "Messages: " << ITERATIONS << " | Size: 32 bytes\n";
 
-	std::atomic<bool> producer_done{false};
-
-	const auto start = std::chrono::high_resolution_clock::now();
+	std::atomic producer_done{false};
+	const auto	start = std::chrono::high_resolution_clock::now();
 
 	std::thread t_prod([&]() {
 		pin_thread_to_core(8);
@@ -64,13 +63,12 @@ int main() {
 		uint32_t			  type_id		  = 0;
 
 		while (items_processed < ITERATIONS) {
-			if (consumer.try_pop(type_id, recv_buffer, bytes_read)) {
+			if (consumer.pop_blocking(type_id, recv_buffer, bytes_read, 1000)) {
 				items_processed++;
 			} else {
 				if (producer_done.load(std::memory_order_acquire)) {
 					break;
 				}
-				tachyon::cpu_relax();
 			}
 		}
 		consumer.flush();
