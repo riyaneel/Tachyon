@@ -80,7 +80,7 @@ namespace tachyon::core {
 		void flush() noexcept;
 
 		template <TachyonPayload T> [[nodiscard]] inline bool try_push(std::span<const std::byte> &payload) noexcept {
-			return try_push(std::span<const std::byte>{reinterpret_cast<const std::byte *>(&payload), sizeof(T)});
+			return try_push(std::span{reinterpret_cast<const std::byte *>(&payload), sizeof(T)});
 		}
 
 		template <TachyonPayload T> [[nodiscard]] inline bool pop(T &out_payload) noexcept {
