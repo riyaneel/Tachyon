@@ -3,11 +3,12 @@
 #include <pthread.h>
 #include <sched.h>
 #include <thread>
-#include <xmmintrin.h>
 
+#include <tachyon.hpp>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
 
+using namespace tachyon;
 using namespace tachyon::core;
 
 constexpr size_t ARENA_CAPACITY = 65536 * 16;
@@ -46,9 +47,7 @@ int main() {
 
 		for (size_t i = 0; i < ITERATIONS; ++i) {
 			while (!producer.try_push({send_buffer, 32})) {
-#if defined(__x86_64__)
-				_mm_pause();
-#endif
+				cpu_relax();
 			}
 		}
 
@@ -70,9 +69,7 @@ int main() {
 				if (producer_done.load(std::memory_order_acquire)) {
 					break;
 				}
-#if defined(__x86_64__)
-				_mm_pause();
-#endif
+				cpu_relax();
 			}
 		}
 		consumer.flush();

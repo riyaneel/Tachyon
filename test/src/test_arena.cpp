@@ -6,10 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#if defined(__x86_64__)
-#include <xmmintrin.h>
-#endif
-
+#include <tachyon.hpp>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
 
@@ -106,9 +103,7 @@ namespace tachyon::core::test {
 			for (size_t i = 0; i < ITERATIONS; ++i) {
 				const std::span payload(reinterpret_cast<const std::byte *>(&i), sizeof(i));
 				while (!producer.try_push(payload)) {
-#if defined(__x86_64__)
-					_mm_pause();
-#endif
+					cpu_relax();
 				}
 			}
 			producer.flush();
@@ -124,9 +119,7 @@ namespace tachyon::core::test {
 				std::byte buf[sizeof(size_t)];
 
 				while (!consumer.try_pop(buf, recv_size)) {
-#if defined(__x86_64__)
-					_mm_pause();
-#endif
+					cpu_relax();
 				}
 
 				EXPECT_EQ(recv_size, sizeof(size_t));
