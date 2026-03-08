@@ -5,6 +5,10 @@
 
 #include <tachyon/shm.hpp>
 
+#ifndef MFD_ALLOW_SEALING
+#define MFD_ALLOW_SEALING 0x0002U
+#endif // #ifndef MFD_ALLOW_SEALING
+
 namespace tachyon::core {
 	SharedMemory::~SharedMemory() {
 		release();
@@ -32,18 +36,19 @@ namespace tachyon::core {
 			return std::unexpected(ShmError::InvalidSize);
 
 		std::string path(name);
-		const int	fd = ::shm_open(path.c_str(), O_CREAT | O_RDWR | O_EXCL, 0600);
+		const int	fd = ::memfd_create(path.c_str(), MFD_ALLOW_SEALING);
 		if (fd == -1) [[unlikely]]
 			return std::unexpected(ShmError::OpenFailed);
 
 		if (::ftruncate(fd, static_cast<off_t>(size)) == -1) [[unlikely]] {
 			::close(fd);
-			::shm_unlink(path.c_str());
 			return std::unexpected(ShmError::TruncateFailed);
 		}
 
 #if defined(__linux__)
-		if (::fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_SEAL) == -1) {
+		if (::fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_SEAL) == -1) [[unlikely]] {
+			::close(fd);
+			return std::unexpected(ShmError::SealFailed);
 		}
 #endif // #if defined(__linux__)
 
@@ -55,26 +60,27 @@ namespace tachyon::core {
 		void *ptr = ::mmap(nullptr, size, PROT_READ | PROT_WRITE, flags, fd, 0);
 		if (ptr == MAP_FAILED) [[unlikely]] {
 			::close(fd);
-			::shm_unlink(path.c_str());
 			return std::unexpected(ShmError::MapFailed);
 		}
 
 		return SharedMemory(ptr, size, std::move(path), fd, true);
 	}
 
-	auto SharedMemory::join(const std::string_view name, const size_t size) -> std::expected<SharedMemory, ShmError> {
-		std::string path(name);
-		const int	fd = ::shm_open(path.c_str(), O_RDWR, 0600);
-		if (fd == -1) [[unlikely]]
+	auto SharedMemory::join(const int fd, const size_t size) -> std::expected<SharedMemory, ShmError> {
+		if (fd == -1 || size == 0) [[unlikely]]
 			return std::unexpected(ShmError::OpenFailed);
 
-		void *ptr = ::mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+		int flags = MAP_SHARED;
+#if defined(__linux__)
+		flags |= MAP_POPULATE;
+#endif // #if defined(__linux__)
+
+		void *ptr = ::mmap(nullptr, size, PROT_READ | PROT_WRITE, flags, fd, 0);
 		if (ptr == MAP_FAILED) [[unlikely]] {
-			::close(fd);
 			return std::unexpected(ShmError::MapFailed);
 		}
 
-		return SharedMemory(ptr, size, std::move(path), fd, false);
+		return SharedMemory(ptr, size, "", fd, false);
 	}
 
 	void SharedMemory::release() noexcept {
@@ -85,9 +91,6 @@ namespace tachyon::core {
 		if (fd_ != -1) [[likely]] {
 			::close(fd_);
 			fd_ = -1;
-		}
-		if (owner_ && !name_.empty()) {
-			::shm_unlink(name_.c_str());
 		}
 	}
 } // namespace tachyon::core

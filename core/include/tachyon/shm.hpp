@@ -44,7 +44,7 @@ namespace tachyon::core {
 
 		static auto create(std::string_view name, size_t size) -> std::expected<SharedMemory, ShmError>;
 
-		static auto join(std::string_view name, size_t size) -> std::expected<SharedMemory, ShmError>;
+		static auto join(int fd, size_t size) -> std::expected<SharedMemory, ShmError>;
 
 		[[nodiscard]] inline auto data() const noexcept -> std::span<std::byte> {
 			return {static_cast<std::byte *>(ptr_), size_};
@@ -56,6 +56,10 @@ namespace tachyon::core {
 
 		[[nodiscard]] inline auto get_size() const noexcept -> size_t {
 			return size_;
+		}
+
+		[[nodiscard]] inline auto get_fd() const noexcept -> int {
+			return fd_;
 		}
 	};
 } // namespace tachyon::core
