@@ -45,13 +45,15 @@ namespace tachyon::core::test {
 		auto consumer = Arena::attach(shm_owner->data()).value();
 
 		constexpr DummyOrder order{42, 9500.50, 100};
-		EXPECT_TRUE(producer.push(order));
+		EXPECT_TRUE(producer.push(1, order));
 		producer.flush();
 
 		DummyOrder recv_order{};
-		EXPECT_TRUE(consumer.pop(recv_order));
+		uint32_t   type_id_out = 0;
+		EXPECT_TRUE(consumer.pop(type_id_out, recv_order));
 		consumer.flush();
 
+		EXPECT_EQ(type_id_out, 1);
 		EXPECT_EQ(recv_order.id, 42);
 		EXPECT_DOUBLE_EQ(recv_order.price, 9500.50);
 		EXPECT_EQ(recv_order.qty, 100);
@@ -62,29 +64,31 @@ namespace tachyon::core::test {
 		auto consumer = Arena::attach(shm_owner->data()).value();
 
 		std::vector dummy_pad(4000, std::byte{0x01});
-		EXPECT_TRUE(producer.try_push(dummy_pad));
+		EXPECT_TRUE(producer.try_push(1, dummy_pad));
 		producer.flush();
 
-		size_t				   recv_size = 0;
+		size_t				   recv_size   = 0;
+		uint32_t			   type_id_out = 0;
 		std::vector<std::byte> recv_pad(4000);
-		EXPECT_TRUE(consumer.try_pop(recv_pad, recv_size));
+		EXPECT_TRUE(consumer.try_pop(type_id_out, recv_pad, recv_size));
 		consumer.flush();
 
 		std::string wrap_msg(200, 'X');
 		wrap_msg[0]	  = 'A';
 		wrap_msg[199] = 'Z';
 
-		const std::span send_data(reinterpret_cast<const std::byte *>(wrap_msg.data()), wrap_msg.size());
-		EXPECT_TRUE(producer.try_push(send_data));
+		std::span send_data(reinterpret_cast<const std::byte *>(wrap_msg.data()), wrap_msg.size());
+		EXPECT_TRUE(producer.try_push(2, send_data));
 		producer.flush();
 
 		std::vector<std::byte> recv_wrap(256);
-		EXPECT_TRUE(consumer.try_pop(recv_wrap, recv_size));
+		EXPECT_TRUE(consumer.try_pop(type_id_out, recv_wrap, recv_size));
 		consumer.flush();
 
+		EXPECT_EQ(type_id_out, 2);
 		EXPECT_EQ(recv_size, 200);
 
-		const std::string recv_str(reinterpret_cast<const char *>(recv_wrap.data()), recv_size);
+		std::string recv_str(reinterpret_cast<const char *>(recv_wrap.data()), recv_size);
 		EXPECT_EQ(recv_str.front(), 'A');
 		EXPECT_EQ(recv_str.back(), 'Z');
 	}
@@ -102,7 +106,7 @@ namespace tachyon::core::test {
 
 			for (size_t i = 0; i < ITERATIONS; ++i) {
 				const std::span payload(reinterpret_cast<const std::byte *>(&i), sizeof(i));
-				while (!producer.try_push(payload)) {
+				while (!producer.try_push(1, payload)) {
 					cpu_relax();
 				}
 			}
@@ -116,9 +120,10 @@ namespace tachyon::core::test {
 			for (size_t i = 0; i < ITERATIONS; ++i) {
 				size_t	  expected_val = 0;
 				size_t	  recv_size	   = 0;
+				uint32_t  type_id	   = 0;
 				std::byte buf[sizeof(size_t)];
 
-				while (!consumer.try_pop(buf, recv_size)) {
+				while (!consumer.try_pop(type_id, buf, recv_size)) {
 					cpu_relax();
 				}
 

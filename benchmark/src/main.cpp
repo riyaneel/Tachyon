@@ -1,14 +1,13 @@
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <pthread.h>
 #include <sched.h>
 #include <thread>
 
-#include <tachyon.hpp>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
 
-using namespace tachyon;
 using namespace tachyon::core;
 
 constexpr size_t ARENA_CAPACITY = 65536 * 16;
@@ -30,6 +29,7 @@ int main() {
 		std::cerr << "Failed to create SHM\n";
 		return 1;
 	}
+
 	const auto &shm = shm_res.value();
 	Arena::format(shm.data(), ARENA_CAPACITY).value();
 
@@ -46,8 +46,8 @@ int main() {
 		alignas(64) std::byte send_buffer[32]{};
 
 		for (size_t i = 0; i < ITERATIONS; ++i) {
-			while (!producer.try_push({send_buffer, 32})) {
-				cpu_relax();
+			while (!producer.try_push(1, {send_buffer, 32})) {
+				tachyon::cpu_relax();
 			}
 		}
 
@@ -61,15 +61,16 @@ int main() {
 		alignas(64) std::byte recv_buffer[64]{};
 		size_t				  bytes_read	  = 0;
 		size_t				  items_processed = 0;
+		uint32_t			  type_id		  = 0;
 
 		while (items_processed < ITERATIONS) {
-			if (consumer.try_pop(recv_buffer, bytes_read)) {
+			if (consumer.try_pop(type_id, recv_buffer, bytes_read)) {
 				items_processed++;
 			} else {
 				if (producer_done.load(std::memory_order_acquire)) {
 					break;
 				}
-				cpu_relax();
+				tachyon::cpu_relax();
 			}
 		}
 		consumer.flush();
@@ -78,12 +79,12 @@ int main() {
 	t_prod.join();
 	t_cons.join();
 
-	const auto   end		   = std::chrono::high_resolution_clock::now();
-	const auto   duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-	const double seconds	   = static_cast<double>(duration_ns) / 1e9;
+	const auto	 end		 = std::chrono::high_resolution_clock::now();
+	const auto	 duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+	const double seconds	 = static_cast<double>(duration_ns) / 1e9;
 
-	const double items_per_sec	 = static_cast<double>(ITERATIONS) / seconds;
-	const double bytes_per_sec	 = (static_cast<double>(ITERATIONS) * 32.0) / seconds;
+	const double items_per_sec	   = static_cast<double>(ITERATIONS) / seconds;
+	const double bytes_per_sec	   = (static_cast<double>(ITERATIONS) * 32.0) / seconds;
 	const double gigabytes_per_sec = bytes_per_sec / (1024.0 * 1024.0 * 1024.0);
 
 	std::cout << "Time:       " << seconds * 1000.0 << " ms\n";
