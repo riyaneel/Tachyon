@@ -2,6 +2,7 @@ add_library(tachyon SHARED
 		src/arena.cpp
 		src/shm.cpp
 		src/signal.cpp
+		src/tachyon_c.cpp
 )
 
 target_compile_options(tachyon PRIVATE
@@ -10,10 +11,14 @@ target_compile_options(tachyon PRIVATE
 		$<$<CONFIG:Debug>:${TACHYON_DEBUG_FLAGS}>
 )
 
-target_link_options(tachyon PRIVATE ${LINK_OPTIONS})
+target_link_options(tachyon PRIVATE
+		${LINK_OPTIONS}
+		$<$<CONFIG:Release>:-flto>
+)
 
 set_target_properties(tachyon PROPERTIES
 		CXX_VISIBILITY_PRESET hidden
+		C_VISIBILITY_PRESET hidden
 		VISIBILITY_INLINES_HIDDEN ON
 		OUTPUT_NAME "tachyon"
 )
