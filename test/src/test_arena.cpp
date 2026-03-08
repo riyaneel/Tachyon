@@ -14,6 +14,11 @@
 #include <tachyon/shm.hpp>
 
 namespace tachyon::core::test {
+	struct DummyOrder {
+		uint64_t id;
+		double	 price;
+		uint32_t qty;
+	};
 
 	class ArenaTest : public ::testing::Test {
 	protected:
@@ -33,30 +38,29 @@ namespace tachyon::core::test {
 		const auto producer = Arena::format(shm_owner->data(), arena_capacity);
 		ASSERT_TRUE(producer.has_value());
 		EXPECT_EQ(producer->get_state(), BusState::Ready);
+
 		const auto consumer = Arena::attach(shm_owner->data());
 		ASSERT_TRUE(consumer.has_value());
 	}
 
-	TEST_F(ArenaTest, SinglePushPop) {
+	TEST_F(ArenaTest, TypedAPI) {
 		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
 		auto consumer = Arena::attach(shm_owner->data()).value();
 
-		const std::string msg = "HFT_Tachyon_Speed";
-		const std::span	  send_data(reinterpret_cast<const std::byte *>(msg.data()), msg.size());
-		EXPECT_TRUE(producer.try_push(send_data));
-
+		constexpr DummyOrder order{42, 9500.50, 100};
+		EXPECT_TRUE(producer.push(order));
 		producer.flush();
-		std::byte recv_buf[128];
-		size_t	  recv_size = 0;
-		EXPECT_TRUE(consumer.try_pop(recv_buf, recv_size));
 
+		DummyOrder recv_order{};
+		EXPECT_TRUE(consumer.pop(recv_order));
 		consumer.flush();
-		EXPECT_EQ(recv_size, msg.size());
-		const std::string recv_msg(reinterpret_cast<const char *>(recv_buf), recv_size);
-		EXPECT_EQ(msg, recv_msg);
+
+		EXPECT_EQ(recv_order.id, 42);
+		EXPECT_DOUBLE_EQ(recv_order.price, 9500.50);
+		EXPECT_EQ(recv_order.qty, 100);
 	}
 
-	TEST_F(ArenaTest, WrapAroundSplitMemcpy) {
+	TEST_F(ArenaTest, WrapAroundSkipMarker) {
 		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
 		auto consumer = Arena::attach(shm_owner->data()).value();
 
