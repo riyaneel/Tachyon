@@ -215,6 +215,21 @@ tachyon_error_t tachyon_pop_spin(
 	return bus->arena.pop_spin(*out_type_id, out_span, *out_read_size, max_spins) ? TACHYON_SUCCESS : TACHYON_ERR_EMPTY;
 }
 
+tachyon_error_t tachyon_pop_blocking(
+	tachyon_bus_t *bus,
+	uint32_t	  *out_type_id,
+	void		  *out_buffer,
+	const size_t   buffer_capacity,
+	size_t		  *out_read_size,
+	const uint32_t spin_threshold
+) noexcept {
+	if (!bus || !out_type_id || !out_buffer || !out_read_size)
+		return TACHYON_ERR_NULL_PTR;
+	const std::span out_span{static_cast<std::byte *>(out_buffer), buffer_capacity};
+	return bus->arena.pop_blocking(*out_type_id, out_span, *out_read_size, spin_threshold) ? TACHYON_SUCCESS
+																						   : TACHYON_ERR_EMPTY;
+}
+
 void tachyon_flush(tachyon_bus_t *bus) noexcept {
 	if (bus)
 		bus->arena.flush();

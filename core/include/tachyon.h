@@ -54,7 +54,17 @@ TACHYON_ABI tachyon_error_t tachyon_pop_spin(
 	uint32_t	   max_spins
 ) noexcept;
 
+TACHYON_ABI tachyon_error_t tachyon_pop_blocking(
+	tachyon_bus_t *bus,
+	uint32_t	  *out_type_id,
+	void		  *out_buffer,
+	size_t		   buffer_capacity,
+	size_t		  *out_read_size,
+	uint32_t	   spin_threshold
+) noexcept;
+
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) noexcept;
+
 #ifdef __cplusplus
 }
 #endif
