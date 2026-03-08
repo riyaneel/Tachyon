@@ -7,6 +7,7 @@
 #include <span>
 
 #include <tachyon.hpp>
+#include <tachyon/concepts.hpp>
 #include <tachyon/shm.hpp>
 
 namespace tachyon::core {
@@ -77,6 +78,20 @@ namespace tachyon::core {
 		[[nodiscard]] bool try_pop(std::span<std::byte> out_buffer, size_t &out_size) noexcept;
 
 		void flush() noexcept;
+
+		template <TachyonPayload T> [[nodiscard]] inline bool try_push(std::span<const std::byte> &payload) noexcept {
+			return try_push(std::span<const std::byte>{reinterpret_cast<const std::byte *>(&payload), sizeof(T)});
+		}
+
+		template <TachyonPayload T> [[nodiscard]] inline bool pop(T &out_payload) noexcept {
+			size_t read_bytes = 0;
+			if (const std::span out_span{reinterpret_cast<std::byte *>(&out_payload), sizeof(T)};
+				try_pop(out_span, read_bytes)) [[likely]] {
+				return read_bytes == sizeof(T);
+			}
+
+			return false;
+		}
 
 		[[nodiscard]] inline BusState get_state() const noexcept {
 			return layout_->header.state.load(std::memory_order_acquire);
