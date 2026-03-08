@@ -7,7 +7,8 @@ namespace tachyon::core {
 	namespace {
 		struct alignas(16) MessageHeader {
 			uint32_t				 size;
-			[[maybe_unused]] uint8_t padding_[12]{};
+			uint32_t				 type_id;
+			[[maybe_unused]] uint8_t padding_[8];
 		};
 		constexpr uint32_t SKIP_MARKER = 0xFFFFFFFF;
 	} // namespace
@@ -73,7 +74,7 @@ namespace tachyon::core {
 		return Arena(layout, capacity);
 	}
 
-	bool Arena::try_push(const std::span<const std::byte> data) noexcept {
+	bool Arena::try_push(const uint32_t type_id, const std::span<const std::byte> data) noexcept {
 		const size_t msg_size		  = data.size();
 		const size_t total_msg_size	  = sizeof(MessageHeader) + msg_size;
 		const size_t aligned_msg_size = (total_msg_size + 15) & ~15ULL;
@@ -81,10 +82,10 @@ namespace tachyon::core {
 		if (aligned_msg_size > capacity) [[unlikely]]
 			return false;
 
-		size_t physical_idx	   = local_head_ & capacity_mask_;
+		size_t		 physical_idx	 = local_head_ & capacity_mask_;
 		const size_t space_until_end = capacity - physical_idx;
-		const bool   need_skip	  = space_until_end < aligned_msg_size;
-		size_t required_space = aligned_msg_size;
+		const bool	 need_skip		 = space_until_end < aligned_msg_size;
+		size_t		 required_space	 = aligned_msg_size;
 		if (need_skip) {
 			required_space += space_until_end;
 		}
@@ -96,13 +97,13 @@ namespace tachyon::core {
 		}
 
 		if (need_skip) {
-			constexpr MessageHeader skip_hdr{SKIP_MARKER, {0, 0, 0}};
+			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, {0, 0}};
 			std::memcpy(&layout_->data_arena()[physical_idx], &skip_hdr, sizeof(MessageHeader));
 			local_head_ += space_until_end;
 			physical_idx = 0;
 		}
 
-		const MessageHeader hdr{static_cast<uint32_t>(msg_size), {0, 0, 0}};
+		const MessageHeader hdr{static_cast<uint32_t>(msg_size), type_id, {0, 0}};
 		std::memcpy(&layout_->data_arena()[physical_idx], &hdr, sizeof(MessageHeader));
 		std::memcpy(&layout_->data_arena()[physical_idx + sizeof(MessageHeader)], data.data(), msg_size);
 
@@ -116,14 +117,14 @@ namespace tachyon::core {
 		return true;
 	}
 
-	bool Arena::try_pop(std::span<std::byte> out_buffer, size_t &out_size) noexcept {
+	bool Arena::try_pop(uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size) noexcept {
 		if (cached_head_ <= local_tail_) {
 			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
 			if (cached_head_ <= local_tail_) [[likely]]
 				return false;
 		}
 
-		size_t physical_idx = local_tail_ & capacity_mask_;
+		size_t		  physical_idx = local_tail_ & capacity_mask_;
 		MessageHeader hdr;
 		std::memcpy(&hdr, &layout_->data_arena()[physical_idx], sizeof(MessageHeader));
 
@@ -142,7 +143,8 @@ namespace tachyon::core {
 		const size_t total_msg_size	  = sizeof(MessageHeader) + hdr.size;
 		const size_t aligned_msg_size = (total_msg_size + 15) & ~15ULL;
 
-		out_size = hdr.size;
+		out_size	= hdr.size;
+		out_type_id = hdr.type_id;
 		local_tail_ += aligned_msg_size;
 		pending_rx_++;
 
@@ -150,6 +152,20 @@ namespace tachyon::core {
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 		}
 
+		return true;
+	}
+
+	bool Arena::pop_spin(
+		uint32_t &out_type_id, const std::span<std::byte> out_buffer, size_t &out_size, const uint32_t max_spins
+	) noexcept {
+		uint32_t spins = 0;
+		while (!try_pop(out_type_id, out_buffer, out_size)) {
+			if (max_spins != 0 && spins >= max_spins) {
+				return false;
+			}
+			cpu_relax();
+			spins++;
+		}
 		return true;
 	}
 

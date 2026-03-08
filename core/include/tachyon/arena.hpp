@@ -73,20 +73,24 @@ namespace tachyon::core {
 
 		static auto attach(std::span<std::byte> shm_span) -> std::expected<Arena, ShmError>;
 
-		[[nodiscard]] bool try_push(std::span<const std::byte> data) noexcept;
+		[[nodiscard]] bool try_push(uint32_t type_id, std::span<const std::byte> data) noexcept;
 
-		[[nodiscard]] bool try_pop(std::span<std::byte> out_buffer, size_t &out_size) noexcept;
+		[[nodiscard]] bool try_pop(uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size) noexcept;
+
+		[[nodiscard]] bool pop_spin(
+			uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size, uint32_t max_spins = 0
+		) noexcept;
 
 		void flush() noexcept;
 
-		template <TachyonPayload T> [[nodiscard]] inline bool push(const T &payload) noexcept {
-			return try_push(std::span{reinterpret_cast<const std::byte *>(&payload), sizeof(T)});
+		template <TachyonPayload T> [[nodiscard]] inline bool push(const uint32_t type_id, const T &payload) noexcept {
+			return try_push(type_id, std::span{reinterpret_cast<const std::byte *>(&payload), sizeof(T)});
 		}
 
-		template <TachyonPayload T> [[nodiscard]] inline bool pop(T &out_payload) noexcept {
+		template <TachyonPayload T> [[nodiscard]] inline bool pop(uint32_t &out_type_id, T &out_payload) noexcept {
 			size_t read_bytes = 0;
 			if (const std::span out_span{reinterpret_cast<std::byte *>(&out_payload), sizeof(T)};
-				try_pop(out_span, read_bytes)) [[likely]] {
+				try_pop(out_type_id, out_span, read_bytes)) [[likely]] {
 				return read_bytes == sizeof(T);
 			}
 
