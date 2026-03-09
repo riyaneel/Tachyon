@@ -103,7 +103,7 @@ namespace tachyon::core {
 		const size_t total_msg_size	  = sizeof(MessageHeader) + msg_size;
 		const size_t aligned_msg_size = (total_msg_size + 15) & ~15ULL;
 		const size_t capacity		  = capacity_mask_ + 1;
-		if (aligned_msg_size > capacity) [[unlikely]]
+		if (aligned_msg_size > capacity || msg_size > SKIP_MARKER - sizeof(MessageHeader)) [[unlikely]]
 			return false;
 
 		size_t		 physical_idx	 = local_head_ & capacity_mask_;
@@ -152,15 +152,21 @@ namespace tachyon::core {
 				return false;
 		}
 
+		const size_t  capacity	   = capacity_mask_ + 1;
 		size_t		  physical_idx = local_tail_ & capacity_mask_;
 		MessageHeader hdr;
 		std::memcpy(&hdr, &layout_->data_arena()[physical_idx], sizeof(MessageHeader));
 
 		if (hdr.size == SKIP_MARKER) [[unlikely]] {
-			const size_t space_until_end = (capacity_mask_ + 1) - physical_idx;
+			const size_t space_until_end = capacity - physical_idx;
 			local_tail_ += space_until_end;
 			physical_idx = 0;
 			std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
+		}
+
+		if (hdr.size > capacity - physical_idx - sizeof(MessageHeader)) [[unlikely]] {
+			layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+			return false;
 		}
 
 		if (out_buffer.size() < hdr.size) [[unlikely]]
@@ -188,6 +194,9 @@ namespace tachyon::core {
 	) noexcept {
 		uint32_t spins = 0;
 		while (!try_pop(out_type_id, out_buffer, out_size)) {
+			if (get_state() == BusState::FatalError) [[unlikely]]
+				return false;
+
 			if (max_spins != 0 && spins >= max_spins)
 				return false;
 			cpu_relax();
@@ -201,6 +210,9 @@ namespace tachyon::core {
 	) noexcept {
 		uint32_t spins = 0;
 		while (!try_pop(out_type_id, out_buffer, out_size)) {
+			if (get_state() == BusState::FatalError) [[unlikely]]
+				return false;
+
 			if (spins < spin_threshold) {
 				cpu_relax();
 				spins++;
