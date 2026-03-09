@@ -3,7 +3,6 @@
 
 #if defined(__linux__)
 #include <linux/futex.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 #elif defined(__APPLE__)
 #include <time.h>
@@ -72,7 +71,7 @@ namespace tachyon::core {
 		if (!is_power_of_two(capacity) || shm_span.size() < sizeof(MemoryLayout) + capacity) [[unlikely]]
 			return std::unexpected(ShmError::InvalidSize);
 
-		auto *layout			= reinterpret_cast<MemoryLayout *>(shm_span.data());
+		auto *layout			= tachyon_start_lifetime_as<MemoryLayout>(shm_span.data());
 		layout->header.magic	= TACHYON_MAGIC;
 		layout->header.version	= TACHYON_VERSION;
 		layout->header.capacity = static_cast<uint32_t>(capacity);
@@ -88,7 +87,7 @@ namespace tachyon::core {
 		if (shm_span.size() < sizeof(MemoryLayout)) [[unlikely]]
 			return std::unexpected(ShmError::InvalidSize);
 
-		auto *layout = reinterpret_cast<MemoryLayout *>(shm_span.data());
+		auto *layout = tachyon_start_lifetime_as<MemoryLayout>(shm_span.data());
 		if (layout->header.magic != TACHYON_MAGIC) [[unlikely]]
 			return std::unexpected(ShmError::MapFailed);
 
