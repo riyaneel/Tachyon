@@ -41,7 +41,7 @@ int main() {
 	Arena::format(shm_c2s.data(), ARENA_CAPACITY).value();
 	Arena::format(shm_s2c.data(), ARENA_CAPACITY).value();
 
-	std::cout << "--- Tachyon IPC Latency Analyzer (Phase 7.4) ---\n";
+	std::cout << "--- Tachyon Bench ---\n";
 	std::cout << "Mode:      Ping-Pong RTT (Request/Response)\n";
 	std::cout << "Payload:   32 bytes\n";
 	std::cout << "Samples:   " << ITERATIONS << "\n";

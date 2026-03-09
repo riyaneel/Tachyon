@@ -12,10 +12,10 @@
 
 namespace tachyon::core {
 	namespace {
-		struct alignas(16) MessageHeader {
+		struct alignas(32) MessageHeader {
 			uint32_t				 size;
 			uint32_t				 type_id;
-			[[maybe_unused]] uint8_t padding_[8];
+			[[maybe_unused]] uint8_t padding_[24];
 		};
 		constexpr uint32_t SKIP_MARKER = 0xFFFFFFFF;
 
@@ -101,7 +101,7 @@ namespace tachyon::core {
 	bool Arena::try_push(const uint32_t type_id, const std::span<const std::byte> data) noexcept {
 		const size_t msg_size		  = data.size();
 		const size_t total_msg_size	  = sizeof(MessageHeader) + msg_size;
-		const size_t aligned_msg_size = (total_msg_size + 15) & ~15ULL;
+		const size_t aligned_msg_size = (total_msg_size + 31) & ~31ULL;
 		const size_t capacity		  = capacity_mask_ + 1;
 		if (aligned_msg_size > capacity || msg_size > SKIP_MARKER - sizeof(MessageHeader)) [[unlikely]]
 			return false;
@@ -175,7 +175,7 @@ namespace tachyon::core {
 		std::memcpy(out_buffer.data(), &layout_->data_arena()[physical_idx + sizeof(MessageHeader)], hdr.size);
 
 		const size_t total_msg_size	  = sizeof(MessageHeader) + hdr.size;
-		const size_t aligned_msg_size = (total_msg_size + 15) & ~15ULL;
+		const size_t aligned_msg_size = (total_msg_size + 31) & ~31ULL;
 
 		out_size	= hdr.size;
 		out_type_id = hdr.type_id;
