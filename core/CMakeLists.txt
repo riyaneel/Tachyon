@@ -1,7 +1,6 @@
 add_library(tachyon SHARED
 		src/arena.cpp
 		src/shm.cpp
-		src/signal.cpp
 		src/tachyon_c.cpp
 )
 
