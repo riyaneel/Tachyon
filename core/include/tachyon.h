@@ -32,6 +32,8 @@ typedef enum {
 
 typedef struct tachyon_bus tachyon_bus_t;
 
+TACHYON_ABI void tachyon_memory_barrier_acquire(void) noexcept;
+
 TACHYON_ABI tachyon_error_t
 tachyon_bus_listen(const char *socket_path, size_t capacity, tachyon_bus_t **out_bus) noexcept;
 

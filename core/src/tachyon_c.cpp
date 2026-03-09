@@ -56,6 +56,11 @@ static tachyon_error_t map_shm_error(const ShmError error) noexcept {
 }
 
 extern "C" {
+
+void tachyon_memory_barrier_acquire(void) noexcept {
+	std::atomic_thread_fence(std::memory_order_acquire);
+}
+
 tachyon_error_t tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t **out_bus) noexcept {
 	if (!socket_path || !out_bus || capacity == 0)
 		return TACHYON_ERR_INVALID_SZ;
