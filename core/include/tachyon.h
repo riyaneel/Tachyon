@@ -37,7 +37,9 @@ tachyon_bus_listen(const char *socket_path, size_t capacity, tachyon_bus_t **out
 
 TACHYON_ABI tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out_bus) noexcept;
 
-TACHYON_ABI void tachyon_bus_destroy(const tachyon_bus_t *bus) noexcept;
+TACHYON_ABI void tachyon_bus_ref(tachyon_bus_t *bus) noexcept;
+
+TACHYON_ABI void tachyon_bus_destroy(tachyon_bus_t *bus) noexcept;
 
 TACHYON_ABI tachyon_error_t tachyon_push(tachyon_bus_t *bus, uint32_t type_id, const void *data, size_t size) noexcept;
 

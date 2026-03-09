@@ -12,8 +12,10 @@
 using namespace tachyon::core;
 
 struct tachyon_bus {
-	SharedMemory shm;
-	Arena		 arena;
+	SharedMemory		  shm;
+	Arena				  arena;
+	std::atomic<uint32_t> ref_count{1};
+	uint8_t				  padding_[60]{};
 
 	tachyon_bus(SharedMemory &&s, Arena &&a) : shm(std::move(s)), arena(std::move(a)) {}
 };
@@ -179,8 +181,14 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 	return TACHYON_SUCCESS;
 }
 
-void tachyon_bus_destroy(const tachyon_bus_t *bus) noexcept {
-	if (bus) {
+void tachyon_bus_ref(tachyon_bus_t *bus) noexcept {
+	if (bus) [[likely]] {
+		bus->ref_count.fetch_add(1, std::memory_order_relaxed);
+	}
+}
+
+void tachyon_bus_destroy(tachyon_bus_t *bus) noexcept {
+	if (bus && bus->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
 		delete bus;
 	}
 }
