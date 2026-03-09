@@ -12,11 +12,6 @@
 
 namespace tachyon::core {
 	namespace {
-		struct alignas(32) MessageHeader {
-			uint32_t				 size;
-			uint32_t				 type_id;
-			[[maybe_unused]] uint8_t padding_[24];
-		};
 		constexpr uint32_t SKIP_MARKER = 0xFFFFFFFF;
 
 		inline auto platform_wait(std::atomic<uint32_t> *addr) noexcept -> void {
@@ -51,19 +46,24 @@ namespace tachyon::core {
 		: layout_(std::exchange(other.layout_, nullptr)), capacity_mask_(std::exchange(other.capacity_mask_, 0)),
 		  local_head_(std::exchange(other.local_head_, 0)), cached_tail_(std::exchange(other.cached_tail_, 0)),
 		  pending_tx_(std::exchange(other.pending_tx_, 0)), local_tail_(std::exchange(other.local_tail_, 0)),
-		  cached_head_(std::exchange(other.cached_head_, 0)), pending_rx_(std::exchange(other.pending_rx_, 0)) {}
+		  cached_head_(std::exchange(other.cached_head_, 0)), pending_rx_(std::exchange(other.pending_rx_, 0)),
+		  tx_reserved_size_(std::exchange(other.tx_reserved_size_, 0)),
+		  rx_reserved_size_(std::exchange(other.rx_reserved_size_, 0)) {}
 
 	Arena &Arena::operator=(Arena &&other) noexcept {
 		if (this != &other) [[likely]] {
-			layout_		   = std::exchange(other.layout_, nullptr);
-			capacity_mask_ = std::exchange(other.capacity_mask_, 0);
-			local_head_	   = std::exchange(other.local_head_, 0);
-			cached_tail_   = std::exchange(other.cached_tail_, 0);
-			pending_tx_	   = std::exchange(other.pending_tx_, 0);
-			local_tail_	   = std::exchange(other.local_tail_, 0);
-			cached_head_   = std::exchange(other.cached_head_, 0);
-			pending_rx_	   = std::exchange(other.pending_rx_, 0);
+			layout_			  = std::exchange(other.layout_, nullptr);
+			capacity_mask_	  = std::exchange(other.capacity_mask_, 0);
+			local_head_		  = std::exchange(other.local_head_, 0);
+			cached_tail_	  = std::exchange(other.cached_tail_, 0);
+			pending_tx_		  = std::exchange(other.pending_tx_, 0);
+			local_tail_		  = std::exchange(other.local_tail_, 0);
+			cached_head_	  = std::exchange(other.cached_head_, 0);
+			pending_rx_		  = std::exchange(other.pending_rx_, 0);
+			tx_reserved_size_ = std::exchange(other.tx_reserved_size_, 0);
+			rx_reserved_size_ = std::exchange(other.rx_reserved_size_, 0);
 		}
+
 		return *this;
 	}
 
@@ -98,13 +98,12 @@ namespace tachyon::core {
 		return Arena(layout, capacity);
 	}
 
-	bool Arena::try_push(const uint32_t type_id, const std::span<const std::byte> data) noexcept {
-		const size_t msg_size		  = data.size();
-		const size_t total_msg_size	  = sizeof(MessageHeader) + msg_size;
+	std::byte *Arena::acquire_tx(const size_t max_size) noexcept {
+		const size_t total_msg_size	  = sizeof(MessageHeader) + max_size;
 		const size_t aligned_msg_size = (total_msg_size + 31) & ~31ULL;
 		const size_t capacity		  = capacity_mask_ + 1;
-		if (aligned_msg_size > capacity || msg_size > SKIP_MARKER - sizeof(MessageHeader)) [[unlikely]]
-			return false;
+		if (aligned_msg_size > capacity || max_size > SKIP_MARKER - sizeof(MessageHeader)) [[unlikely]]
+			return nullptr;
 
 		size_t		 physical_idx	 = local_head_ & capacity_mask_;
 		const size_t space_until_end = capacity - physical_idx;
@@ -117,21 +116,30 @@ namespace tachyon::core {
 		if (local_head_ - cached_tail_ + required_space > capacity) {
 			cached_tail_ = layout_->indices.tail.load(std::memory_order_acquire);
 			if (local_head_ - cached_tail_ + required_space > capacity) [[unlikely]]
-				return false;
+				return nullptr;
 		}
 
 		if (need_skip) {
-			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, {}};
+			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, 0, {}};
 			std::memcpy(&layout_->data_arena()[physical_idx], &skip_hdr, sizeof(MessageHeader));
 			local_head_ += space_until_end;
 			physical_idx = 0;
 		}
 
-		const MessageHeader hdr{static_cast<uint32_t>(msg_size), type_id, {}};
-		std::memcpy(&layout_->data_arena()[physical_idx], &hdr, sizeof(MessageHeader));
-		std::memcpy(&layout_->data_arena()[physical_idx + sizeof(MessageHeader)], data.data(), msg_size);
+		tx_reserved_size_ = aligned_msg_size;
 
-		local_head_ += aligned_msg_size;
+		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+	}
+
+	bool Arena::commit_tx(const size_t actual_size, const uint32_t type_id) noexcept {
+		const size_t		physical_idx = local_head_ & capacity_mask_;
+		const MessageHeader hdr{
+			static_cast<uint32_t>(actual_size), type_id, static_cast<uint32_t>(tx_reserved_size_), {}
+		};
+		std::memcpy(&layout_->data_arena()[physical_idx], &hdr, sizeof(MessageHeader));
+
+		local_head_ += tx_reserved_size_;
+		tx_reserved_size_ = 0;
 		pending_tx_++;
 
 		if ((pending_tx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
@@ -145,11 +153,11 @@ namespace tachyon::core {
 		return true;
 	}
 
-	bool Arena::try_pop(uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size) noexcept {
+	const std::byte *Arena::acquire_rx(uint32_t &out_type_id, size_t &out_actual_size) noexcept {
 		if (cached_head_ <= local_tail_) {
 			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
 			if (cached_head_ <= local_tail_) [[likely]]
-				return false;
+				return nullptr;
 		}
 
 		const size_t  capacity	   = capacity_mask_ + 1;
@@ -164,22 +172,21 @@ namespace tachyon::core {
 			std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
 		}
 
-		if (hdr.size > capacity - physical_idx - sizeof(MessageHeader)) [[unlikely]] {
+		if (hdr.reserved_size > capacity || hdr.size > hdr.reserved_size - sizeof(MessageHeader)) [[unlikely]] {
 			layout_->header.state.store(BusState::FatalError, std::memory_order_release);
-			return false;
+			return nullptr;
 		}
 
-		if (out_buffer.size() < hdr.size) [[unlikely]]
-			return false;
+		out_type_id		  = hdr.type_id;
+		out_actual_size	  = hdr.size;
+		rx_reserved_size_ = hdr.reserved_size;
 
-		std::memcpy(out_buffer.data(), &layout_->data_arena()[physical_idx + sizeof(MessageHeader)], hdr.size);
+		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+	}
 
-		const size_t total_msg_size	  = sizeof(MessageHeader) + hdr.size;
-		const size_t aligned_msg_size = (total_msg_size + 31) & ~31ULL;
-
-		out_size	= hdr.size;
-		out_type_id = hdr.type_id;
-		local_tail_ += aligned_msg_size;
+	bool Arena::commit_rx() noexcept {
+		local_tail_ += rx_reserved_size_;
+		rx_reserved_size_ = 0;
 		pending_rx_++;
 
 		if ((pending_rx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
@@ -189,29 +196,31 @@ namespace tachyon::core {
 		return true;
 	}
 
-	bool Arena::pop_spin(
-		uint32_t &out_type_id, const std::span<std::byte> out_buffer, size_t &out_size, const uint32_t max_spins
-	) noexcept {
-		uint32_t spins = 0;
-		while (!try_pop(out_type_id, out_buffer, out_size)) {
+	const std::byte *
+	Arena::acquire_rx_spin(uint32_t &out_type_id, size_t &out_actual_size, const uint32_t max_spins) noexcept {
+		uint32_t		 spins = 0;
+		const std::byte *ptr   = nullptr;
+
+		while ((ptr = acquire_rx(out_type_id, out_actual_size)) == nullptr) {
 			if (get_state() == BusState::FatalError) [[unlikely]]
-				return false;
+				return nullptr;
 
 			if (max_spins != 0 && spins >= max_spins)
-				return false;
+				return nullptr;
 			cpu_relax();
 			spins++;
 		}
-		return true;
+		return ptr;
 	}
 
-	bool Arena::pop_blocking(
-		uint32_t &out_type_id, const std::span<std::byte> out_buffer, size_t &out_size, const uint32_t spin_threshold
-	) noexcept {
-		uint32_t spins = 0;
-		while (!try_pop(out_type_id, out_buffer, out_size)) {
+	const std::byte *
+	Arena::acquire_rx_blocking(uint32_t &out_type_id, size_t &out_actual_size, const uint32_t spin_threshold) noexcept {
+		uint32_t		 spins = 0;
+		const std::byte *ptr   = nullptr;
+
+		while ((ptr = acquire_rx(out_type_id, out_actual_size)) == nullptr) {
 			if (get_state() == BusState::FatalError) [[unlikely]]
-				return false;
+				return nullptr;
 
 			if (spins < spin_threshold) {
 				cpu_relax();
@@ -219,16 +228,19 @@ namespace tachyon::core {
 			} else {
 				layout_->indices.consumer_sleeping.store(1, std::memory_order_release);
 				std::atomic_thread_fence(std::memory_order_seq_cst);
-				if (try_pop(out_type_id, out_buffer, out_size)) {
+
+				if ((ptr = acquire_rx(out_type_id, out_actual_size)) != nullptr) {
 					layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
-					return true;
+					return ptr;
 				}
+
 				platform_wait(&layout_->indices.consumer_sleeping);
 				layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
 				spins = 0;
 			}
 		}
-		return true;
+
+		return ptr;
 	}
 
 	void Arena::flush() noexcept {

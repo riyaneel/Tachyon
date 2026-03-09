@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <expected>
 #include <span>
 
@@ -21,6 +22,13 @@ namespace tachyon::core {
 		Disconnected  = 3,
 		FatalError	  = 4,
 		Unknown		  = 5
+	};
+
+	struct alignas(32) MessageHeader {
+		uint32_t				 size;
+		uint32_t				 type_id;
+		uint32_t				 reserved_size;
+		[[maybe_unused]] uint8_t padding_[20];
 	};
 
 	struct alignas(128) ArenaHeader {
@@ -56,6 +64,8 @@ namespace tachyon::core {
 		size_t					local_tail_{0};
 		size_t					cached_head_{0};
 		size_t					pending_rx_{0};
+		size_t					tx_reserved_size_{0};
+		size_t					rx_reserved_size_{0};
 
 		explicit Arena(MemoryLayout *layout, size_t capacity) noexcept;
 
@@ -74,31 +84,39 @@ namespace tachyon::core {
 
 		static auto attach(std::span<std::byte> shm_span) -> std::expected<Arena, ShmError>;
 
-		[[nodiscard]] bool try_push(uint32_t type_id, std::span<const std::byte> data) noexcept;
+		[[nodiscard]] std::byte *acquire_tx(size_t max_size) noexcept;
 
-		[[nodiscard]] bool try_pop(uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size) noexcept;
+		[[nodiscard]] bool commit_tx(size_t actual_size, uint32_t type_id) noexcept;
 
-		[[nodiscard]] bool pop_spin(
-			uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size, uint32_t max_spins = 0
-		) noexcept;
+		[[nodiscard]] const std::byte *acquire_rx(uint32_t &out_type_id, size_t &out_actual_size) noexcept;
 
-		[[nodiscard]] bool pop_blocking(
-			uint32_t &out_type_id, std::span<std::byte> out_buffer, size_t &out_size, uint32_t spin_threshold = 10000
-		) noexcept;
+		[[nodiscard]] bool commit_rx() noexcept;
+
+		[[nodiscard]] const std::byte *
+		acquire_rx_spin(uint32_t &out_type_id, size_t &out_actual_size, uint32_t max_spins = 0) noexcept;
+
+		[[nodiscard]] const std::byte *
+		acquire_rx_blocking(uint32_t &out_type_id, size_t &out_actual_size, uint32_t spin_threshold = 10000) noexcept;
 
 		void flush() noexcept;
 
 		template <TachyonPayload T> [[nodiscard]] inline bool push(const uint32_t type_id, const T &payload) noexcept {
-			return try_push(type_id, std::span{reinterpret_cast<const std::byte *>(&payload), sizeof(T)});
+			if (std::byte *ptr = acquire_tx(sizeof(T))) [[likely]] {
+				std::memcpy(ptr, &payload, sizeof(T));
+				return commit_tx(sizeof(T), type_id);
+			}
+			return false;
 		}
 
 		template <TachyonPayload T> [[nodiscard]] inline bool pop(uint32_t &out_type_id, T &out_payload) noexcept {
-			size_t read_bytes = 0;
-			if (const std::span out_span{reinterpret_cast<std::byte *>(&out_payload), sizeof(T)};
-				try_pop(out_type_id, out_span, read_bytes)) [[likely]] {
-				return read_bytes == sizeof(T);
+			size_t actual_size = 0;
+			if (const std::byte *ptr = acquire_rx(out_type_id, actual_size)) [[likely]] {
+				if (actual_size == sizeof(T)) {
+					std::memcpy(&out_payload, ptr, sizeof(T));
+					return commit_rx();
+				}
+				(void)commit_rx();
 			}
-
 			return false;
 		}
 
