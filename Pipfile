@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+setuptools = "82.0.1"
+tachyon = { editable = true, path = "./bindings/python" }
+
+[dev-packages]
+mypy = "*"
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+
+[requires]
+python_version = "3.14"
