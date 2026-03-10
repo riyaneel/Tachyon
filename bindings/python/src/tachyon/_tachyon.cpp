@@ -68,11 +68,231 @@ typedef struct {
 } TachyonBus;
 
 /**
+ * @brief TxGuard context manager object
+ */
+typedef struct {
+	PyObject_HEAD tachyon_bus_t *bus;
+	void						*ptr;
+	size_t						 actual_size;
+	uint32_t					 type_id;
+	int							 committed;
+} TxGuard;
+
+/**
+ * @brief RxGuard context manager object
+ */
+typedef struct {
+	PyObject_HEAD tachyon_bus_t *bus;
+	const void					*ptr;
+	size_t						 actual_size;
+	uint32_t					 type_id;
+	int							 committed;
+} RxGuard;
+
+/**
+ * Gets the actual payload size for the current TX transaction
+ * @param self The TxGuard instance
+ * @return The actual payload size as a Python integer
+ */
+static PyObject *TxGuard_get_actual_size(const TxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromSize_t(self->actual_size);
+}
+
+/**
+ * Sets the actual payload size for the current TX transaction
+ * @param self The TxGuard instance
+ * @param value The new actual payload size as a Python integer
+ * @return 0 on success, or -1 if an exception is raised
+ */
+static int TxGuard_set_actual_size(TxGuard *self, PyObject *value, void *Py_UNUSED(closure)) {
+	if (!value) {
+		PyErr_SetString(PyExc_TypeError, "Cannot delete actual size.");
+		return -1;
+	}
+
+	const size_t val = PyLong_AsSize_t(value);
+	if (PyErr_Occurred())
+		return -1;
+	self->actual_size = val;
+
+	return 0;
+}
+
+/**
+ * Gets the message type ID for the current TX transaction
+ * @param self The TxGuard instance
+ * @return The message type ID as a Python integer
+ */
+static PyObject *TxGuard_get_type_id(const TxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLong(self->type_id);
+}
+
+/**
+ * Sets the message type ID for the current TX transaction
+ * @param self The TxGuard instance
+ * @param value The new message type ID as a Python integer
+ * @return 0 on success, or -1 if an exception is raised
+ */
+static int TxGuard_set_type_id(TxGuard *self, PyObject *value, void *Py_UNUSED(closure)) {
+	if (!value) {
+		PyErr_SetString(PyExc_TypeError, "Cannot delete type_id");
+		return -1;
+	}
+
+	const unsigned long val = PyLong_AsUnsignedLong(value);
+	if (PyErr_Occurred())
+		return -1;
+	self->type_id = static_cast<uint32_t>(val);
+
+	return 0;
+}
+
+/**
+ * @brief Getters and setters for the TxGuard object
+ */
+static PyGetSetDef TxGuardGettersSetters[3] = {
+	{const_cast<char *>("actual_size"),
+	 reinterpret_cast<getter>(TxGuard_get_actual_size),
+	 reinterpret_cast<setter>(TxGuard_set_actual_size),
+	 const_cast<char *>("Actual payload size"),
+	 nullptr},
+	{const_cast<char *>("type_id"),
+	 reinterpret_cast<getter>(TxGuard_get_type_id),
+	 reinterpret_cast<setter>(TxGuard_set_type_id),
+	 const_cast<char *>("Message type ID"),
+	 nullptr},
+	{nullptr, nullptr, nullptr, nullptr, nullptr}
+};
+
+/**
+ * Enters the TxGuard context manager
+ * @param self The TxGuard instance
+ * @return The TxGuard instance itself
+ */
+static PyObject *TxGuard_enter(TxGuard *self, PyObject *Py_UNUSED(ignored)) {
+	Py_INCREF(self);
+	return reinterpret_cast<PyObject *>(self);
+}
+
+/**
+ * Exits the TxGuard context manager, committing the TX transaction or rolling back on exception
+ * @param self The TxGuard instance
+ * @param args Tuple containing the exception type, value, and traceback
+ * @return Py_FALSE to propagate exceptions or nullptr on parsing error
+ */
+static PyObject *TxGuard_exit(TxGuard *self, PyObject *args) {
+	PyObject *exc_type, *exc_value, *traceback;
+	if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &traceback)) {
+		return nullptr;
+	}
+
+	if (!self->committed && self->bus) {
+		if (exc_type != Py_None) {
+			self->actual_size = 0;
+		}
+		tachyon_commit_tx(self->bus, self->actual_size, self->type_id);
+		self->committed = 1;
+		self->ptr		= nullptr;
+	}
+
+	Py_RETURN_FALSE;
+}
+
+/**
+ * @brief Array of methods exposed by the TxGuard object
+ */
+static PyMethodDef TxGuardMethods[3] = {
+	{"__enter__", reinterpret_cast<PyCFunction>(TxGuard_enter), METH_NOARGS, "Enter TxContext"},
+	{"__exit__", reinterpret_cast<PyCFunction>(TxGuard_exit), METH_VARARGS, "Exit TxContext and commit"},
+	{nullptr, nullptr, 0, nullptr}
+};
+
+/**
+ * @brief Python type definition for TxGuard
+ */
+static PyTypeObject TxGuardType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+/**
+ * Gets the actual payload size of the received RX transaction
+ * @param self The RxGuard instance
+ * @return The actual payload size as a Python integer
+ */
+static PyObject *RxGuard_get_actual_size(const RxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromSize_t(self->actual_size);
+}
+
+/**
+ * Gets the message type ID of the received RX transaction
+ * @param self The RxGuard instance
+ * @return The message type ID as a Python integer
+ */
+static PyObject *RxGuard_get_type_id(const RxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLong(self->type_id);
+}
+
+/**
+ * @brief Read-only properties for RxGuard
+ */
+static PyGetSetDef RxGuardGettersSetters[3] = {
+	{const_cast<char *>("actual_size"),
+	 reinterpret_cast<getter>(RxGuard_get_actual_size),
+	 nullptr,
+	 const_cast<char *>("Received payload size"),
+	 nullptr},
+	{const_cast<char *>("type_id"),
+	 reinterpret_cast<getter>(RxGuard_get_type_id),
+	 nullptr,
+	 const_cast<char *>("Received message type ID"),
+	 nullptr},
+	{nullptr, nullptr, nullptr, nullptr, nullptr}
+};
+
+/**
+ * Enters the RxGuard context manager
+ * @param self The RxGuard instance
+ * @return The RxGuard instance itself
+ */
+static PyObject *RxGuard_enter(RxGuard *self, PyObject *Py_UNUSED(ignored)) {
+	Py_INCREF(self);
+	return reinterpret_cast<PyObject *>(self);
+}
+
+/**
+ * Exits the RxGuard context manager, committing the RX transaction
+ * @param self The RxGuard instance
+ * @param args Tuple containing the exception type, value, and traceback
+ * @return Py_FALSE to propagate exceptions or nullptr on parsing error
+ */
+static PyObject *RxGuard_exit(RxGuard *self, PyObject *args) {
+	if (!self->committed && self->bus) {
+		tachyon_commit_rx(self->bus);
+		self->committed = 1;
+		self->ptr		= nullptr;
+	}
+
+	Py_RETURN_FALSE;
+}
+
+/**
+ * @brief Array of methods exposed by the RxGuard object
+ */
+static PyMethodDef RxGuardMethods[3] = {
+	{"__enter__", reinterpret_cast<PyCFunction>(RxGuard_enter), METH_NOARGS, "Enter RxContext"},
+	{"__exit__", reinterpret_cast<PyCFunction>(RxGuard_exit), METH_VARARGS, "Exit RxContext and commit"},
+	{nullptr, nullptr, 0, nullptr}
+};
+
+/**
+ * @brief Python type definition for RxGuard
+ */
+static PyTypeObject RxGuardType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+/**
  * Allocates memory for a new TachyonBus Python object
  * @param type The Python type object
  * @return A pointer to the newly allocated PyObject
  */
-static PyObject *TachyonBus_new(PyTypeObject *type, PyObject Py_UNUSED(args), PyObject *Py_UNUSED(kwds)) {
+static PyObject *TachyonBus_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds)) {
 	TachyonBus *self = reinterpret_cast<TachyonBus *>(type->tp_alloc(type, 0));
 	if (self != nullptr) {
 		self->bus = nullptr;
@@ -191,13 +411,100 @@ static PyObject *TachyonBus_flush(const TachyonBus *self, PyObject *Py_UNUSED(ig
 }
 
 /**
+ * Acquires a TX lock on the arena for writing
+ * @param self The TachyonBus instance
+ * @param args Positional args containing max_payload_size
+ * @param kwds Keyword args containing max_payload_size
+ * @return TxGuard context manager
+ */
+static PyObject *TachyonBus_acquire_tx(const TachyonBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("max_payload_size"), nullptr};
+	Py_ssize_t	 max_payload_size;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "n", kwlist, &max_payload_size)) {
+		return nullptr;
+	}
+
+	if (self->bus == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonBus is not initialized.");
+		return nullptr;
+	}
+
+	void *ptr;
+
+	Py_BEGIN_ALLOW_THREADS;
+	ptr = tachyon_acquire_tx(self->bus, static_cast<size_t>(max_payload_size));
+	Py_END_ALLOW_THREADS;
+
+	if (ptr == nullptr) {
+		PyErr_SetString(TachyonError, "Failed to acquire TX buffer (bus closed or full).");
+		return nullptr;
+	}
+
+	TxGuard *guard = PyObject_New(TxGuard, &TxGuardType);
+	if (guard == nullptr) {
+		tachyon_commit_tx(self->bus, 0, 0);
+		return PyErr_NoMemory();
+	}
+
+	guard->bus		   = self->bus;
+	guard->ptr		   = ptr;
+	guard->actual_size = 0;
+	guard->type_id	   = 0;
+	guard->committed   = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
+/**
+ * Acquires an RX lock on the arena for reading
+ * @param self The TachyonBus instance
+ * @return RxGuard context manager
+ */
+static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *Py_UNUSED(ignored)) {
+	if (self->bus == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonBus is not initialized.");
+		return nullptr;
+	}
+
+	uint32_t	type_id		= 0;
+	size_t		actual_size = 0;
+	const void *ptr;
+
+	Py_BEGIN_ALLOW_THREADS;
+	ptr = tachyon_acquire_rx_blocking(self->bus, &type_id, &actual_size, 10000);
+	Py_END_ALLOW_THREADS;
+
+	if (ptr == nullptr) {
+		PyErr_SetString(TachyonError, "Failed to acquire RX buffer (bus closed or fatal error).");
+		return nullptr;
+	}
+
+	RxGuard *guard = PyObject_New(RxGuard, &RxGuardType);
+	if (guard == nullptr) {
+		tachyon_commit_rx(self->bus);
+		return PyErr_NoMemory();
+	}
+
+	guard->bus		   = self->bus;
+	guard->ptr		   = ptr;
+	guard->actual_size = actual_size;
+	guard->type_id	   = type_id;
+	guard->committed   = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
+/**
  * @brief Array of methods exposed by TachyonBus object
  */
-static PyMethodDef TachyonBusMethods[5] = {
+static PyMethodDef TachyonBusMethods[7] = {
 	{"listen", reinterpret_cast<PyCFunction>(TachyonBus_listen), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"connect", reinterpret_cast<PyCFunction>(TachyonBus_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"destroy", reinterpret_cast<PyCFunction>(TachyonBus_destroy), METH_NOARGS, nullptr},
 	{"flush", reinterpret_cast<PyCFunction>(TachyonBus_flush), METH_NOARGS, nullptr},
+	{"acquire_tx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_tx), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"acquire_rx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_rx), METH_NOARGS, nullptr},
 	{nullptr, nullptr, 0, nullptr}
 };
 
@@ -214,6 +521,33 @@ static PyModuleDef TachyonModule = {
 };
 
 PyMODINIT_FUNC PyInit__tachyon(void) {
+	/* Initialize TxGuard Type */
+	TxGuardType.tp_name		 = "tachyon.TxGuard";
+	TxGuardType.tp_basicsize = sizeof(TxGuard);
+	TxGuardType.tp_itemsize	 = 0;
+	TxGuardType.tp_flags	 = Py_TPFLAGS_DEFAULT;
+	TxGuardType.tp_doc		 = "Tachyon TX Guard Context Manager";
+	TxGuardType.tp_methods	 = TxGuardMethods;
+	TxGuardType.tp_getset	 = TxGuardGettersSetters;
+
+	if (PyType_Ready(&TxGuardType) < 0) {
+		return nullptr;
+	}
+
+	/* Initialize RxGuard Type */
+	RxGuardType.tp_name		 = "tachyon.RxGuard";
+	RxGuardType.tp_basicsize = sizeof(RxGuard);
+	RxGuardType.tp_itemsize	 = 0;
+	RxGuardType.tp_flags	 = Py_TPFLAGS_DEFAULT;
+	RxGuardType.tp_doc		 = "Tachyon RX Guard Context Manager";
+	RxGuardType.tp_methods	 = RxGuardMethods;
+	RxGuardType.tp_getset	 = RxGuardGettersSetters;
+
+	if (PyType_Ready(&RxGuardType) < 0) {
+		return nullptr;
+	}
+
+	/* Initialize TachyonBus Type */
 	TachyonBusType.tp_name		= "tachyon.TachyonBus";
 	TachyonBusType.tp_basicsize = sizeof(TachyonBus);
 	TachyonBusType.tp_itemsize	= 0;
@@ -239,6 +573,25 @@ PyMODINIT_FUNC PyInit__tachyon(void) {
 
 	Py_INCREF(&TachyonBusType);
 	if (PyModule_AddObject(m, "TachyonBus", reinterpret_cast<PyObject *>(&TachyonBusType)) < 0) {
+		Py_DECREF(&TachyonBusType);
+		Py_DECREF(m);
+		return nullptr;
+	}
+
+	/* Export TxGuard */
+	Py_INCREF(&TxGuardType);
+	if (PyModule_AddObject(m, "TxGuard", reinterpret_cast<PyObject *>(&TxGuardType)) < 0) {
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		Py_DECREF(m);
+		return nullptr;
+	}
+
+	/* Export RxGuard */
+	Py_INCREF(&RxGuardType);
+	if (PyModule_AddObject(m, "RxGuard", reinterpret_cast<PyObject *>(&RxGuardType)) < 0) {
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
 		Py_DECREF(m);
 		return nullptr;

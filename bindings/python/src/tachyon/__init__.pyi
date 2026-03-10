@@ -2,6 +2,31 @@ class TachyonError(Exception):
     """Base exception for Tachyon errors"""
     pass
 
+
+class TxGuard:
+    """Tachyon TX Guard Context Manager"""
+    actual_size: int
+    type_id: int
+
+    def __enter__(self) -> "TxGuard": ...
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool: ...
+
+
+class RxGuard:
+    """Tachyon RX Guard Context Manager"""
+
+    @property
+    def actual_size(self) -> int: ...
+
+    @property
+    def type_id(self) -> int: ...
+
+    def __enter__(self) -> "RxGuard": ...
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool: ...
+
+
 class TachyonBus:
     """Tachyon IPC Bus"""
 
@@ -26,5 +51,17 @@ class TachyonBus:
     def flush(self) -> None:
         """
         Forcefully flushes pending TX transactions to the consumer
+        """
+        ...
+
+    def acquire_tx(self, max_payload_size: int) -> TxGuard:
+        """
+        Acquires a TX lock on the arena for writing
+        """
+        ...
+
+    def acquire_rx(self) -> RxGuard:
+        """
+        Acquires an RX lock on the arena for reading
         """
         ...

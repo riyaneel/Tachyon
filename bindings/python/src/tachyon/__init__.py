@@ -1,4 +1,4 @@
-from ._tachyon import TachyonBus, TachyonError
+from ._tachyon import RxGuard, TachyonBus, TachyonError, TxGuard
 
-__all__ = ["TachyonBus", "TachyonError"]
+__all__ = ["RxGuard", "TachyonBus", "TachyonError", "TxGuard"]
 __version__ = "0.1.0"
