@@ -43,29 +43,22 @@ TACHYON_ABI void tachyon_bus_ref(tachyon_bus_t *bus) noexcept;
 
 TACHYON_ABI void tachyon_bus_destroy(tachyon_bus_t *bus) noexcept;
 
-TACHYON_ABI tachyon_error_t tachyon_push(tachyon_bus_t *bus, uint32_t type_id, const void *data, size_t size) noexcept;
+TACHYON_ABI void *tachyon_acquire_tx(tachyon_bus_t *bus, size_t max_payload_size) noexcept;
 
-TACHYON_ABI tachyon_error_t tachyon_try_pop(
-	tachyon_bus_t *bus, uint32_t *out_type_id, void *out_buffer, size_t buffer_capacity, size_t *out_read_size
+TACHYON_ABI tachyon_error_t
+tachyon_commit_tx(tachyon_bus_t *bus, size_t actual_payload_size, uint32_t type_id) noexcept;
+
+TACHYON_ABI const void *tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size) noexcept;
+
+TACHYON_ABI const void *tachyon_acquire_rx_spin(
+	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, uint32_t max_spins
 ) noexcept;
 
-TACHYON_ABI tachyon_error_t tachyon_pop_spin(
-	tachyon_bus_t *bus,
-	uint32_t	  *out_type_id,
-	void		  *out_buffer,
-	size_t		   buffer_capacity,
-	size_t		  *out_read_size,
-	uint32_t	   max_spins
+TACHYON_ABI const void *tachyon_acquire_rx_blocking(
+	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, uint32_t spin_threshold
 ) noexcept;
 
-TACHYON_ABI tachyon_error_t tachyon_pop_blocking(
-	tachyon_bus_t *bus,
-	uint32_t	  *out_type_id,
-	void		  *out_buffer,
-	size_t		   buffer_capacity,
-	size_t		  *out_read_size,
-	uint32_t	   spin_threshold
-) noexcept;
+TACHYON_ABI tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) noexcept;
 
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) noexcept;
 

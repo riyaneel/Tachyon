@@ -16,7 +16,7 @@ struct tachyon_bus {
 	std::atomic<uint32_t> ref_count{1};
 	std::atomic_flag	  producer_lock = ATOMIC_FLAG_INIT;
 	std::atomic_flag	  consumer_lock = ATOMIC_FLAG_INIT;
-	uint8_t				  padding_[58]{};
+	uint8_t				  padding_[42]{};
 
 	tachyon_bus(SharedMemory &&s, Arena &&a) : shm(std::move(s)), arena(std::move(a)) {}
 };
@@ -214,57 +214,97 @@ void tachyon_bus_destroy(tachyon_bus_t *bus) noexcept {
 	}
 }
 
-tachyon_error_t tachyon_push(tachyon_bus_t *bus, const uint32_t type_id, const void *data, const size_t size) noexcept {
-	if (!bus || !data)
-		return TACHYON_ERR_NULL_PTR;
+void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) noexcept {
+	if (!bus || max_payload_size == 0)
+		return nullptr;
 
-	TasGuard		lock(bus->producer_lock);
-	const std::span payload{static_cast<const std::byte *>(data), size};
-	return bus->arena.try_push(type_id, payload) ? TACHYON_SUCCESS : TACHYON_ERR_FULL;
+	while (bus->producer_lock.test_and_set(std::memory_order_acquire)) {
+		tachyon::cpu_relax();
+	}
+
+	std::byte *ptr = bus->arena.acquire_tx(max_payload_size);
+	if (!ptr) {
+		bus->producer_lock.clear(std::memory_order_release);
+		return nullptr;
+	}
+
+	return ptr;
 }
 
-tachyon_error_t tachyon_try_pop(
-	tachyon_bus_t *bus, uint32_t *out_type_id, void *out_buffer, const size_t buffer_capacity, size_t *out_read_size
-) noexcept {
-	if (!bus || !out_type_id || !out_buffer || !out_read_size)
+tachyon_error_t
+tachyon_commit_tx(tachyon_bus_t *bus, const size_t actual_payload_size, const uint32_t type_id) noexcept {
+	if (!bus)
 		return TACHYON_ERR_NULL_PTR;
 
-	TasGuard		lock(bus->consumer_lock);
-	const std::span out_span{static_cast<std::byte *>(out_buffer), buffer_capacity};
-	return bus->arena.try_pop(*out_type_id, out_span, *out_read_size) ? TACHYON_SUCCESS : TACHYON_ERR_EMPTY;
+	const bool success = bus->arena.commit_tx(actual_payload_size, type_id);
+	bus->producer_lock.clear(std::memory_order_release);
+
+	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
-tachyon_error_t tachyon_pop_spin(
-	tachyon_bus_t *bus,
-	uint32_t	  *out_type_id,
-	void		  *out_buffer,
-	const size_t   buffer_capacity,
-	size_t		  *out_read_size,
-	const uint32_t max_spins
-) noexcept {
-	if (!bus || !out_type_id || !out_buffer || !out_read_size)
-		return TACHYON_ERR_NULL_PTR;
+const void *tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size) noexcept {
+	if (!bus || !out_type_id || !out_actual_size)
+		return nullptr;
 
-	TasGuard		lock(bus->consumer_lock);
-	const std::span out_span{static_cast<std::byte *>(out_buffer), buffer_capacity};
-	return bus->arena.pop_spin(*out_type_id, out_span, *out_read_size, max_spins) ? TACHYON_SUCCESS : TACHYON_ERR_EMPTY;
+	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
+		tachyon::cpu_relax();
+	}
+
+	const std::byte *ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size);
+	if (!ptr) {
+		bus->consumer_lock.clear(std::memory_order_release);
+		return nullptr;
+	}
+
+	return ptr;
 }
 
-tachyon_error_t tachyon_pop_blocking(
-	tachyon_bus_t *bus,
-	uint32_t	  *out_type_id,
-	void		  *out_buffer,
-	const size_t   buffer_capacity,
-	size_t		  *out_read_size,
-	const uint32_t spin_threshold
+const void *tachyon_acquire_rx_spin(
+	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, const uint32_t max_spins
 ) noexcept {
-	if (!bus || !out_type_id || !out_buffer || !out_read_size)
+	if (!bus || !out_type_id || !out_actual_size)
+		return nullptr;
+
+	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
+		tachyon::cpu_relax();
+	}
+
+	const std::byte *ptr = bus->arena.acquire_rx_spin(*out_type_id, *out_actual_size, max_spins);
+	if (!ptr) {
+		bus->consumer_lock.clear(std::memory_order_release);
+		return nullptr;
+	}
+
+	return ptr;
+}
+
+const void *tachyon_acquire_rx_blocking(
+	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, const uint32_t spin_threshold
+) noexcept {
+	if (!bus || !out_type_id || !out_actual_size)
+		return nullptr;
+
+	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
+		tachyon::cpu_relax();
+	}
+
+	const std::byte *ptr = bus->arena.acquire_rx_blocking(*out_type_id, *out_actual_size, spin_threshold);
+	if (!ptr) {
+		bus->consumer_lock.clear(std::memory_order_release);
+		return nullptr;
+	}
+
+	return ptr;
+}
+
+tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) noexcept {
+	if (!bus)
 		return TACHYON_ERR_NULL_PTR;
 
-	TasGuard		lock(bus->consumer_lock);
-	const std::span out_span{static_cast<std::byte *>(out_buffer), buffer_capacity};
-	return bus->arena.pop_blocking(*out_type_id, out_span, *out_read_size, spin_threshold) ? TACHYON_SUCCESS
-																						   : TACHYON_ERR_EMPTY;
+	const bool success = bus->arena.commit_rx();
+	bus->consumer_lock.clear(std::memory_order_release);
+
+	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
 void tachyon_flush(tachyon_bus_t *bus) noexcept {
