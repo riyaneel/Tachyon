@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <pthread.h>
@@ -23,7 +24,7 @@ void pin_thread_to_core(const int core_id) {
 	CPU_ZERO(&cpuset);
 	CPU_SET(static_cast<size_t>(core_id), &cpuset);
 	if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) != 0) {
-		std::cerr << "CRITICAL WARNING: Failed to pin thread to core " << core_id << "\n";
+		std::cerr << "ERROR: Failed to pin thread to core " << core_id << "\n";
 	}
 }
 
@@ -31,7 +32,7 @@ int main() {
 	const auto shm_c2s_res = SharedMemory::create("tachyon_c2s", SHM_SIZE);
 	const auto shm_s2c_res = SharedMemory::create("tachyon_s2c", SHM_SIZE);
 	if (!shm_c2s_res.has_value() || !shm_s2c_res.has_value()) {
-		std::cerr << "Failed to create Ping-Pong SHMs\n";
+		std::cerr << "ERROR: Failed to create benchmark SHMs\n";
 		return 1;
 	}
 
@@ -42,7 +43,7 @@ int main() {
 	Arena::format(shm_s2c.data(), ARENA_CAPACITY).value();
 
 	std::cout << "--- Tachyon Bench ---\n";
-	std::cout << "Mode:      Ping-Pong RTT (Request/Response)\n";
+	std::cout << "Mode:      Ping-Pong RTT (Acquire/Commit)\n";
 	std::cout << "Payload:   32 bytes\n";
 	std::cout << "Samples:   " << ITERATIONS << "\n";
 
@@ -53,19 +54,22 @@ int main() {
 		auto rx = Arena::attach(shm_c2s.data()).value();
 		auto tx = Arena::attach(shm_s2c.data()).value();
 
-		alignas(64) std::byte buffer[32]{};
-		size_t				  bytes_read = 0;
-		uint32_t			  type_id	 = 0;
+		uint32_t type_id	 = 0;
+		size_t	 actual_size = 0;
 
 		server_ready.store(true, std::memory_order_release);
 
 		constexpr size_t total_runs = ITERATIONS + WARMUP_ITERS;
 		for (size_t i = 0; i < total_runs; ++i) {
-			(void)rx.pop_spin(type_id, buffer, bytes_read, 0);
-			while (!tx.try_push(type_id, {buffer, bytes_read})) {
+			const std::byte *rx_ptr = rx.acquire_rx_spin(type_id, actual_size, 0);
+			std::byte		*tx_ptr = nullptr;
+			while ((tx_ptr = tx.acquire_tx(actual_size)) == nullptr) {
 				tachyon::cpu_relax();
 			}
+			std::memcpy(tx_ptr, rx_ptr, actual_size);
+			(void)tx.commit_tx(actual_size, type_id);
 			tx.flush();
+			(void)rx.commit_rx();
 		}
 	});
 
@@ -78,31 +82,37 @@ int main() {
 			tachyon::cpu_relax();
 		}
 
-		alignas(64) std::byte send_buffer[32]{};
-		alignas(64) std::byte recv_buffer[64]{};
-		size_t				  bytes_read = 0;
-		uint32_t			  type_id	 = 0;
-		std::vector<uint64_t> latencies(ITERATIONS);
+		alignas(32) constexpr std::byte send_buffer[32]{};
+		uint32_t						type_id		= 0;
+		size_t							actual_size = 0;
+		std::vector<uint64_t>			latencies(ITERATIONS);
 
 		for (size_t i = 0; i < WARMUP_ITERS; ++i) {
-			while (!tx.try_push(1, {send_buffer, 32})) {
+			std::byte *tx_ptr = nullptr;
+			while ((tx_ptr = tx.acquire_tx(32)) == nullptr) {
 				tachyon::cpu_relax();
 			}
+			std::memcpy(tx_ptr, send_buffer, 32);
+			(void)tx.commit_tx(32, 1);
 			tx.flush();
-			(void)rx.pop_spin(type_id, recv_buffer, bytes_read, 0);
+			const std::byte *rx_ptr = rx.acquire_rx_spin(type_id, actual_size, 0);
+			(void)rx_ptr;
+			(void)rx.commit_rx();
 		}
 
 		const auto bench_start = std::chrono::high_resolution_clock::now();
 		for (size_t i = 0; i < ITERATIONS; ++i) {
-			const auto start = std::chrono::high_resolution_clock::now();
-
-			while (!tx.try_push(1, {send_buffer, 32})) {
+			const auto start  = std::chrono::high_resolution_clock::now();
+			std::byte *tx_ptr = nullptr;
+			while ((tx_ptr = tx.acquire_tx(32)) == nullptr) {
 				tachyon::cpu_relax();
 			}
+			std::memcpy(tx_ptr, send_buffer, 32);
+			(void)tx.commit_tx(32, 1);
 			tx.flush();
-
-			(void)rx.pop_spin(type_id, recv_buffer, bytes_read, 0);
-
+			const std::byte *rx_ptr = rx.acquire_rx_spin(type_id, actual_size, 0);
+			(void)rx_ptr;
+			(void)rx.commit_rx();
 			const auto end = std::chrono::high_resolution_clock::now();
 			latencies[i] =
 				static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
