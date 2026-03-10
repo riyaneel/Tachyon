@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=82.0.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tachyon"
+version = "0.1.0"
+description = "Low-latency IPC"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Riyane El Qoqui" }]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[project.urls]
+github = "https://github.com/riyaneel/tachyon"
+
+[tool.setuptools.packages.find]
+where = ["src"]

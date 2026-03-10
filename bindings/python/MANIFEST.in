@@ -1,0 +1,5 @@
+include pyproject.toml
+include setup.py
+include src/tachyon/py.typed
+recursive-include src/tachyon *.cpp
+recursive-include _core_local *.cpp *.h *.hpp
