@@ -40,57 +40,164 @@ namespace tachyon::core::test {
 		ASSERT_TRUE(consumer.has_value());
 	}
 
-	TEST_F(ArenaTest, TypedAPI) {
+	TEST_F(ArenaTest, BasicLifecycle) {
 		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
 		auto consumer = Arena::attach(shm_owner->data()).value();
 
-		constexpr DummyOrder order{42, 9500.50, 100};
-		EXPECT_TRUE(producer.push(1, order));
+		std::byte *tx_ptr = producer.acquire_tx(sizeof(DummyOrder));
+		ASSERT_NE(tx_ptr, nullptr);
+
+		new (tx_ptr) DummyOrder{42, 9500.50, 100};
+		EXPECT_TRUE(producer.commit_tx(sizeof(DummyOrder), 1));
 		producer.flush();
 
-		DummyOrder recv_order{};
-		uint32_t   type_id_out = 0;
-		EXPECT_TRUE(consumer.pop(type_id_out, recv_order));
-		consumer.flush();
+		uint32_t		 type_id_out	 = 0;
+		size_t			 actual_size_out = 0;
+		const std::byte *rx_ptr			 = consumer.acquire_rx(type_id_out, actual_size_out);
+		ASSERT_NE(rx_ptr, nullptr);
 
 		EXPECT_EQ(type_id_out, 1);
-		EXPECT_EQ(recv_order.id, 42);
-		EXPECT_DOUBLE_EQ(recv_order.price, 9500.50);
-		EXPECT_EQ(recv_order.qty, 100);
+		EXPECT_EQ(actual_size_out, sizeof(DummyOrder));
+
+		const auto *recv_order = reinterpret_cast<const DummyOrder *>(rx_ptr);
+		EXPECT_EQ(recv_order->id, 42);
+		EXPECT_DOUBLE_EQ(recv_order->price, 9500.50);
+		EXPECT_EQ(recv_order->qty, 100);
+
+		EXPECT_TRUE(consumer.commit_rx());
 	}
 
-	TEST_F(ArenaTest, WrapAroundSkipMarker) {
+	TEST_F(ArenaTest, SizeDisparityReservedSize) {
 		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
 		auto consumer = Arena::attach(shm_owner->data()).value();
 
-		std::vector dummy_pad(4000, std::byte{0x01});
-		EXPECT_TRUE(producer.try_push(1, dummy_pad));
+		std::byte *tx_ptr1 = producer.acquire_tx(1024);
+		ASSERT_NE(tx_ptr1, nullptr);
+
+		EXPECT_TRUE(producer.commit_tx(256, 42));
 		producer.flush();
 
-		size_t				   recv_size   = 0;
-		uint32_t			   type_id_out = 0;
-		std::vector<std::byte> recv_pad(4000);
-		EXPECT_TRUE(consumer.try_pop(type_id_out, recv_pad, recv_size));
-		consumer.flush();
+		uint32_t		 type_id	 = 0;
+		size_t			 actual_size = 0;
+		const std::byte *rx_ptr		 = consumer.acquire_rx(type_id, actual_size);
+		ASSERT_NE(rx_ptr, nullptr);
 
-		std::string wrap_msg(200, 'X');
-		wrap_msg[0]	  = 'A';
-		wrap_msg[199] = 'Z';
+		EXPECT_EQ(actual_size, 256);
+		EXPECT_TRUE(consumer.commit_rx());
 
-		std::span send_data(reinterpret_cast<const std::byte *>(wrap_msg.data()), wrap_msg.size());
-		EXPECT_TRUE(producer.try_push(2, send_data));
+		std::byte *tx_ptr2 = producer.acquire_tx(10);
+		ASSERT_NE(tx_ptr2, nullptr);
+
+		const size_t spatial_difference = static_cast<size_t>(tx_ptr2 - tx_ptr1);
+		EXPECT_EQ(spatial_difference, 1056);
+		EXPECT_TRUE(producer.commit_tx(10, 43));
+	}
+
+	TEST_F(ArenaTest, AVX2AlignmentCheck) {
+		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		auto consumer = Arena::attach(shm_owner->data()).value();
+
+		const std::vector<size_t> random_sizes = {13, 27, 42, 100, 255};
+		for (const size_t sz : random_sizes) {
+			std::byte *tx_ptr = producer.acquire_tx(sz);
+			ASSERT_NE(tx_ptr, nullptr);
+			EXPECT_EQ(reinterpret_cast<uintptr_t>(tx_ptr) % 32, 0);
+			EXPECT_TRUE(producer.commit_tx(sz, 1));
+		}
+
 		producer.flush();
 
-		std::vector<std::byte> recv_wrap(256);
-		EXPECT_TRUE(consumer.try_pop(type_id_out, recv_wrap, recv_size));
+		for (const size_t sz : random_sizes) {
+			uint32_t		 type_id;
+			size_t			 actual_size;
+			const std::byte *rx_ptr = consumer.acquire_rx(type_id, actual_size);
+			ASSERT_NE(rx_ptr, nullptr);
+			EXPECT_EQ(reinterpret_cast<uintptr_t>(rx_ptr) % 32, 0);
+			EXPECT_EQ(actual_size, sz);
+			EXPECT_TRUE(consumer.commit_rx());
+		}
+	}
+
+	TEST_F(ArenaTest, WrapAroundSkipMarkerZeroCopy) {
+		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		auto consumer = Arena::attach(shm_owner->data()).value();
+
+		std::byte *tx_ptr1 = producer.acquire_tx(3936);
+		ASSERT_NE(tx_ptr1, nullptr);
+		EXPECT_TRUE(producer.commit_tx(3936, 1));
+		producer.flush();
+
+		uint32_t		 tid;
+		size_t			 sz;
+		const std::byte *rx_ptr1 = consumer.acquire_rx(tid, sz);
+		EXPECT_TRUE(consumer.commit_rx());
 		consumer.flush();
 
-		EXPECT_EQ(type_id_out, 2);
-		EXPECT_EQ(recv_size, 200);
+		std::byte *tx_ptr2 = producer.acquire_tx(100);
+		ASSERT_NE(tx_ptr2, nullptr);
+		EXPECT_EQ(reinterpret_cast<uintptr_t>(tx_ptr2) % 32, 0);
+		tx_ptr2[0]	= std::byte{'A'};
+		tx_ptr2[99] = std::byte{'Z'};
+		EXPECT_TRUE(producer.commit_tx(100, 2));
+		producer.flush();
 
-		std::string recv_str(reinterpret_cast<const char *>(recv_wrap.data()), recv_size);
-		EXPECT_EQ(recv_str.front(), 'A');
-		EXPECT_EQ(recv_str.back(), 'Z');
+		const std::byte *rx_ptr2 = consumer.acquire_rx(tid, sz);
+		ASSERT_NE(rx_ptr2, nullptr);
+		EXPECT_EQ(sz, 100);
+		EXPECT_EQ(tid, 2);
+		EXPECT_EQ(rx_ptr2[0], std::byte{'A'});
+		EXPECT_EQ(rx_ptr2[99], std::byte{'Z'});
+
+		EXPECT_EQ(rx_ptr2, rx_ptr1);
+		EXPECT_TRUE(consumer.commit_rx());
+	}
+
+	TEST_F(ArenaTest, EdgeCases) {
+		auto	 producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		auto	 consumer = Arena::attach(shm_owner->data()).value();
+		uint32_t tid;
+		size_t	 sz;
+
+		EXPECT_EQ(consumer.acquire_rx(tid, sz), nullptr);
+
+		std::byte *tx_ptr = producer.acquire_tx(0);
+		ASSERT_NE(tx_ptr, nullptr);
+		EXPECT_TRUE(producer.commit_tx(0, 99));
+		producer.flush();
+
+		const std::byte *rx_ptr = consumer.acquire_rx(tid, sz);
+		ASSERT_NE(rx_ptr, nullptr);
+		EXPECT_EQ(sz, 0);
+		EXPECT_EQ(tid, 99);
+		EXPECT_TRUE(consumer.commit_rx());
+
+		EXPECT_EQ(producer.acquire_tx(arena_capacity * 2), nullptr);
+		EXPECT_EQ(producer.acquire_tx(arena_capacity), nullptr);
+
+		size_t msg_count = 0;
+		while (true) {
+			if (producer.acquire_tx(32) != nullptr) {
+				EXPECT_TRUE(producer.commit_tx(32, 1));
+				msg_count++;
+			} else {
+				break;
+			}
+		}
+
+		producer.flush();
+		EXPECT_GT(msg_count, 0);
+		EXPECT_EQ(producer.acquire_tx(32), nullptr);
+
+		size_t rx_count = 0;
+		while (consumer.acquire_rx(tid, sz) != nullptr) {
+			EXPECT_TRUE(consumer.commit_rx());
+			rx_count++;
+		}
+
+		EXPECT_EQ(rx_count, msg_count);
+
+		EXPECT_NE(producer.acquire_tx(32), nullptr);
+		EXPECT_TRUE(producer.commit_tx(32, 1));
 	}
 
 	TEST_F(ArenaTest, ConcurrentStress) {
@@ -105,10 +212,12 @@ namespace tachyon::core::test {
 			}
 
 			for (size_t i = 0; i < ITERATIONS; ++i) {
-				const std::span payload(reinterpret_cast<const std::byte *>(&i), sizeof(i));
-				while (!producer.try_push(1, payload)) {
+				std::byte *ptr = nullptr;
+				while ((ptr = producer.acquire_tx(sizeof(size_t))) == nullptr) {
 					cpu_relax();
 				}
+				std::memcpy(ptr, &i, sizeof(size_t));
+				EXPECT_TRUE(producer.commit_tx(sizeof(size_t), 1));
 			}
 			producer.flush();
 		});
@@ -118,18 +227,19 @@ namespace tachyon::core::test {
 			}
 
 			for (size_t i = 0; i < ITERATIONS; ++i) {
-				size_t	  expected_val = 0;
-				size_t	  recv_size	   = 0;
-				uint32_t  type_id	   = 0;
-				std::byte buf[sizeof(size_t)];
+				size_t			 expected_val = 0;
+				size_t			 recv_size	  = 0;
+				uint32_t		 type_id	  = 0;
+				const std::byte *ptr		  = nullptr;
 
-				while (!consumer.try_pop(type_id, buf, recv_size)) {
+				while ((ptr = consumer.acquire_rx(type_id, recv_size)) == nullptr) {
 					cpu_relax();
 				}
 
 				EXPECT_EQ(recv_size, sizeof(size_t));
-				std::memcpy(&expected_val, buf, sizeof(size_t));
+				std::memcpy(&expected_val, ptr, sizeof(size_t));
 				ASSERT_EQ(expected_val, i);
+				EXPECT_TRUE(consumer.commit_rx());
 			}
 			consumer.flush();
 		});
@@ -151,13 +261,13 @@ namespace tachyon::core::test {
 			while (!start_flag.load(std::memory_order_acquire)) {
 			}
 
-			uint32_t  type_id	= 0;
-			size_t	  recv_size = 0;
-			std::byte buf[128];
+			uint32_t type_id   = 0;
+			size_t	 recv_size = 0;
 
-			const bool res = consumer.pop_blocking(type_id, buf, recv_size, 1);
-			EXPECT_TRUE(res);
+			const std::byte *ptr = consumer.acquire_rx_blocking(type_id, recv_size, 1);
+			ASSERT_NE(ptr, nullptr);
 			EXPECT_EQ(type_id, 99);
+			EXPECT_TRUE(consumer.commit_rx());
 		});
 
 		while (!consumer_ready.load(std::memory_order_acquire)) {
@@ -166,11 +276,11 @@ namespace tachyon::core::test {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-		const std::string msg = "WakeUP!";
-		const std::span		  send_data(reinterpret_cast<const std::byte *>(msg.data()), msg.size());
-
-		(void)producer.try_push(99, send_data);
+		std::byte *ptr = producer.acquire_tx(16);
+		ASSERT_NE(ptr, nullptr);
+		EXPECT_TRUE(producer.commit_tx(16, 99));
 		producer.flush();
+
 		t_cons.join();
 	}
 } // namespace tachyon::core::test
