@@ -132,6 +132,11 @@ namespace tachyon::core {
 	}
 
 	bool Arena::commit_tx(const size_t actual_size, const uint32_t type_id) noexcept {
+		if (tx_reserved_size_ == 0 || actual_size > tx_reserved_size_ - sizeof(MessageHeader)) [[unlikely]] {
+			tx_reserved_size_ = 0;
+			return false;
+		}
+
 		const size_t		physical_idx = local_head_ & capacity_mask_;
 		const MessageHeader hdr{
 			static_cast<uint32_t>(actual_size), type_id, static_cast<uint32_t>(tx_reserved_size_), {}
