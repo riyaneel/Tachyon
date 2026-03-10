@@ -6,9 +6,11 @@ name = "pypi"
 [packages]
 setuptools = "82.0.1"
 tachyon = { editable = true, path = "./bindings/python" }
+psutil = "*"
 
 [dev-packages]
 mypy = "*"
+psutil = "*"
 pytest = "*"
 pytest-cov = "*"
 ruff = "*"
