@@ -134,3 +134,5 @@ dmypy.json
 .pyre/
 .pytype/
 cython_debug/
+Pipfile.lock
+bindings/python/_core_local/
