@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.31)
 
 project(Tachyon LANGUAGES CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -30,5 +32,6 @@ set(LINK_OPTIONS
 add_subdirectory(core)
 add_subdirectory(test)
 add_subdirectory(benchmark)
+add_subdirectory(bindings)
 
 message(STATUS "Tachyon: Build type -> ${CMAKE_BUILD_TYPE}")
