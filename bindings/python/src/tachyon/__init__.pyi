@@ -1,20 +1,32 @@
+import types
+from typing import Iterator, Generator, Optional, Type
+
+__all__ = ["Bus", "Message", "TachyonError"]
+__version__ = "0.1.0"
+
+
 class TachyonError(Exception):
-    """Base exception for Tachyon errors"""
+    """Base Tachyon IPC exception."""
     pass
 
 
 class TxGuard:
-    """Tachyon TX Guard Context Manager"""
+    """Zero-copy TX Context Manager."""
     actual_size: int
     type_id: int
 
     def __enter__(self) -> "TxGuard": ...
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool: ...
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[types.TracebackType]
+    ) -> bool: ...
 
 
 class RxGuard:
-    """Tachyon RX Guard Context Manager"""
+    """Zero-copy RX Context Manager."""
 
     @property
     def actual_size(self) -> int: ...
@@ -24,45 +36,61 @@ class RxGuard:
 
     def __enter__(self) -> "RxGuard": ...
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool: ...
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[types.TracebackType]
+    ) -> bool: ...
 
 
-class TachyonBus:
-    """Tachyon IPC Bus"""
+class Message:
+    """Tachyon Message Dataclass."""
+    type_id: int
+    size: int
+    data: bytes | memoryview
 
-    def listen(self, socket_path: str, capacity: int) -> None:
-        """
-        Formats and initializes a new IPC bus on the specified UNIX socket
-        """
+
+class Bus:
+    """Tachyon IPC High-Level API."""
+
+    def __init__(self) -> None:
+        """Private. Use listen() or connect()."""
         ...
 
-    def connect(self, socket_path: str) -> None:
-        """
-        Connects to an existing IPC bus via UNIX socket descriptor
-        """
+    @classmethod
+    def listen(cls, socket_path: str, capacity: int) -> "Bus":
+        """Creates SHM arena and binds UNIX socket."""
         ...
 
-    def destroy(self) -> None:
-        """
-        Explicitly unmap shared memory and closes fds
-        """
+    @classmethod
+    def connect(cls, socket_path: str) -> "Bus":
+        """Attaches to existing SHM arena via UNIX socket."""
         ...
 
-    def flush(self) -> None:
-        """
-        Forcefully flushes pending TX transactions to the consumer
-        """
+    def __enter__(self) -> "Bus": ...
+
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[types.TracebackType]
+    ) -> None:
+        """Unmaps SHM and closes FDs."""
         ...
 
-    def acquire_tx(self, max_payload_size: int) -> TxGuard:
-        """
-        Acquires a TX lock on the arena for writing
-        """
+    def send(self, data: bytes, type_id: int = 0) -> None:
+        """Blocking SPSC write. Copies payload, commits, and flushes."""
         ...
 
-    def acquire_rx(self, spin_threshold: int = 10000) -> RxGuard:
-        """
-        Acquires an RX lock on the arena for reading.
-        Blocks until data is available, spinning up to `spin_threshold` times before sleeping.
-        """
+    def __iter__(self) -> Iterator[Message]:
+        """Blocking RX iterator. Yields copied Messages (bytes) to prevent Use-After-Commit."""
+        ...
+
+    def send_zero_copy(self, size: int, type_id: int = 0) -> Generator[TxGuard, None, None]:
+        """Zero-copy TX lock. Yields raw TxGuard. Caller must update actual_size. Auto-flushes on exit."""
+        ...
+
+    def recv_zero_copy(self) -> RxGuard:
+        """Zero-copy RX lock. Returns raw RxGuard. Caller must release memoryview before context exit."""
         ...
