@@ -76,6 +76,8 @@ typedef struct {
 	size_t						 actual_size;
 	uint32_t					 type_id;
 	int							 committed;
+	size_t						 max_size;
+	Py_ssize_t					 exports;
 } TxGuard;
 
 /**
@@ -87,6 +89,7 @@ typedef struct {
 	size_t						 actual_size;
 	uint32_t					 type_id;
 	int							 committed;
+	Py_ssize_t					 exports;
 } RxGuard;
 
 /**
@@ -186,7 +189,20 @@ static PyObject *TxGuard_exit(TxGuard *self, PyObject *args) {
 		return nullptr;
 	}
 
-	if (!self->committed && self->bus) {
+	if (self->exports > 0) {
+		if (!self->committed && self->bus != nullptr) {
+			tachyon_commit_tx(self->bus, 0, self->type_id);
+			self->committed = 1;
+			self->ptr		= nullptr;
+		}
+		PyErr_SetString(
+			PyExc_BufferError, "Dangling memoryview detected: release the buffer before exiting the context."
+		);
+
+		return nullptr;
+	}
+
+	if (!self->committed && self->bus != nullptr) {
 		if (exc_type != Py_None) {
 			self->actual_size = 0;
 		}
@@ -205,6 +221,43 @@ static PyMethodDef TxGuardMethods[3] = {
 	{"__enter__", reinterpret_cast<PyCFunction>(TxGuard_enter), METH_NOARGS, "Enter TxContext"},
 	{"__exit__", reinterpret_cast<PyCFunction>(TxGuard_exit), METH_VARARGS, "Exit TxContext and commit"},
 	{nullptr, nullptr, 0, nullptr}
+};
+
+/**
+ * Exposes the internal C++ pointer as a writable Python buffer
+ * @param self The TxGuard instance
+ * @param view The buffer view to fill
+ * @param flags Buffer request flags
+ * @return 0 on success, -1 on error
+ */
+static int TxGuard_getbuffer(TxGuard *self, Py_buffer *view, const int flags) {
+	if (self->committed != 0 || !self->ptr) {
+
+		return -1;
+	}
+
+	const int ret = PyBuffer_FillInfo(
+		view, reinterpret_cast<PyObject *>(self), self->ptr, static_cast<Py_ssize_t>(self->max_size), 0, flags
+	);
+	if (ret == 0)
+		self->exports++;
+
+	return ret;
+}
+
+/**
+ * Releases the buffer view
+ * @param self The TxGuard instance
+ */
+static void TxGuard_releasebuffer(TxGuard *self, Py_buffer *Py_UNUSED(view)) {
+	self->exports--;
+}
+
+/**
+ * @brief Buffer protocol definition for TxGuard
+ */
+static PyBufferProcs TxGuardBufferProcs = {
+	reinterpret_cast<getbufferproc>(TxGuard_getbuffer), reinterpret_cast<releasebufferproc>(TxGuard_releasebuffer)
 };
 
 /**
@@ -264,7 +317,20 @@ static PyObject *RxGuard_enter(RxGuard *self, PyObject *Py_UNUSED(ignored)) {
  * @return Py_FALSE to propagate exceptions or nullptr on parsing error
  */
 static PyObject *RxGuard_exit(RxGuard *self, PyObject *args) {
-	if (!self->committed && self->bus) {
+	if (self->exports > 0) {
+		if (!self->committed && self->bus != nullptr) {
+			tachyon_commit_rx(self->bus);
+			self->committed = 1;
+			self->ptr		= nullptr;
+		}
+
+		PyErr_SetString(
+			PyExc_BufferError, "Dangling memoryview detected: release the buffer before exiting the context."
+		);
+		return nullptr;
+	}
+
+	if (!self->committed && self->bus != nullptr) {
 		tachyon_commit_rx(self->bus);
 		self->committed = 1;
 		self->ptr		= nullptr;
@@ -280,6 +346,49 @@ static PyMethodDef RxGuardMethods[3] = {
 	{"__enter__", reinterpret_cast<PyCFunction>(RxGuard_enter), METH_NOARGS, "Enter RxContext"},
 	{"__exit__", reinterpret_cast<PyCFunction>(RxGuard_exit), METH_VARARGS, "Exit RxContext and commit"},
 	{nullptr, nullptr, 0, nullptr}
+};
+
+/**
+ * Exposes the internal C++ pointer as a read-only Python Buffer
+ * @param self The RxGuard instance
+ * @param view The buffer view to fill
+ * @param flags Buffer request flags
+ * @return 0 on success, or -1 on error
+ */
+static int RxGuard_getbuffer(RxGuard *self, Py_buffer *view, const int flags) {
+	if (self->committed != 0 || self->ptr == nullptr) {
+		PyErr_SetString(PyExc_BufferError, "Cannot access memory: transaction already committed.");
+		return -1;
+	}
+
+	const int ret = PyBuffer_FillInfo(
+		view,
+		reinterpret_cast<PyObject *>(self),
+		const_cast<void *>(self->ptr),
+		static_cast<Py_ssize_t>(self->actual_size),
+		1,
+		flags
+	);
+	if (ret == 0) {
+		self->exports++;
+	}
+
+	return ret;
+}
+
+/**
+ * Releases the buffer view
+ * @param self The RxGuard instance
+ */
+static void RxGuard_releasebuffer(RxGuard *self, Py_buffer *Py_UNUSED(view)) {
+	self->exports--;
+}
+
+/**
+ * @brief Buffer protocol definition for RxGuard
+ */
+static PyBufferProcs RxGuardBufferProcs = {
+	reinterpret_cast<getbufferproc>(RxGuard_getbuffer), reinterpret_cast<releasebufferproc>(RxGuard_releasebuffer)
 };
 
 /**
@@ -452,6 +561,8 @@ static PyObject *TachyonBus_acquire_tx(const TachyonBus *self, PyObject *args, P
 	guard->actual_size = 0;
 	guard->type_id	   = 0;
 	guard->committed   = 0;
+	guard->max_size	   = static_cast<size_t>(max_payload_size);
+	guard->exports	   = 0;
 
 	return reinterpret_cast<PyObject *>(guard);
 }
@@ -491,6 +602,7 @@ static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *Py_UNUS
 	guard->actual_size = actual_size;
 	guard->type_id	   = type_id;
 	guard->committed   = 0;
+	guard->exports	   = 0;
 
 	return reinterpret_cast<PyObject *>(guard);
 }
@@ -529,6 +641,7 @@ PyMODINIT_FUNC PyInit__tachyon(void) {
 	TxGuardType.tp_doc		 = "Tachyon TX Guard Context Manager";
 	TxGuardType.tp_methods	 = TxGuardMethods;
 	TxGuardType.tp_getset	 = TxGuardGettersSetters;
+	TxGuardType.tp_as_buffer = &TxGuardBufferProcs;
 
 	if (PyType_Ready(&TxGuardType) < 0) {
 		return nullptr;
@@ -542,6 +655,7 @@ PyMODINIT_FUNC PyInit__tachyon(void) {
 	RxGuardType.tp_doc		 = "Tachyon RX Guard Context Manager";
 	RxGuardType.tp_methods	 = RxGuardMethods;
 	RxGuardType.tp_getset	 = RxGuardGettersSetters;
+	RxGuardType.tp_as_buffer = &RxGuardBufferProcs;
 
 	if (PyType_Ready(&RxGuardType) < 0) {
 		return nullptr;
