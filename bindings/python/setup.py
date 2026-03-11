@@ -1,7 +1,7 @@
 import os
 import shutil
 import sys
-from setuptools import setup, Extension
+from setuptools import setup, Extension, find_packages
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -44,4 +44,13 @@ ext_modules = [
     )
 ]
 
-setup(ext_modules=ext_modules)
+setup(
+    ext_modules=ext_modules,
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    package_data={
+        "tachyon": ["*.pyi", "py.typed"],
+    },
+    include_package_data=True,
+    zip_safe=False,
+)
