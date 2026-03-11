@@ -1,5 +1,6 @@
 import types
 from typing import Iterator, Generator, Optional, Type
+from . import _tachyon
 
 __all__ = ["Bus", "Message", "TachyonError"]
 __version__ = "0.1.0"
@@ -10,38 +11,8 @@ class TachyonError(Exception):
     pass
 
 
-class TxGuard:
-    """Zero-copy TX Context Manager."""
-    actual_size: int
-    type_id: int
-
-    def __enter__(self) -> "TxGuard": ...
-
-    def __exit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exc_val: Optional[BaseException],
-            exc_tb: Optional[types.TracebackType]
-    ) -> bool: ...
-
-
-class RxGuard:
-    """Zero-copy RX Context Manager."""
-
-    @property
-    def actual_size(self) -> int: ...
-
-    @property
-    def type_id(self) -> int: ...
-
-    def __enter__(self) -> "RxGuard": ...
-
-    def __exit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exc_val: Optional[BaseException],
-            exc_tb: Optional[types.TracebackType]
-    ) -> bool: ...
+TxGuard = _tachyon.TxGuard
+RxGuard = _tachyon.RxGuard
 
 
 class Message:
