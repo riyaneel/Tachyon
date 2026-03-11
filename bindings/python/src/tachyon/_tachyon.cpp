@@ -626,13 +626,11 @@ static PyMethodDef TachyonBusMethods[7] = {
 static PyTypeObject TachyonBusType = {PyVarObject_HEAD_INIT(nullptr, 0)};
 
 /**
- * @brief Module definition for bindings
+ * @brief Module execution function called during multiphase initialization
+ * @param m The module object
+ * @return 0 on success, -1 on error
  */
-static PyModuleDef TachyonModule = {
-	PyModuleDef_HEAD_INIT, "tachyon._tachyon", "Tachyon IPC Bindings", -1, nullptr, nullptr, nullptr, nullptr, nullptr
-};
-
-PyMODINIT_FUNC PyInit__tachyon(void) {
+static int tachyon_exec(PyObject *m) {
 	/* Initialize TxGuard Type */
 	TxGuardType.tp_name		 = "tachyon.TxGuard";
 	TxGuardType.tp_basicsize = sizeof(TxGuard);
@@ -644,7 +642,7 @@ PyMODINIT_FUNC PyInit__tachyon(void) {
 	TxGuardType.tp_as_buffer = &TxGuardBufferProcs;
 
 	if (PyType_Ready(&TxGuardType) < 0) {
-		return nullptr;
+		return -1;
 	}
 
 	/* Initialize RxGuard Type */
@@ -658,7 +656,7 @@ PyMODINIT_FUNC PyInit__tachyon(void) {
 	RxGuardType.tp_as_buffer = &RxGuardBufferProcs;
 
 	if (PyType_Ready(&RxGuardType) < 0) {
-		return nullptr;
+		return -1;
 	}
 
 	/* Initialize TachyonBus Type */
@@ -672,59 +670,81 @@ PyMODINIT_FUNC PyInit__tachyon(void) {
 	TachyonBusType.tp_methods	= TachyonBusMethods;
 
 	if (PyType_Ready(&TachyonBusType) < 0) {
-		return nullptr;
+		return -1;
 	}
-
-	PyObject *m = PyModule_Create(&TachyonModule);
-	if (!m) {
-		return nullptr;
-	}
-
-	/* Support for Free-Threading */
-#ifdef Py_GIL_DISABLED
-	PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
-#endif // #ifdef Py_GIL_DISABLED
 
 	Py_INCREF(&TachyonBusType);
 	if (PyModule_AddObject(m, "TachyonBus", reinterpret_cast<PyObject *>(&TachyonBusType)) < 0) {
 		Py_DECREF(&TachyonBusType);
-		Py_DECREF(m);
-		return nullptr;
+		return -1;
 	}
 
-	/* Export TxGuard */
 	Py_INCREF(&TxGuardType);
 	if (PyModule_AddObject(m, "TxGuard", reinterpret_cast<PyObject *>(&TxGuardType)) < 0) {
 		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
-		Py_DECREF(m);
-		return nullptr;
+		return -1;
 	}
 
-	/* Export RxGuard */
 	Py_INCREF(&RxGuardType);
 	if (PyModule_AddObject(m, "RxGuard", reinterpret_cast<PyObject *>(&RxGuardType)) < 0) {
 		Py_DECREF(&RxGuardType);
 		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
-		Py_DECREF(m);
-		return nullptr;
+		return -1;
 	}
 
 	TachyonError = PyErr_NewException("tachyon.TachyonError", nullptr, nullptr);
 	if (!TachyonError) {
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
-		Py_DECREF(m);
-		return nullptr;
+		return -1;
 	}
 
 	Py_INCREF(TachyonError);
 	if (PyModule_AddObject(m, "TachyonError", TachyonError) < 0) {
 		Py_DECREF(TachyonError);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
-		Py_DECREF(m);
-		return nullptr;
+		return -1;
 	}
 
-	return m;
+	return 0;
+}
+
+/**
+ * @brief Module slots definitions for multiphase initialization
+ */
+static PyModuleDef_Slot TachyonSlots[] = {
+	{Py_mod_exec, reinterpret_cast<void *>(tachyon_exec)},
+#ifdef Py_mod_multiple_interpreters
+	/* Support for sub-interpreters (PEP 684) */
+	{Py_mod_multiple_interpreters, (Py_MOD_PER_INTERPRETER_GIL_SUPPORTED)},
+#endif
+#ifdef Py_GIL_DISABLED
+	/* Explicitly declare this module does not use the GIL (PEP 703) */
+	{Py_mod_gil, reinterpret_cast<void *>(Py_MOD_GIL_NOT_USED)},
+#endif
+	{0, nullptr}
+};
+
+/**
+ * @brief Module definition using PEP 489
+ */
+static PyModuleDef TachyonModule = {
+	PyModuleDef_HEAD_INIT,
+	"tachyon._tachyon",
+	"Tachyon IPC Bindings",
+	0,
+	nullptr,
+	TachyonSlots,
+	nullptr,
+	nullptr,
+	nullptr
+};
+
+PyMODINIT_FUNC PyInit__tachyon(void) {
+	return PyModuleDef_Init(&TachyonModule);
 }
