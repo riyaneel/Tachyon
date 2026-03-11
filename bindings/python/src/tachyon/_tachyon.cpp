@@ -568,11 +568,19 @@ static PyObject *TachyonBus_acquire_tx(const TachyonBus *self, PyObject *args, P
 }
 
 /**
- * Acquires an RX lock on the arena for reading
+ * Acquires an RX lock on the arena for reading (Blocking mode with spin fallback)
  * @param self The TachyonBus instance
+ * @param args Positional args containing spin_threshold
+ * @param kwds Keyword args containing spin_threshold
  * @return RxGuard context manager
  */
-static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *Py_UNUSED(ignored)) {
+static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[]		= {const_cast<char *>("spin_threshold"), nullptr};
+	unsigned int spin_threshold = 10000;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|I", kwlist, &spin_threshold)) {
+		return nullptr;
+	}
+
 	if (self->bus == nullptr) {
 		PyErr_SetString(PyExc_RuntimeError, "TachyonBus is not initialized.");
 		return nullptr;
@@ -583,7 +591,7 @@ static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *Py_UNUS
 	const void *ptr;
 
 	Py_BEGIN_ALLOW_THREADS;
-	ptr = tachyon_acquire_rx_blocking(self->bus, &type_id, &actual_size, 10000);
+	ptr = tachyon_acquire_rx_blocking(self->bus, &type_id, &actual_size, spin_threshold);
 	Py_END_ALLOW_THREADS;
 
 	if (ptr == nullptr) {
@@ -616,7 +624,7 @@ static PyMethodDef TachyonBusMethods[7] = {
 	{"destroy", reinterpret_cast<PyCFunction>(TachyonBus_destroy), METH_NOARGS, nullptr},
 	{"flush", reinterpret_cast<PyCFunction>(TachyonBus_flush), METH_NOARGS, nullptr},
 	{"acquire_tx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_tx), METH_VARARGS | METH_KEYWORDS, nullptr},
-	{"acquire_rx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_rx), METH_NOARGS, nullptr},
+	{"acquire_rx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_rx), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{nullptr, nullptr, 0, nullptr}
 };
 

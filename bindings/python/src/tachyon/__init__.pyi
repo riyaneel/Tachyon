@@ -60,8 +60,9 @@ class TachyonBus:
         """
         ...
 
-    def acquire_rx(self) -> RxGuard:
+    def acquire_rx(self, spin_threshold: int = 10000) -> RxGuard:
         """
-        Acquires an RX lock on the arena for reading
+        Acquires an RX lock on the arena for reading.
+        Blocks until data is available, spinning up to `spin_threshold` times before sleeping.
         """
         ...
