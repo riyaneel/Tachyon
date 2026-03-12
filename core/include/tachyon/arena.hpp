@@ -13,7 +13,10 @@
 
 #ifndef TACHYON_MSG_ALIGNMENT
 #define TACHYON_MSG_ALIGNMENT 64
-#endif
+#endif // #ifndef TACHYON_MSG_ALIGNMENT
+
+static_assert((TACHYON_MSG_ALIGNMENT & (TACHYON_MSG_ALIGNMENT - 1)) == 0, "TACHYON_MSG_ALIGNMENT must be a power of 2");
+static_assert(TACHYON_MSG_ALIGNMENT >= 32, "TACHYON_MSG_ALIGNMENT must be at least 32 bytes");
 
 namespace tachyon::core {
 	constexpr uint32_t TACHYON_MAGIC   = 0x54414348;

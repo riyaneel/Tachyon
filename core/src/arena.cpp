@@ -4,9 +4,7 @@
 #if defined(__linux__)
 #include <linux/futex.h>
 #include <unistd.h>
-#elif defined(__APPLE__)
-#include <time.h>
-#endif
+#endif // #if defined(__linux__)
 
 #include <tachyon/arena.hpp>
 
