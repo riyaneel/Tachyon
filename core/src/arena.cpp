@@ -14,12 +14,19 @@ namespace tachyon::core {
 	namespace {
 		constexpr uint32_t SKIP_MARKER = 0xFFFFFFFF;
 
+#if defined(__APPLE__)
+#define UL_COMPARE_AND_WAIT 1
+#define ULF_WAKE_ALL 0x00000100
+
+		extern "C" int __ulock_wait(uint32_t operation, void *addr, uint64_t value, uint32_t timeout);
+		extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
+#endif // #if defined(__APPLE__)
+
 		inline auto platform_wait(std::atomic<uint32_t> *addr) noexcept -> void {
 #if defined(__linux__)
 			syscall(SYS_futex, addr, FUTEX_WAIT, 1, nullptr, nullptr, 0);
 #elif defined(__APPLE__)
-			struct timespec ts = {0, 50000};
-			nanosleep(&ts, nullptr);
+			__ulock_wait(UL_COMPARE_AND_WAIT, addr, 1, 0);
 #else
 			std::this_thread::yield();
 #endif
@@ -27,6 +34,8 @@ namespace tachyon::core {
 		inline void platform_wake(std::atomic<uint32_t> *addr) noexcept {
 #if defined(__linux__)
 			syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
+#elif defined(__APPLE__)
+			__ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, addr, 0);
 #endif
 		}
 	} // namespace
