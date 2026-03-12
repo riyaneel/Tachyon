@@ -75,13 +75,15 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 	if (!arena_res.has_value())
 		return map_shm_error(arena_res.error());
 
-	*out_bus = new (std::nothrow) tachyon_bus(std::move(shm_res.value()), std::move(arena_res.value()));
-	if (!*out_bus)
+	auto *bus = new (std::nothrow) tachyon_bus(std::move(shm_res.value()), std::move(arena_res.value()));
+	if (!bus)
 		return TACHYON_ERR_MEM;
 
 	const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0)
+	if (sock < 0) {
+		delete bus;
 		return TACHYON_ERR_NETWORK;
+	}
 
 	struct sockaddr_un addr = {};
 	addr.sun_family			= AF_UNIX;
@@ -91,12 +93,14 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 
 	if (::bind(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0 || ::listen(sock, 1) < 0) {
 		::close(sock);
+		delete bus;
 		return TACHYON_ERR_NETWORK;
 	}
 
 	const int client_sock = ::accept(sock, nullptr, nullptr);
 	if (client_sock < 0) {
 		::close(sock);
+		delete bus;
 		return TACHYON_ERR_NETWORK;
 	}
 
@@ -114,6 +118,7 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 	if (!cmsg) {
 		::close(client_sock);
 		::close(sock);
+		delete bus;
 		return TACHYON_ERR_SYSTEM;
 	}
 
@@ -121,17 +126,19 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 	cmsg->cmsg_type	 = SCM_RIGHTS;
 	cmsg->cmsg_len	 = CMSG_LEN(sizeof(int));
 
-	const int fd_to_send = (*out_bus)->shm.get_fd();
+	const int fd_to_send = bus->shm.get_fd();
 	std::memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
 
 	if (::sendmsg(client_sock, &msg, 0) < 0) {
 		::close(client_sock);
 		::close(sock);
+		delete bus;
 		return TACHYON_ERR_NETWORK;
 	}
 
 	::close(client_sock);
 	::close(sock);
+	*out_bus = bus;
 	return TACHYON_SUCCESS;
 }
 
