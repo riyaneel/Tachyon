@@ -10,7 +10,8 @@
 
 namespace tachyon::core {
 	namespace {
-		constexpr uint32_t SKIP_MARKER = 0xFFFFFFFF;
+		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
+		constexpr uint32_t WATCHDOG_TIMEOUT_US = 1'000'000;
 
 #if defined(__APPLE__)
 #define UL_COMPARE_AND_WAIT 1
@@ -20,15 +21,20 @@ namespace tachyon::core {
 		extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
 #endif // #if defined(__APPLE__)
 
-		inline auto platform_wait(std::atomic<uint32_t> *addr) noexcept -> void {
+		inline void platform_wait(std::atomic<uint32_t> *addr) noexcept {
 #if defined(__linux__)
-			syscall(SYS_futex, addr, FUTEX_WAIT, 1, nullptr, nullptr, 0);
+			struct timespec ts = {
+				.tv_sec	 = static_cast<time_t>(WATCHDOG_TIMEOUT_US / 1'000'000),
+				.tv_nsec = static_cast<long>((WATCHDOG_TIMEOUT_US % 1'000'000) * 1000)
+			};
+			syscall(SYS_futex, addr, FUTEX_WAIT, 1, &ts, nullptr, 0);
 #elif defined(__APPLE__)
-			__ulock_wait(UL_COMPARE_AND_WAIT, addr, 1, 0);
+			__ulock_wait(UL_COMPARE_AND_WAIT, addr, 1, WATCHDOG_TIMEOUT_US);
 #else
 			std::this_thread::yield();
 #endif
 		}
+
 		inline void platform_wake(std::atomic<uint32_t> *addr) noexcept {
 #if defined(__linux__)
 			syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
@@ -85,6 +91,8 @@ namespace tachyon::core {
 		layout->indices.head.store(0, std::memory_order_relaxed);
 		layout->indices.tail.store(0, std::memory_order_relaxed);
 		layout->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+		layout->indices.producer_heartbeat.store(0, std::memory_order_relaxed);
+		layout->indices.consumer_heartbeat.store(0, std::memory_order_relaxed);
 		layout->header.state.store(BusState::Ready, std::memory_order_release);
 
 		return Arena(layout, capacity);
@@ -154,6 +162,7 @@ namespace tachyon::core {
 		local_head_ += tx_reserved_size_;
 		tx_reserved_size_ = 0;
 		pending_tx_++;
+		layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
 		if ((pending_tx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
 			layout_->indices.head.store(local_head_, std::memory_order_release);
@@ -201,6 +210,7 @@ namespace tachyon::core {
 		local_tail_ += rx_reserved_size_;
 		rx_reserved_size_ = 0;
 		pending_rx_++;
+		layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
 		if ((pending_rx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
@@ -247,8 +257,20 @@ namespace tachyon::core {
 					return ptr;
 				}
 
+				const uint64_t hb_before = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
 				platform_wait(&layout_->indices.consumer_sleeping);
 				layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+
+				if (const uint64_t hb_after = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
+					hb_before == hb_after && hb_before != 0) {
+					if ((ptr = acquire_rx(out_type_id, out_actual_size)) != nullptr) {
+						return ptr;
+					}
+
+					layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+					return nullptr;
+				}
+
 				spins = 0;
 			}
 		}

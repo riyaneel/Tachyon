@@ -33,6 +33,15 @@ typedef enum {
 	TACHYON_ERR_SYSTEM	   = 12
 } tachyon_error_t;
 
+typedef enum {
+	TACHYON_STATE_UNINITIALIZED = 0,
+	TACHYON_STATE_INITIALIZING	= 1,
+	TACHYON_STATE_READY			= 2,
+	TACHYON_STATE_DISCONNECTED	= 3,
+	TACHYON_STATE_FATAL_ERROR	= 4,
+	TACHYON_STATE_UNKNOWN		= 5
+} tachyon_state_t;
+
 typedef struct tachyon_bus tachyon_bus_t;
 
 TACHYON_ABI void tachyon_memory_barrier_acquire(void) TACHYON_NOEXCEPT;
@@ -65,6 +74,8 @@ TACHYON_ABI const void *tachyon_acquire_rx_blocking(
 TACHYON_ABI tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 #ifdef __cplusplus
 }

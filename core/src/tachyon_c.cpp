@@ -238,4 +238,10 @@ void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 		bus->arena.flush();
 	}
 }
+
+tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT {
+	if (!bus) [[unlikely]]
+		return TACHYON_STATE_UNKNOWN;
+	return static_cast<tachyon_state_t>(bus->arena.get_state());
+}
 } // extern "C"

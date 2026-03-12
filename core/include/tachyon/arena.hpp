@@ -20,7 +20,7 @@ static_assert(TACHYON_MSG_ALIGNMENT >= 32, "TACHYON_MSG_ALIGNMENT must be at lea
 
 namespace tachyon::core {
 	constexpr uint32_t TACHYON_MAGIC   = 0x54414348;
-	constexpr uint32_t TACHYON_VERSION = 0x01;
+	constexpr uint32_t TACHYON_VERSION = 0x02;
 
 	enum class BusState : uint32_t {
 		Uninitialized = 0,
@@ -49,6 +49,8 @@ namespace tachyon::core {
 		alignas(128) std::atomic<size_t> head{0};
 		alignas(128) std::atomic<size_t> tail{0};
 		alignas(128) std::atomic<uint32_t> consumer_sleeping{0};
+		alignas(128) std::atomic<uint64_t> producer_heartbeat{0};
+		alignas(128) std::atomic<uint64_t> consumer_heartbeat{0};
 	};
 
 	struct alignas(128) MemoryLayout {
