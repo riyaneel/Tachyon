@@ -88,8 +88,8 @@ namespace tachyon::core::test {
 		std::byte *tx_ptr2 = producer.acquire_tx(10);
 		ASSERT_NE(tx_ptr2, nullptr);
 
-		const size_t spatial_difference = static_cast<size_t>(tx_ptr2 - tx_ptr1);
-		EXPECT_EQ(spatial_difference, 1056);
+		const auto spatial_difference = static_cast<size_t>(tx_ptr2 - tx_ptr1);
+		EXPECT_EQ(spatial_difference, 1024 + TACHYON_MSG_ALIGNMENT);
 		EXPECT_TRUE(producer.commit_tx(10, 43));
 	}
 
