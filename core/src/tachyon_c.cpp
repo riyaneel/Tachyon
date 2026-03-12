@@ -34,6 +34,13 @@ namespace {
 			flag_.clear(std::memory_order_release);
 		}
 	};
+
+	struct TachyonHandshake {
+		uint32_t magic;
+		uint32_t version;
+		uint32_t capacity;
+		uint32_t shm_size;
+	};
 } // namespace
 
 static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
@@ -104,10 +111,13 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 		return TACHYON_ERR_NETWORK;
 	}
 
-	struct msghdr msg{};
-	char		  buf[CMSG_SPACE(sizeof(int))] = {};
+	struct msghdr	 msg{};
+	char			 buf[CMSG_SPACE(sizeof(int))] = {};
+	TachyonHandshake handshake					  = {
+		   TACHYON_MAGIC, TACHYON_VERSION, static_cast<uint32_t>(capacity), static_cast<uint32_t>(required_shm_size)
+	   };
 
-	struct iovec io	   = {const_cast<void *>(reinterpret_cast<const void *>("FD")), 2};
+	struct iovec io	   = {&handshake, sizeof(handshake)};
 	msg.msg_iov		   = &io;
 	msg.msg_iovlen	   = 1;
 	msg.msg_control	   = buf;
@@ -159,17 +169,22 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 		return TACHYON_ERR_NETWORK;
 	}
 
-	struct msghdr msg{};
-	char		  m_buffer[256];
-	struct iovec  io = {m_buffer, sizeof(m_buffer)};
-	msg.msg_iov		 = &io;
-	msg.msg_iovlen	 = 1;
+	struct msghdr	 msg{};
+	TachyonHandshake handshake{};
+	struct iovec	 io = {&handshake, sizeof(handshake)};
+	msg.msg_iov			= &io;
+	msg.msg_iovlen		= 1;
 
 	char c_buffer[256];
 	msg.msg_control	   = c_buffer;
 	msg.msg_controllen = sizeof(c_buffer);
 
-	if (::recvmsg(sock, &msg, 0) < 0) {
+	if (::recvmsg(sock, &msg, 0) < static_cast<ssize_t>(sizeof(handshake))) {
+		::close(sock);
+		return TACHYON_ERR_NETWORK;
+	}
+
+	if (handshake.magic != TACHYON_MAGIC || handshake.version != TACHYON_VERSION) {
 		::close(sock);
 		return TACHYON_ERR_NETWORK;
 	}
@@ -189,7 +204,7 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 		return TACHYON_ERR_SYSTEM;
 	}
 
-	struct stat st;
+	struct stat st = {};
 	if (::fstat(received_fd, &st) < 0) {
 		::close(received_fd);
 		return TACHYON_ERR_SYSTEM;
