@@ -2,6 +2,10 @@
 
 #include <cstring>
 
+#if defined(__x86_64__) || defined(_M_X64)
+#include <x86intrin.h>
+#endif // #if defined(__x86_64__) || defined(_M_X64)
+
 #if defined(_WIN32) || defined(__CYGWIN__)
 #define TACHYON_API __declspec(dllexport)
 #else
@@ -16,6 +20,18 @@ namespace tachyon {
 		asm volatile("yield" ::: "memory");
 #else // #elif defined(__aarch64__) || defined(_M_ARM64)
 		asm volatile("" ::: "memory");
+#endif // #elif defined(__aarch64__) || defined(_M_ARM64) #else
+	}
+
+	[[gnu::always_inline]] inline uint64_t rdtsc() noexcept {
+#if defined(__x86_64__) || defined(_M_X64)
+		return __rdtsc();
+#elif defined(__aarch64__) || defined(_M_ARM64) // #if defined(__x86_64__) || defined(_M_X64)
+		uint64_t val;
+		asm volatile("mrs %0, cntvct_el0" : "=r"(val));
+		return val;
+#else // #elif defined(__aarch64__) || defined(_M_ARM64)
+		return 0;
 #endif // #elif defined(__aarch64__) || defined(_M_ARM64) #else
 	}
 
