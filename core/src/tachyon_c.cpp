@@ -25,7 +25,7 @@ namespace {
 	struct TasGuard {
 		std::atomic_flag &flag_;
 
-		explicit TasGuard(std::atomic_flag &flag) noexcept : flag_(flag) {
+		explicit TasGuard(std::atomic_flag &flag) TACHYON_NOEXCEPT : flag_(flag) {
 			while (flag_.test_and_set(std::memory_order_acquire))
 				tachyon::cpu_relax();
 		}
@@ -36,7 +36,7 @@ namespace {
 	};
 } // namespace
 
-static tachyon_error_t map_shm_error(const ShmError error) noexcept {
+static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
 	switch (error) {
 	case ShmError::OpenFailed:
 		return TACHYON_ERR_OPEN;
@@ -57,11 +57,12 @@ static tachyon_error_t map_shm_error(const ShmError error) noexcept {
 
 extern "C" {
 
-void tachyon_memory_barrier_acquire(void) noexcept {
+void tachyon_memory_barrier_acquire(void) TACHYON_NOEXCEPT {
 	std::atomic_thread_fence(std::memory_order_acquire);
 }
 
-tachyon_error_t tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t **out_bus) noexcept {
+tachyon_error_t
+tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t **out_bus) TACHYON_NOEXCEPT {
 	if (!socket_path || !out_bus || capacity == 0)
 		return TACHYON_ERR_INVALID_SZ;
 
@@ -134,7 +135,7 @@ tachyon_error_t tachyon_bus_listen(const char *socket_path, const size_t capacit
 	return TACHYON_SUCCESS;
 }
 
-tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out_bus) noexcept {
+tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out_bus) TACHYON_NOEXCEPT {
 	if (!socket_path || !out_bus)
 		return TACHYON_ERR_INVALID_SZ;
 
@@ -202,19 +203,19 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 	return TACHYON_SUCCESS;
 }
 
-void tachyon_bus_ref(tachyon_bus_t *bus) noexcept {
+void tachyon_bus_ref(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (bus) [[likely]] {
 		bus->ref_count.fetch_add(1, std::memory_order_relaxed);
 	}
 }
 
-void tachyon_bus_destroy(tachyon_bus_t *bus) noexcept {
+void tachyon_bus_destroy(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (bus && bus->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
 		delete bus;
 	}
 }
 
-void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) noexcept {
+void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) TACHYON_NOEXCEPT {
 	if (!bus || max_payload_size == 0)
 		return nullptr;
 
@@ -232,7 +233,7 @@ void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) noex
 }
 
 tachyon_error_t
-tachyon_commit_tx(tachyon_bus_t *bus, const size_t actual_payload_size, const uint32_t type_id) noexcept {
+tachyon_commit_tx(tachyon_bus_t *bus, const size_t actual_payload_size, const uint32_t type_id) TACHYON_NOEXCEPT {
 	if (!bus)
 		return TACHYON_ERR_NULL_PTR;
 
@@ -242,7 +243,7 @@ tachyon_commit_tx(tachyon_bus_t *bus, const size_t actual_payload_size, const ui
 	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
-const void *tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size) noexcept {
+const void *tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size) TACHYON_NOEXCEPT {
 	if (!bus || !out_type_id || !out_actual_size)
 		return nullptr;
 
@@ -261,7 +262,7 @@ const void *tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t
 
 const void *tachyon_acquire_rx_spin(
 	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, const uint32_t max_spins
-) noexcept {
+) TACHYON_NOEXCEPT {
 	if (!bus || !out_type_id || !out_actual_size)
 		return nullptr;
 
@@ -280,7 +281,7 @@ const void *tachyon_acquire_rx_spin(
 
 const void *tachyon_acquire_rx_blocking(
 	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, const uint32_t spin_threshold
-) noexcept {
+) TACHYON_NOEXCEPT {
 	if (!bus || !out_type_id || !out_actual_size)
 		return nullptr;
 
@@ -297,7 +298,7 @@ const void *tachyon_acquire_rx_blocking(
 	return ptr;
 }
 
-tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) noexcept {
+tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (!bus)
 		return TACHYON_ERR_NULL_PTR;
 
@@ -307,7 +308,7 @@ tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) noexcept {
 	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
-void tachyon_flush(tachyon_bus_t *bus) noexcept {
+void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (bus) {
 		TasGuard p_lock(bus->producer_lock);
 		TasGuard c_lock(bus->consumer_lock);
