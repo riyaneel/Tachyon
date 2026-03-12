@@ -11,6 +11,10 @@
 #include <tachyon/concepts.hpp>
 #include <tachyon/shm.hpp>
 
+#ifndef TACHYON_MSG_ALIGNMENT
+#define TACHYON_MSG_ALIGNMENT 64
+#endif
+
 namespace tachyon::core {
 	constexpr uint32_t TACHYON_MAGIC   = 0x54414348;
 	constexpr uint32_t TACHYON_VERSION = 0x01;
@@ -24,11 +28,11 @@ namespace tachyon::core {
 		Unknown		  = 5
 	};
 
-	struct alignas(32) MessageHeader {
-		uint32_t				 size;
-		uint32_t				 type_id;
-		uint32_t				 reserved_size;
-		[[maybe_unused]] uint8_t padding_[20];
+	struct alignas(TACHYON_MSG_ALIGNMENT) MessageHeader {
+		uint32_t size;
+		uint32_t type_id;
+		uint32_t reserved_size;
+		uint8_t	 padding_[TACHYON_MSG_ALIGNMENT - sizeof(uint32_t) * 3];
 	};
 
 	struct alignas(128) ArenaHeader {
