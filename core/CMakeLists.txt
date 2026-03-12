@@ -2,6 +2,7 @@ add_library(tachyon SHARED
 		src/arena.cpp
 		src/shm.cpp
 		src/tachyon_c.cpp
+		src/transport_uds.cpp
 )
 
 target_compile_options(tachyon PRIVATE

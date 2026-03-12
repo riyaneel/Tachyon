@@ -1,12 +1,9 @@
 #include <new>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/un.h>
-#include <unistd.h>
 
 #include <tachyon.h>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
+#include <tachyon/transport.hpp>
 
 using namespace tachyon::core;
 
@@ -34,13 +31,6 @@ namespace {
 			flag_.clear(std::memory_order_release);
 		}
 	};
-
-	struct TachyonHandshake {
-		uint32_t magic;
-		uint32_t version;
-		uint32_t capacity;
-		uint32_t shm_size;
-	};
 } // namespace
 
 static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
@@ -59,6 +49,15 @@ static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
 		return TACHYON_ERR_CHMOD;
 	default:
 		return TACHYON_ERR_SYSTEM;
+	}
+}
+
+static tachyon_error_t map_transport_error(const TransportError error) TACHYON_NOEXCEPT {
+	switch (error) {
+	case TransportError::ProtocolMismatch:
+		return TACHYON_ERR_SYSTEM;
+	default:
+		return TACHYON_ERR_NETWORK;
 	}
 }
 
@@ -86,68 +85,15 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 	if (!bus)
 		return TACHYON_ERR_MEM;
 
-	const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0) {
+	const TachyonHandshake handshake = {
+		TACHYON_MAGIC, TACHYON_VERSION, static_cast<uint32_t>(capacity), static_cast<uint32_t>(required_shm_size)
+	};
+
+	if (auto transport_res = uds_export_shm(socket_path, bus->shm.get_fd(), handshake); !transport_res.has_value()) {
 		delete bus;
-		return TACHYON_ERR_NETWORK;
+		return map_transport_error(transport_res.error());
 	}
 
-	struct sockaddr_un addr = {};
-	addr.sun_family			= AF_UNIX;
-	std::strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-
-	::unlink(socket_path);
-
-	if (::bind(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0 || ::listen(sock, 1) < 0) {
-		::close(sock);
-		delete bus;
-		return TACHYON_ERR_NETWORK;
-	}
-
-	const int client_sock = ::accept(sock, nullptr, nullptr);
-	if (client_sock < 0) {
-		::close(sock);
-		delete bus;
-		return TACHYON_ERR_NETWORK;
-	}
-
-	struct msghdr	 msg{};
-	char			 buf[CMSG_SPACE(sizeof(int))] = {};
-	TachyonHandshake handshake					  = {
-		   TACHYON_MAGIC, TACHYON_VERSION, static_cast<uint32_t>(capacity), static_cast<uint32_t>(required_shm_size)
-	   };
-
-	struct iovec io	   = {&handshake, sizeof(handshake)};
-	msg.msg_iov		   = &io;
-	msg.msg_iovlen	   = 1;
-	msg.msg_control	   = buf;
-	msg.msg_controllen = sizeof(buf);
-
-	struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-
-	if (!cmsg) {
-		::close(client_sock);
-		::close(sock);
-		delete bus;
-		return TACHYON_ERR_SYSTEM;
-	}
-
-	cmsg->cmsg_level = SOL_SOCKET;
-	cmsg->cmsg_type	 = SCM_RIGHTS;
-	cmsg->cmsg_len	 = CMSG_LEN(sizeof(int));
-
-	const int fd_to_send = bus->shm.get_fd();
-	std::memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
-
-	if (::sendmsg(client_sock, &msg, 0) < 0) {
-		::close(client_sock);
-		::close(sock);
-		delete bus;
-		return TACHYON_ERR_NETWORK;
-	}
-
-	::close(client_sock);
-	::close(sock);
 	*out_bus = bus;
 	return TACHYON_SUCCESS;
 }
@@ -156,61 +102,17 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 	if (!socket_path || !out_bus)
 		return TACHYON_ERR_INVALID_SZ;
 
-	const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0)
-		return TACHYON_ERR_NETWORK;
+	auto transport_res = uds_import_shm(socket_path);
+	if (!transport_res.has_value())
+		return map_transport_error(transport_res.error());
 
-	struct sockaddr_un addr = {};
-	addr.sun_family			= AF_UNIX;
-	std::strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-
-	if (::connect(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
-		::close(sock);
-		return TACHYON_ERR_NETWORK;
-	}
-
-	struct msghdr	 msg{};
-	TachyonHandshake handshake{};
-	struct iovec	 io = {&handshake, sizeof(handshake)};
-	msg.msg_iov			= &io;
-	msg.msg_iovlen		= 1;
-
-	char c_buffer[256];
-	msg.msg_control	   = c_buffer;
-	msg.msg_controllen = sizeof(c_buffer);
-
-	if (::recvmsg(sock, &msg, 0) < static_cast<ssize_t>(sizeof(handshake))) {
-		::close(sock);
-		return TACHYON_ERR_NETWORK;
-	}
-
-	if (handshake.magic != TACHYON_MAGIC || handshake.version != TACHYON_VERSION) {
-		::close(sock);
-		return TACHYON_ERR_NETWORK;
-	}
-
-	const struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-	if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS) {
-		::close(sock);
-		return TACHYON_ERR_NETWORK;
-	}
-
-	int received_fd = -1;
-	std::memcpy(&received_fd, CMSG_DATA(cmsg), sizeof(int));
-
-	::close(sock);
-
-	if (received_fd < 0) {
-		return TACHYON_ERR_SYSTEM;
-	}
-
-	struct stat st = {};
-	if (::fstat(received_fd, &st) < 0) {
+	const auto &[received_fd, hs] = transport_res.value();
+	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION) {
 		::close(received_fd);
 		return TACHYON_ERR_SYSTEM;
 	}
 
-	auto shm_join = SharedMemory::join(received_fd, static_cast<size_t>(st.st_size));
+	auto shm_join = SharedMemory::join(received_fd, hs.shm_size);
 	if (!shm_join.has_value())
 		return map_shm_error(shm_join.error());
 
