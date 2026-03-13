@@ -62,6 +62,16 @@ namespace tachyon::core {
 		}
 	};
 
+	struct alignas(32) RxView {
+		const std::byte *ptr;
+		size_t			 actual_size;
+		size_t			 reserved_;
+		uint32_t		 type_id;
+		uint32_t		 padding_;
+	};
+
+	static_assert(sizeof(RxView) == 32, "RxView must be exactly 32 bytes sized.");
+
 	class TACHYON_API Arena {
 		MemoryLayout *layout_{nullptr};
 		size_t		  capacity_mask_{0};
@@ -100,6 +110,10 @@ namespace tachyon::core {
 		[[nodiscard]] const std::byte *acquire_rx(uint32_t &out_type_id, size_t &out_actual_size) noexcept;
 
 		[[nodiscard]] bool commit_rx() noexcept;
+
+		[[nodiscard]] size_t acquire_rx_batch(RxView *views, size_t max_msgs) noexcept;
+
+		bool commit_rx_batch(const RxView *views, size_t count) noexcept;
 
 		[[nodiscard]] const std::byte *
 		acquire_rx_spin(uint32_t &out_type_id, size_t &out_actual_size, uint32_t max_spins = 0) noexcept;

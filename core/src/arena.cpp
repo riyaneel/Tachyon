@@ -182,8 +182,9 @@ namespace tachyon::core {
 		pending_tx_++;
 		layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
-		if ((pending_tx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
+		if (pending_tx_ >= BATCH_SIZE) [[unlikely]] {
 			layout_->indices.head.store(local_head_, std::memory_order_release);
+			pending_tx_ = 0;
 			std::atomic_thread_fence(std::memory_order_seq_cst);
 			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
 				platform_wake(&layout_->indices.consumer_sleeping);
@@ -230,8 +231,84 @@ namespace tachyon::core {
 		pending_rx_++;
 		layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
-		if ((pending_rx_ & (BATCH_SIZE - 1)) == 0) [[unlikely]] {
+		if (pending_rx_ >= BATCH_SIZE) [[unlikely]] {
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
+			pending_rx_ = 0;
+		}
+
+		return true;
+	}
+
+	size_t Arena::acquire_rx_batch(RxView *views, const size_t max_msgs) noexcept {
+		if (max_msgs == 0) [[unlikely]]
+			return 0;
+
+		size_t current_tail = local_tail_;
+		if (cached_head_ <= current_tail) {
+			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
+			if (cached_head_ <= current_tail) [[likely]] {
+				return 0;
+			}
+		}
+
+		size_t		 count	  = 0;
+		const size_t capacity = capacity_mask_ + 1;
+
+		while (count < max_msgs && current_tail < cached_head_) {
+			size_t		  physical_idx = current_tail & capacity_mask_;
+			MessageHeader hdr{};
+			std::memcpy(&hdr, &layout_->data_arena()[physical_idx], sizeof(MessageHeader));
+
+			if (hdr.size == SKIP_MARKER) [[unlikely]] {
+				const size_t space_until_end = capacity - physical_idx;
+				current_tail += space_until_end;
+				physical_idx = 0;
+				std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
+			}
+
+			if (hdr.reserved_size > capacity || hdr.size > hdr.reserved_size - sizeof(MessageHeader)) [[unlikely]] {
+				layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+				break;
+			}
+
+			const std::byte *payload_ptr = layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+
+#if defined(__GNUC__) || defined(__clang__)
+			__builtin_prefetch(payload_ptr, 0, 3);
+			const size_t next_idx = (current_tail + hdr.reserved_size) & capacity_mask_;
+			__builtin_prefetch(&layout_->data_arena()[next_idx], 0, 3);
+#endif // #if defined(__GNUC__) || defined(__clang__)
+
+			views[count].ptr		 = payload_ptr;
+			views[count].actual_size = hdr.size;
+			views[count].reserved_	 = hdr.reserved_size;
+			views[count].type_id	 = hdr.type_id;
+			views[count].padding_	 = 0;
+
+			current_tail += hdr.reserved_size;
+			count++;
+		}
+
+		return count;
+	}
+
+	// ReSharper disable once CppDFAConstantFunctionResult
+	bool Arena::commit_rx_batch(const RxView *views, const size_t count) noexcept {
+		if (count == 0) [[unlikely]]
+			return true;
+
+		size_t total_reserved = 0;
+		for (size_t i = 0; i < count; ++i) {
+			total_reserved += views[i].reserved_;
+		}
+
+		local_tail_ += total_reserved;
+		pending_rx_ += count;
+		layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
+
+		if (pending_rx_ >= BATCH_SIZE) {
+			layout_->indices.tail.store(local_tail_, std::memory_order_release);
+			pending_rx_ = 0;
 		}
 
 		return true;
@@ -302,7 +379,7 @@ namespace tachyon::core {
 
 	void Arena::flush() noexcept {
 		bool published_tx = false;
-		if ((pending_tx_ & (BATCH_SIZE - 1)) != 0) {
+		if (pending_tx_ > 0) {
 			layout_->indices.head.store(local_head_, std::memory_order_release);
 			pending_tx_	 = 0;
 			published_tx = true;
@@ -315,7 +392,7 @@ namespace tachyon::core {
 			}
 		}
 
-		if ((pending_rx_ & (BATCH_SIZE - 1)) != 0) {
+		if (pending_rx_ > 0) {
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
