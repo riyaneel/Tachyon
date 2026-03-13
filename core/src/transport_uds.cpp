@@ -21,7 +21,7 @@ namespace tachyon::core {
 		}
 		std::strncpy(addr.sun_path, socket_path.data(), sizeof(addr.sun_path) - 1);
 
-		::unlink(socket_path.data());
+		::unlink(addr.sun_path);
 
 		if (::bind(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
 			::close(sock);
