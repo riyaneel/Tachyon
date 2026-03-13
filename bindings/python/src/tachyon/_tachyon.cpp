@@ -322,6 +322,11 @@ static PyObject *RxGuard_enter(RxGuard *self, PyObject *Py_UNUSED(ignored)) {
  * @return Py_FALSE to propagate exceptions or nullptr on parsing error
  */
 static PyObject *RxGuard_exit(RxGuard *self, PyObject *args) {
+	PyObject *exc_type, *exc_value, *traceback;
+	if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &traceback)) {
+		return nullptr;
+	}
+
 	if (self->exports > 0) {
 		if (!self->committed && self->bus != nullptr) {
 			tachyon_commit_rx(self->bus);
@@ -597,19 +602,25 @@ static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *args, P
 
 	uint32_t	type_id		= 0;
 	size_t		actual_size = 0;
-	const void *ptr;
+	const void *ptr			= nullptr;
 
-	Py_BEGIN_ALLOW_THREADS;
-	ptr = tachyon_acquire_rx_blocking(self->bus, &type_id, &actual_size, spin_threshold);
-	Py_END_ALLOW_THREADS;
+	for (;;) {
+		Py_BEGIN_ALLOW_THREADS;
+		ptr = tachyon_acquire_rx_blocking(self->bus, &type_id, &actual_size, spin_threshold);
+		Py_END_ALLOW_THREADS;
 
-	if (ptr == nullptr) {
+		if (ptr != nullptr) {
+			break;
+		}
+
 		if (tachyon_get_state(self->bus) == TACHYON_STATE_FATAL_ERROR) {
 			PyErr_SetString(PeerDeadError, "Peer process is dead or unresponsive (Heartbeat timeout).");
 			return nullptr;
 		}
-		PyErr_SetString(TachyonError, "Failed to acquire RX buffer (bus closed or fatal error).");
-		return nullptr;
+
+		if (PyErr_CheckSignals() != 0) {
+			return nullptr;
+		}
 	}
 
 	RxGuard *guard = PyObject_New(RxGuard, &RxGuardType);

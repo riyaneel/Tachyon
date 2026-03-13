@@ -1,3 +1,4 @@
+#include <cerrno>
 #include <cstring>
 #include <utility>
 
@@ -13,6 +14,8 @@ namespace tachyon::core {
 		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
 		constexpr uint32_t WATCHDOG_TIMEOUT_US = 1'000'000;
 
+		enum class WaitResult : uint8_t { Woken, Timeout, Interrupted };
+
 #if defined(__APPLE__)
 #define UL_COMPARE_AND_WAIT 1
 #define ULF_WAKE_ALL 0x00000100
@@ -21,17 +24,30 @@ namespace tachyon::core {
 		extern "C" int __ulock_wake(uint32_t operation, void *addr, uint64_t wake_value);
 #endif // #if defined(__APPLE__)
 
-		inline void platform_wait(std::atomic<uint32_t> *addr) noexcept {
+		inline WaitResult platform_wait(std::atomic<uint32_t> *addr) noexcept {
 #if defined(__linux__)
 			struct timespec ts = {
 				.tv_sec	 = static_cast<time_t>(WATCHDOG_TIMEOUT_US / 1'000'000),
 				.tv_nsec = static_cast<long>((WATCHDOG_TIMEOUT_US % 1'000'000) * 1000)
 			};
-			syscall(SYS_futex, addr, FUTEX_WAIT, 1, &ts, nullptr, 0);
+			if (syscall(SYS_futex, addr, FUTEX_WAIT, 1, &ts, nullptr, 0) == -1) {
+				if (errno == EINTR)
+					return WaitResult::Interrupted;
+				if (errno == ETIMEDOUT)
+					return WaitResult::Timeout;
+			}
+			return WaitResult::Woken;
 #elif defined(__APPLE__)
-			__ulock_wait(UL_COMPARE_AND_WAIT, addr, 1, WATCHDOG_TIMEOUT_US);
+			if (__ulock_wait(UL_COMPARE_AND_WAIT, addr, 1, WATCHDOG_TIMEOUT_US) == -1) {
+				if (errno == EINTR)
+					return WaitResult::Interrupted;
+				if (errno == ETIMEDOUT)
+					return WaitResult::Timeout;
+			}
+			return WaitResult::Woken;
 #else
 			std::this_thread::yield();
+			return WaitResult::Woken;
 #endif
 		}
 
@@ -257,18 +273,22 @@ namespace tachyon::core {
 					return ptr;
 				}
 
-				const uint64_t hb_before = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
-				platform_wait(&layout_->indices.consumer_sleeping);
+				const uint64_t	 hb_before	 = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
+				const WaitResult wait_result = platform_wait(&layout_->indices.consumer_sleeping);
 				layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
-
-				if (const uint64_t hb_after = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
-					hb_before == hb_after && hb_before != 0) {
-					if ((ptr = acquire_rx(out_type_id, out_actual_size)) != nullptr) {
-						return ptr;
-					}
-
-					layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+				if (wait_result == WaitResult::Interrupted) {
 					return nullptr;
+				}
+
+				if (wait_result == WaitResult::Timeout) {
+					const uint64_t hb_after = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
+					if (hb_before == hb_after && hb_before != 0) {
+						if ((ptr = acquire_rx(out_type_id, out_actual_size)) != nullptr) {
+							return ptr;
+						}
+						layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+						return nullptr;
+					}
 				}
 
 				spins = 0;
