@@ -84,6 +84,10 @@ TACHYON_ABI tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCE
 TACHYON_ABI size_t
 tachyon_acquire_rx_batch(tachyon_bus_t *bus, tachyon_msg_view_t *out_views, size_t max_msgs) TACHYON_NOEXCEPT;
 
+TACHYON_ABI size_t tachyon_drain_batch(
+	tachyon_bus_t *bus, tachyon_msg_view_t *out_views, size_t max_msgs, uint32_t spin_threshold
+) TACHYON_NOEXCEPT;
+
 TACHYON_ABI tachyon_error_t
 tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, size_t count) TACHYON_NOEXCEPT;
 

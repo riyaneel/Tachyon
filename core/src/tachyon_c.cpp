@@ -189,17 +189,26 @@ const void *tachyon_acquire_rx_spin(
 	if (!bus || !out_type_id || !out_actual_size)
 		return nullptr;
 
-	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
-		tachyon::cpu_relax();
-	}
+	uint32_t spins = 0;
+	while (true) {
+		while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
+			tachyon::cpu_relax();
 
-	const std::byte *ptr = bus->arena.acquire_rx_spin(*out_type_id, *out_actual_size, max_spins);
-	if (!ptr) {
+		if (const std::byte *ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size)) {
+			return ptr;
+		}
+
+		const auto state = bus->arena.get_state();
 		bus->consumer_lock.clear(std::memory_order_release);
-		return nullptr;
-	}
+		if (state == BusState::FatalError)
+			return nullptr;
 
-	return ptr;
+		if (max_spins != 0 && spins >= max_spins)
+			return nullptr;
+
+		tachyon::cpu_relax();
+		spins++;
+	}
 }
 
 const void *tachyon_acquire_rx_blocking(
@@ -208,17 +217,54 @@ const void *tachyon_acquire_rx_blocking(
 	if (!bus || !out_type_id || !out_actual_size)
 		return nullptr;
 
-	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
-		tachyon::cpu_relax();
-	}
+	uint32_t spins = 0;
+	while (true) {
+		while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
+			tachyon::cpu_relax();
 
-	const std::byte *ptr = bus->arena.acquire_rx_blocking(*out_type_id, *out_actual_size, spin_threshold);
-	if (!ptr) {
+		const std::byte *ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size);
+		if (ptr) {
+			return ptr;
+		}
+
+		const auto state = bus->arena.get_state();
 		bus->consumer_lock.clear(std::memory_order_release);
-		return nullptr;
-	}
+		if (state == BusState::FatalError)
+			return nullptr;
 
-	return ptr;
+		if (spins < spin_threshold) {
+			tachyon::cpu_relax();
+			spins++;
+		} else {
+			while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
+				tachyon::cpu_relax();
+
+			bus->arena.set_consumer_sleeping(true);
+			ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size);
+			if (ptr) {
+				bus->arena.set_consumer_sleeping(false);
+				return ptr;
+			}
+
+			const uint64_t hb_before = bus->arena.get_producer_heartbeat();
+			bus->consumer_lock.clear(std::memory_order_release);
+
+			const auto wait_res = bus->arena.wait_consumer_sleeping();
+			bus->arena.set_consumer_sleeping(false);
+			if (wait_res == WaitResult::Interrupted)
+				return nullptr;
+
+			if (wait_res == WaitResult::Timeout) {
+				const uint64_t hb_after = bus->arena.get_producer_heartbeat();
+				if (hb_before == hb_after && hb_before != 0) {
+					bus->arena.set_fatal_error();
+					return nullptr;
+				}
+			}
+
+			spins = 0;
+		}
+	}
 }
 
 tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
@@ -246,6 +292,64 @@ tachyon_acquire_rx_batch(tachyon_bus_t *bus, tachyon_msg_view_t *out_views, cons
 		bus->consumer_lock.clear(std::memory_order_release);
 
 	return count;
+}
+
+size_t tachyon_drain_batch(
+	tachyon_bus_t *bus, tachyon_msg_view_t *out_views, const size_t max_msgs, const uint32_t spin_threshold
+) TACHYON_NOEXCEPT {
+	if (!bus || !out_views || max_msgs == 0)
+		return 0;
+
+	auto	*cxx_views = reinterpret_cast<RxView *>(out_views);
+	uint32_t spins	   = 0;
+
+	while (true) {
+		while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
+			tachyon::cpu_relax();
+
+		size_t count = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
+		if (count > 0) {
+			return count;
+		}
+
+		const auto state = bus->arena.get_state();
+		bus->consumer_lock.clear(std::memory_order_release);
+
+		if (state == BusState::FatalError)
+			return 0;
+
+		if (spins < spin_threshold) {
+			tachyon::cpu_relax();
+			spins++;
+		} else {
+			while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
+				tachyon::cpu_relax();
+
+			bus->arena.set_consumer_sleeping(true);
+			count = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
+			if (count > 0) {
+				bus->arena.set_consumer_sleeping(false);
+				return count;
+			}
+
+			const uint64_t hb_before = bus->arena.get_producer_heartbeat();
+			bus->consumer_lock.clear(std::memory_order_release);
+
+			const auto wait_res = bus->arena.wait_consumer_sleeping();
+			bus->arena.set_consumer_sleeping(false);
+			if (wait_res == WaitResult::Interrupted)
+				return 0;
+
+			if (wait_res == WaitResult::Timeout) {
+				const uint64_t hb_after = bus->arena.get_producer_heartbeat();
+				if (hb_before == hb_after && hb_before != 0) {
+					bus->arena.set_fatal_error();
+					return 0;
+				}
+			}
+			spins = 0;
+		}
+	}
 }
 
 tachyon_error_t
