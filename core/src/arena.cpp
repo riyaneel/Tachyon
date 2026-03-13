@@ -14,8 +14,6 @@ namespace tachyon::core {
 		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
 		constexpr uint32_t WATCHDOG_TIMEOUT_US = 1'000'000;
 
-		enum class WaitResult : uint8_t { Woken, Timeout, Interrupted };
-
 #if defined(__APPLE__)
 #define UL_COMPARE_AND_WAIT 1
 #define ULF_WAKE_ALL 0x00000100
@@ -396,5 +394,26 @@ namespace tachyon::core {
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
+	}
+
+	void Arena::set_consumer_sleeping(const bool sleeping) const noexcept {
+		layout_->indices.consumer_sleeping.store(
+			sleeping ? 1 : 0, sleeping ? std::memory_order_release : std::memory_order_relaxed
+		);
+		if (sleeping) {
+			std::atomic_thread_fence(std::memory_order_seq_cst);
+		}
+	}
+
+	WaitResult Arena::wait_consumer_sleeping() const noexcept {
+		return platform_wait(&layout_->indices.consumer_sleeping);
+	}
+
+	uint64_t Arena::get_producer_heartbeat() const noexcept {
+		return layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
+	}
+
+	void Arena::set_fatal_error() const noexcept {
+		layout_->header.state.store(BusState::FatalError, std::memory_order_release);
 	}
 } // namespace tachyon::core

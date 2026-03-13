@@ -31,6 +31,8 @@ namespace tachyon::core {
 		Unknown		  = 5
 	};
 
+	enum class WaitResult : uint8_t { Woken, Timeout, Interrupted };
+
 	struct alignas(TACHYON_MSG_ALIGNMENT) MessageHeader {
 		uint32_t size;
 		uint32_t type_id;
@@ -122,6 +124,14 @@ namespace tachyon::core {
 		acquire_rx_blocking(uint32_t &out_type_id, size_t &out_actual_size, uint32_t spin_threshold = 10000) noexcept;
 
 		void flush() noexcept;
+
+		void set_consumer_sleeping(bool sleeping) const noexcept;
+
+		WaitResult wait_consumer_sleeping() const noexcept;
+
+		uint64_t get_producer_heartbeat() const noexcept;
+
+		void set_fatal_error() const noexcept;
 
 		template <TachyonPayload T> [[nodiscard]] inline bool push(const uint32_t type_id, const T &payload) noexcept {
 			if (std::byte *ptr = acquire_tx(sizeof(T))) [[likely]] {
