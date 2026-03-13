@@ -107,7 +107,7 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 
 	const auto &[received_fd, hs] = transport_res.value();
 	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION) {
-		::close(received_fd);
+		close(received_fd);
 		return TACHYON_ERR_SYSTEM;
 	}
 
@@ -226,6 +226,40 @@ tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 		return TACHYON_ERR_NULL_PTR;
 
 	const bool success = bus->arena.commit_rx();
+	bus->consumer_lock.clear(std::memory_order_release);
+
+	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+}
+
+size_t
+tachyon_acquire_rx_batch(tachyon_bus_t *bus, tachyon_msg_view_t *out_views, const size_t max_msgs) TACHYON_NOEXCEPT {
+	if (!bus || !out_views || max_msgs == 0) [[unlikely]]
+		return 0;
+
+	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
+		tachyon::cpu_relax();
+	}
+
+	auto		*cxx_views = reinterpret_cast<RxView *>(out_views);
+	const size_t count	   = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
+	if (count == 0) [[likely]]
+		bus->consumer_lock.clear(std::memory_order_release);
+
+	return count;
+}
+
+tachyon_error_t
+tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, const size_t count) TACHYON_NOEXCEPT {
+	if (!bus) [[unlikely]]
+		return TACHYON_ERR_NULL_PTR;
+
+	if (count == 0) [[unlikely]] {
+		bus->consumer_lock.clear(std::memory_order_release);
+		return TACHYON_SUCCESS;
+	}
+
+	const auto *cxx_views = reinterpret_cast<const RxView *>(views);
+	const bool	success	  = bus->arena.commit_rx_batch(cxx_views, count);
 	bus->consumer_lock.clear(std::memory_order_release);
 
 	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;

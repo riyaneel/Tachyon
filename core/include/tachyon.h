@@ -44,6 +44,14 @@ typedef enum {
 
 typedef struct tachyon_bus tachyon_bus_t;
 
+typedef struct {
+	const void *ptr;
+	size_t		actual_size;
+	size_t		reserved_;
+	uint32_t	type_id;
+	uint32_t	padding_;
+} tachyon_msg_view_t;
+
 TACHYON_ABI void tachyon_memory_barrier_acquire(void) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_error_t
@@ -72,6 +80,12 @@ TACHYON_ABI const void *tachyon_acquire_rx_blocking(
 ) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
+TACHYON_ABI size_t
+tachyon_acquire_rx_batch(tachyon_bus_t *bus, tachyon_msg_view_t *out_views, size_t max_msgs) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t
+tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, size_t count) TACHYON_NOEXCEPT;
 
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
