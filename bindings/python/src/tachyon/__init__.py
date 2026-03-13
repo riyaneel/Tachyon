@@ -1,4 +1,4 @@
-from ._tachyon import TachyonError
+from ._tachyon import PeerDeadError, TachyonError
 from .bus import Bus
 from .message import Message
 

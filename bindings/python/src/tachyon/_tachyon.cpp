@@ -10,6 +10,11 @@
 static PyObject *TachyonError;
 
 /**
+ * @brief Base exception class for Tachyon errors
+ */
+static PyObject *PeerDeadError;
+
+/**
  * Maps C-API error codes to native Python exceptions
  * @param error The Tachyon error code returned by the C-API
  * @return Always return nullptr to signal an exception to Python
@@ -546,6 +551,10 @@ static PyObject *TachyonBus_acquire_tx(const TachyonBus *self, PyObject *args, P
 	Py_END_ALLOW_THREADS;
 
 	if (ptr == nullptr) {
+		if (tachyon_get_state(self->bus) == TACHYON_STATE_FATAL_ERROR) {
+			PyErr_SetString(PeerDeadError, "Peer process is dead or unresponsive (Heartbeat timeout).");
+			return nullptr;
+		}
 		PyErr_SetString(TachyonError, "Failed to acquire TX buffer (bus closed or full).");
 		return nullptr;
 	}
@@ -595,6 +604,10 @@ static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *args, P
 	Py_END_ALLOW_THREADS;
 
 	if (ptr == nullptr) {
+		if (tachyon_get_state(self->bus) == TACHYON_STATE_FATAL_ERROR) {
+			PyErr_SetString(PeerDeadError, "Peer process is dead or unresponsive (Heartbeat timeout).");
+			return nullptr;
+		}
 		PyErr_SetString(TachyonError, "Failed to acquire RX buffer (bus closed or fatal error).");
 		return nullptr;
 	}
@@ -712,6 +725,26 @@ static int tachyon_exec(PyObject *m) {
 
 	Py_INCREF(TachyonError);
 	if (PyModule_AddObject(m, "TachyonError", TachyonError) < 0) {
+		Py_DECREF(TachyonError);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
+	/* Initialize and add PeerDeadError inheriting from TachyonError */
+	PeerDeadError = PyErr_NewException("tachyon.PeerDeadError", TachyonError, nullptr);
+	if (!PeerDeadError) {
+		Py_DECREF(TachyonError);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
+	Py_INCREF(PeerDeadError);
+	if (PyModule_AddObject(m, "PeerDeadError", PeerDeadError) < 0) {
+		Py_DECREF(PeerDeadError);
 		Py_DECREF(TachyonError);
 		Py_DECREF(&RxGuardType);
 		Py_DECREF(&TxGuardType);
