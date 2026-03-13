@@ -283,4 +283,46 @@ namespace tachyon::core::test {
 
 		t_cons.join();
 	}
+
+	TEST_F(ArenaTest, BatchProcessing) {
+		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		auto consumer = Arena::attach(shm_owner->data()).value();
+
+		constexpr size_t MSG_COUNT		= 10;
+		constexpr size_t BATCH_CAPACITY = 15;
+
+		for (size_t i = 0; i < MSG_COUNT; ++i) {
+			std::byte *tx_ptr = producer.acquire_tx(sizeof(DummyOrder));
+			ASSERT_NE(tx_ptr, nullptr) << "Failed to acquire TX buffer at index " << i;
+			new (tx_ptr)
+				DummyOrder{.id = (i), .price = 100.50 * static_cast<double>(i), .qty = static_cast<uint32_t>(i * 10)};
+
+			EXPECT_TRUE(producer.commit_tx(sizeof(DummyOrder), 42));
+		}
+
+		producer.flush();
+
+		alignas(64) std::array<RxView, BATCH_CAPACITY> views{};
+		const size_t read_count = consumer.acquire_rx_batch(views.data(), views.size());
+		EXPECT_EQ(read_count, MSG_COUNT);
+
+		for (size_t i = 0; i < read_count; ++i) {
+			EXPECT_EQ(views[i].actual_size, sizeof(DummyOrder));
+			EXPECT_EQ(views[i].type_id, 42);
+			ASSERT_NE(views[i].ptr, nullptr);
+			const auto *order = reinterpret_cast<const DummyOrder *>(views[i].ptr);
+			EXPECT_EQ(order->id, i);
+			EXPECT_DOUBLE_EQ(order->price, 100.50 * static_cast<double>(i));
+			EXPECT_EQ(order->qty, i * 10);
+		}
+
+		EXPECT_TRUE(consumer.commit_rx_batch(views.data(), read_count));
+
+		consumer.flush();
+		uint32_t out_type_id	 = 0;
+		size_t	 out_actual_size = 0;
+		EXPECT_EQ(consumer.acquire_rx(out_type_id, out_actual_size), nullptr);
+
+		EXPECT_EQ(consumer.acquire_rx_batch(views.data(), views.size()), 0);
+	}
 } // namespace tachyon::core::test
