@@ -46,6 +46,8 @@ namespace tachyon::core {
 			}
 			return WaitResult::Woken;
 #else
+#include <thread>
+
 			std::this_thread::yield();
 			return WaitResult::Woken;
 #endif
