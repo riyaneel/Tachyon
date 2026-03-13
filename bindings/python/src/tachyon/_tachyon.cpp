@@ -10,7 +10,7 @@
 static PyObject *TachyonError;
 
 /**
- * @brief Base exception class for Tachyon errors
+ * @brief Raised when the peer process is dead or unresponsive
  */
 static PyObject *PeerDeadError;
 
@@ -237,7 +237,7 @@ static PyMethodDef TxGuardMethods[3] = {
  */
 static int TxGuard_getbuffer(TxGuard *self, Py_buffer *view, const int flags) {
 	if (self->committed != 0 || !self->ptr) {
-		PyErr_SetString(PyExc_BufferError, "TxBuffer already commited.");
+		PyErr_SetString(PyExc_BufferError, "TxBuffer already committed.");
 		return -1;
 	}
 

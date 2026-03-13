@@ -6,7 +6,7 @@ __all__ = ["Bus", "Message", "PeerDeadError", "TachyonError"]
 __version__ = "0.1.0"
 
 class PeerDeadError:
-    """Base Tachyon Peer exception."""
+    """Raised when the peer process is dead or unresponsive."""
     pass
 
 class TachyonError(Exception):
