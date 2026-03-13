@@ -237,7 +237,7 @@ static PyMethodDef TxGuardMethods[3] = {
  */
 static int TxGuard_getbuffer(TxGuard *self, Py_buffer *view, const int flags) {
 	if (self->committed != 0 || !self->ptr) {
-
+		PyErr_SetString(PyExc_BufferError, "TxBuffer already commited.");
 		return -1;
 	}
 
