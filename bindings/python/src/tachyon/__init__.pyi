@@ -2,7 +2,17 @@ import types
 from typing import Iterator, Generator, Optional, Type
 from . import _tachyon
 
-__all__ = ["Bus", "Message", "PeerDeadError", "TachyonError"]
+__all__ = [
+    "TachyonBus",
+    "TachyonError",
+    "PeerDeadError",
+    "TxGuard",
+    "RxGuard",
+    "RxBatchGuard",
+    "RxMsgView",
+    "Bus",
+    "Message",
+]
 __version__ = "0.1.0"
 
 class PeerDeadError:

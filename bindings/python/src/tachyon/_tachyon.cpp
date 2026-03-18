@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 
 #include <Python.h>
+#include <dlpack/dlpack.h>
 
 #include <tachyon.h>
 
@@ -541,6 +542,78 @@ static PyBufferProcs RxMsgViewBufferProcs = {
 	reinterpret_cast<getbufferproc>(RxMsgView_getbuffer), reinterpret_cast<releasebufferproc>(RxMsgView_releasebuffer)
 };
 
+static PyObject *RxMsgView_dlpack_device(RxMsgView *self, PyObject *Py_UNUSED(ignored)) {
+	return Py_BuildValue("(ii)", 1, 0); // Return (kDLCPU, 0)
+}
+
+static PyObject *RxMsgView_dlpack(RxMsgView *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("stream"), nullptr};
+	PyObject	*stream	  = nullptr;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, &stream)) {
+		return nullptr;
+	}
+
+	if (self->parent_batch->committed) {
+		PyErr_SetString(PyExc_RuntimeError, "Cannot access memory: batch already committed.");
+		return nullptr;
+	}
+
+	auto *dlm = new (std::nothrow) DLManagedTensor{};
+	if (!dlm)
+		return PyErr_NoMemory();
+
+	// Raw Data Mapping
+	dlm->dl_tensor.data				  = const_cast<void *>(self->view->ptr);
+	dlm->dl_tensor.device.device_type = kDLCPU;
+	dlm->dl_tensor.device.device_id	  = 0;
+	dlm->dl_tensor.ndim				  = 1;
+	dlm->dl_tensor.dtype.code		  = kDLUInt;
+	dlm->dl_tensor.dtype.bits		  = 8;
+	dlm->dl_tensor.dtype.lanes		  = 1;
+
+	auto *shape = new (std::nothrow) int64_t[1];
+	if (shape)
+		shape[0] = static_cast<int64_t>(self->view->actual_size);
+	dlm->dl_tensor.shape = shape;
+
+	auto *strides = new (std::nothrow) int64_t[1];
+	if (strides)
+		strides[0] = 1;
+	dlm->dl_tensor.strides = strides;
+
+	dlm->dl_tensor.byte_offset = 0;
+
+	dlm->manager_ctx = self->parent_batch;
+
+	dlm->deleter = [](DLManagedTensor *managed_tensor) {
+		if (managed_tensor->manager_ctx) {
+			auto *parent = static_cast<RxBatchGuard *>(managed_tensor->manager_ctx);
+			parent->exports--;
+			Py_DECREF(parent);
+		}
+		delete[] managed_tensor->dl_tensor.shape;
+		delete[] managed_tensor->dl_tensor.strides;
+		delete managed_tensor;
+	};
+
+	self->parent_batch->exports++;
+	Py_INCREF(self->parent_batch);
+
+	return PyCapsule_New(dlm, "dltensor", [](PyObject *capsule) {
+		if (PyCapsule_IsValid(capsule, "dltensor")) {
+			auto *m = static_cast<DLManagedTensor *>(PyCapsule_GetPointer(capsule, "dltensor"));
+			if (m && m->deleter)
+				m->deleter(m);
+		}
+	});
+}
+
+static PyMethodDef RxMsgViewMethods[3] = {
+	{"__dlpack__", reinterpret_cast<PyCFunction>(RxMsgView_dlpack), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"__dlpack_device__", reinterpret_cast<PyCFunction>(RxMsgView_dlpack_device), METH_NOARGS, "Get DLPack device"},
+	{nullptr, nullptr, 0, nullptr}
+};
+
 /**
  * Allocates memory for a new TachyonBus Python object
  * @param type The Python type object
@@ -916,6 +989,7 @@ static int tachyon_exec(PyObject *m) {
 	RxMsgViewType.tp_itemsize  = 0;
 	RxMsgViewType.tp_flags	   = Py_TPFLAGS_DEFAULT;
 	RxMsgViewType.tp_doc	   = "Tachyon Rx Msg View";
+	RxMsgViewType.tp_methods   = RxMsgViewMethods;
 	RxMsgViewType.tp_getset	   = RxMsgViewGettersSetters;
 	RxMsgViewType.tp_as_buffer = &RxMsgViewBufferProcs;
 
