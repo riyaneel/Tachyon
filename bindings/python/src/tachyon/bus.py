@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import types
 from contextlib import contextmanager
-from typing import Iterator, Generator, Optional, Type
+from typing import Any, Iterator, Generator, Optional, Type
 from . import _tachyon
 from .message import Message
 

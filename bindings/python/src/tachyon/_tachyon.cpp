@@ -619,6 +619,11 @@ static PyMethodDef RxMsgViewMethods[3] = {
 	{nullptr, nullptr, 0, nullptr}
 };
 
+static void RxMsgView_dealloc(RxMsgView *self) {
+	Py_XDECREF(reinterpret_cast<PyObject *>(self->parent_batch));
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
 /**
  * Allocates memory for a new TachyonBus Python object
  * @param type The Python type object
@@ -979,6 +984,7 @@ static int tachyon_exec(PyObject *m) {
 	RxBatchGuardType.tp_name		= "tachyon.RxBatchGuard";
 	RxBatchGuardType.tp_basicsize	= sizeof(RxBatchGuard);
 	RxBatchGuardType.tp_itemsize	= 0;
+	RxBatchGuardType.tp_dealloc		= reinterpret_cast<destructor>(RxBatchGuard_dealloc);
 	RxBatchGuardType.tp_flags		= Py_TPFLAGS_DEFAULT;
 	RxBatchGuardType.tp_doc			= "Tachyon Rx Batch Guard";
 	RxBatchGuardType.tp_methods		= RxBatchGuardMethods;
@@ -992,6 +998,7 @@ static int tachyon_exec(PyObject *m) {
 	RxMsgViewType.tp_name	   = "tachyon.RxMsgView";
 	RxMsgViewType.tp_basicsize = sizeof(RxMsgView);
 	RxMsgViewType.tp_itemsize  = 0;
+	RxMsgViewType.tp_dealloc   = reinterpret_cast<destructor>(RxMsgView_dealloc);
 	RxMsgViewType.tp_flags	   = Py_TPFLAGS_DEFAULT;
 	RxMsgViewType.tp_doc	   = "Tachyon Rx Msg View";
 	RxMsgViewType.tp_methods   = RxMsgViewMethods;
