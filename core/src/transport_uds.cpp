@@ -80,6 +80,7 @@ namespace tachyon::core {
 		if (!cmsg) {
 			::close(client_sock);
 			::close(sock);
+			::unlink(addr.sun_path);
 			return std::unexpected(TransportError::SystemError);
 		}
 
@@ -92,6 +93,7 @@ namespace tachyon::core {
 		if (::sendmsg(client_sock, &msg, 0) < 0) {
 			::close(client_sock);
 			::close(sock);
+			::unlink(addr.sun_path);
 			return std::unexpected(TransportError::SendFailed);
 		}
 
