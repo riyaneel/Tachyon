@@ -26,6 +26,8 @@ class TachyonError(Exception):
 
 TxGuard = _tachyon.TxGuard
 RxGuard = _tachyon.RxGuard
+RxBatchGuard = _tachyon.RxBatchGuard
+RxMsgView = _tachyon.RxMsgView
 
 
 class Message:
