@@ -12,7 +12,7 @@
 namespace tachyon::core {
 	namespace {
 		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
-		constexpr uint32_t WATCHDOG_TIMEOUT_US = 1'000'000;
+		constexpr uint32_t WATCHDOG_TIMEOUT_US = 200'000;
 
 		enum class WaitResult : int8_t { Woken = 0, Timeout = 1, Interrupted = -1 };
 
@@ -357,22 +357,10 @@ namespace tachyon::core {
 					return ptr;
 				}
 
-				const uint64_t	 hb_before	 = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
 				const WaitResult wait_result = platform_wait(&layout_->indices.consumer_sleeping);
 				layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
 				if (wait_result == WaitResult::Interrupted) {
 					return nullptr;
-				}
-
-				if (wait_result == WaitResult::Timeout) {
-					const uint64_t hb_after = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
-					if (hb_before == hb_after && hb_before != 0) {
-						if ((ptr = acquire_rx(out_type_id, out_actual_size)) != nullptr) {
-							return ptr;
-						}
-						layout_->header.state.store(BusState::FatalError, std::memory_order_release);
-						return nullptr;
-					}
 				}
 
 				spins = 0;

@@ -250,21 +250,12 @@ const void *tachyon_acquire_rx_blocking(
 				return ptr;
 			}
 
-			const uint64_t hb_before = bus->arena.get_producer_heartbeat();
 			bus->consumer_lock.clear(std::memory_order_release);
 
 			const int wait_res = bus->arena.wait_consumer_sleeping();
 			bus->arena.set_consumer_sleeping(false);
 			if (wait_res == -1) // Interrupted
 				return nullptr;
-
-			if (wait_res == 1) { // Timeout
-				const uint64_t hb_after = bus->arena.get_producer_heartbeat();
-				if (hb_before == hb_after && hb_before != 0) {
-					bus->arena.set_fatal_error();
-					return nullptr;
-				}
-			}
 
 			spins = 0;
 		}
@@ -338,7 +329,6 @@ size_t tachyon_drain_batch(
 				return count;
 			}
 
-			const uint64_t hb_before = bus->arena.get_producer_heartbeat();
 			bus->consumer_lock.clear(std::memory_order_release);
 
 			const int wait_res = bus->arena.wait_consumer_sleeping();
@@ -346,13 +336,6 @@ size_t tachyon_drain_batch(
 			if (wait_res == -1) // Interrupted
 				return 0;
 
-			if (wait_res == 1) { // Timeout
-				const uint64_t hb_after = bus->arena.get_producer_heartbeat();
-				if (hb_before == hb_after && hb_before != 0) {
-					bus->arena.set_fatal_error();
-					return 0;
-				}
-			}
 			spins = 0;
 		}
 	}
