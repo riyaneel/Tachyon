@@ -223,7 +223,7 @@ static PyObject *TxGuard_exit(TxGuard *self, PyObject *args) {
 	if (!self->committed && self->bus != nullptr) {
 		if (exc_type != Py_None) {
 			self->actual_size = 0;
-			self->type_id	  = 0xFFFFFFFF;
+			self->type_id	  = 0;
 		}
 		tachyon_commit_tx(self->bus, self->actual_size, self->type_id);
 		self->committed = 1;
@@ -362,6 +362,17 @@ static PyObject *RxGuard_exit(RxGuard *self, PyObject *args) {
 	Py_RETURN_FALSE;
 }
 
+static void RxGuard_dealloc(RxGuard *self) {
+	// Safety net: if __exit__ was never called, commit to release consumer_lock.
+	if (!self->committed && self->bus != nullptr) {
+		tachyon_commit_rx(self->bus);
+		self->committed = 1;
+		self->ptr		= nullptr;
+	}
+
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
 /**
  * @brief Array of methods exposed by the RxGuard object
  */
@@ -469,6 +480,11 @@ static PyObject *RxBatchGuard_getitem(RxBatchGuard *self, Py_ssize_t i) {
 }
 
 static void RxBatchGuard_dealloc(RxBatchGuard *self) {
+	if (!self->committed && self->bus != nullptr && self->views != nullptr) {
+		tachyon_commit_rx_batch(self->bus, self->views, self->count);
+		self->committed = 1;
+	}
+
 	if (self->views) {
 		delete[] self->views;
 		self->views = nullptr;
@@ -576,14 +592,19 @@ static PyObject *RxMsgView_dlpack(RxMsgView *self, PyObject *args, PyObject *kwd
 	dlm->dl_tensor.dtype.bits		  = 8;
 	dlm->dl_tensor.dtype.lanes		  = 1;
 
-	auto *shape = new (std::nothrow) int64_t[1];
-	if (shape)
-		shape[0] = static_cast<int64_t>(self->view->actual_size);
-	dlm->dl_tensor.shape = shape;
-
+	auto *shape	  = new (std::nothrow) int64_t[1];
 	auto *strides = new (std::nothrow) int64_t[1];
-	if (strides)
-		strides[0] = 1;
+
+	if (!shape || !strides) {
+		delete[] shape;
+		delete[] strides;
+		delete dlm;
+		return PyErr_NoMemory();
+	}
+
+	shape[0]			   = static_cast<int64_t>(self->view->actual_size);
+	dlm->dl_tensor.shape   = shape;
+	strides[0]			   = 1;
 	dlm->dl_tensor.strides = strides;
 
 	dlm->dl_tensor.byte_offset = 0;
@@ -970,6 +991,7 @@ static int tachyon_exec(PyObject *m) {
 	RxGuardType.tp_name		 = "tachyon.RxGuard";
 	RxGuardType.tp_basicsize = sizeof(RxGuard);
 	RxGuardType.tp_itemsize	 = 0;
+	RxGuardType.tp_dealloc	 = reinterpret_cast<destructor>(RxGuard_dealloc);
 	RxGuardType.tp_flags	 = Py_TPFLAGS_DEFAULT;
 	RxGuardType.tp_doc		 = "Tachyon RX Guard Context Manager";
 	RxGuardType.tp_methods	 = RxGuardMethods;
