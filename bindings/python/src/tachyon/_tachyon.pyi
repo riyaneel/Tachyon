@@ -1,5 +1,5 @@
 import types
-from typing import Optional, Type
+from typing import Any, Optional, Type
 
 
 class TachyonError(Exception):
@@ -45,6 +45,24 @@ class RxGuard:
     def __buffer__(self, flags: int) -> memoryview: ...
 
 
+class RxMsgView:
+    @property
+    def actual_size(self) -> int: ...
+
+    @property
+    def type_id(self) -> int: ...
+
+
+class RxBatchGuard:
+    def __enter__(self) -> 'RxBatchGuard': ...
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool: ...
+
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, index: int) -> RxMsgView: ...
+
+
 class TachyonBus:
     """Tachyon IPC Bus"""
 
@@ -81,3 +99,10 @@ class TachyonBus:
         Blocks until data is available, spinning up to `spin_threshold` times before sleeping.
         """
         ...
+
+    def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> Any:
+        """
+        Blocks until at least 1 message is available, then drains up to `max_msgs` from the ring buffer.
+        Returns a context manager yielding a sequence of messages.
+        """
+        return self._bus.drain_batch(max_msgs, spin_threshold)
