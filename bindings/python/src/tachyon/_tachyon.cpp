@@ -424,7 +424,12 @@ static PyObject *RxBatchGuard_enter(RxBatchGuard *self, PyObject *Py_UNUSED(igno
 	return reinterpret_cast<PyObject *>(self);
 }
 
-static PyObject *RxBatchGuard_exit(RxBatchGuard *self, PyObject *Py_UNUSED(args)) {
+static PyObject *RxBatchGuard_exit(RxBatchGuard *self, PyObject *args) {
+	PyObject *exc_type, *exc_value, *traceback;
+	if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &traceback)) {
+		return nullptr;
+	}
+
 	if (self->exports > 0) {
 		PyErr_SetString(PyExc_BufferError, "Dangling memoryview detected in batch: release before exiting context.");
 		return nullptr;
@@ -487,7 +492,7 @@ static PySequenceMethods RxBatchGuardSequenceMethods = {
 
 static PyMethodDef RxBatchGuardMethods[3] = {
 	{"__enter__", reinterpret_cast<PyCFunction>(RxBatchGuard_enter), METH_NOARGS, "Enter RxBatchContext"},
-	{"__exit__", reinterpret_cast<PyCFunction>(RxBatchGuard_exit), METH_NOARGS, "Exit RxBatchContext and commit"},
+	{"__exit__", reinterpret_cast<PyCFunction>(RxBatchGuard_exit), METH_VARARGS, "Exit RxBatchContext and commit"},
 	{nullptr, nullptr, 0, nullptr}
 };
 
