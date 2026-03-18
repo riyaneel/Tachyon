@@ -85,7 +85,11 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 		return TACHYON_ERR_MEM;
 
 	const TachyonHandshake handshake = {
-		TACHYON_MAGIC, TACHYON_VERSION, static_cast<uint32_t>(capacity), static_cast<uint32_t>(required_shm_size)
+		TACHYON_MAGIC,
+		TACHYON_VERSION,
+		static_cast<uint32_t>(capacity),
+		static_cast<uint32_t>(required_shm_size),
+		TACHYON_MSG_ALIGNMENT
 	};
 
 	if (auto transport_res = uds_export_shm(socket_path, bus->shm.get_fd(), handshake); !transport_res.has_value()) {
@@ -106,7 +110,7 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 		return map_transport_error(transport_res.error());
 
 	const auto &[received_fd, hs] = transport_res.value();
-	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION) {
+	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION || hs.msg_alignment != TACHYON_MSG_ALIGNMENT) {
 		close(received_fd);
 		return TACHYON_ERR_SYSTEM;
 	}

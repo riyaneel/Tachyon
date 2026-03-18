@@ -102,10 +102,12 @@ namespace tachyon::core {
 		if (!is_power_of_two(capacity) || shm_span.size() < sizeof(MemoryLayout) + capacity) [[unlikely]]
 			return std::unexpected(ShmError::InvalidSize);
 
-		auto *layout			= tachyon_start_lifetime_as<MemoryLayout>(shm_span.data());
-		layout->header.magic	= TACHYON_MAGIC;
-		layout->header.version	= TACHYON_VERSION;
-		layout->header.capacity = static_cast<uint32_t>(capacity);
+		auto *layout				 = tachyon_start_lifetime_as<MemoryLayout>(shm_span.data());
+		layout->header.magic		 = TACHYON_MAGIC;
+		layout->header.version		 = TACHYON_VERSION;
+		layout->header.capacity		 = static_cast<uint32_t>(capacity);
+		layout->header.msg_alignment = TACHYON_MSG_ALIGNMENT;
+
 		layout->indices.head.store(0, std::memory_order_relaxed);
 		layout->indices.tail.store(0, std::memory_order_relaxed);
 		layout->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
@@ -123,6 +125,9 @@ namespace tachyon::core {
 		auto *layout = tachyon_start_lifetime_as<MemoryLayout>(shm_span.data());
 		if (layout->header.magic != TACHYON_MAGIC) [[unlikely]]
 			return std::unexpected(ShmError::MapFailed);
+
+		if (layout->header.msg_alignment != TACHYON_MSG_ALIGNMENT) [[unlikely]]
+			return std::unexpected(ShmError::InvalidSize);
 
 		const size_t capacity = layout->header.capacity;
 		if (!is_power_of_two(capacity) || shm_span.size() < sizeof(MemoryLayout) + capacity) [[unlikely]]

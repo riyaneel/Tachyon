@@ -14,6 +14,7 @@ namespace tachyon::core {
 		uint32_t version;
 		uint32_t capacity;
 		uint32_t shm_size;
+		uint32_t msg_alignment;
 	};
 
 	/**
