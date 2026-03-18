@@ -100,6 +100,23 @@ typedef struct {
 	Py_ssize_t					 exports;
 } RxGuard;
 
+typedef struct {
+	PyObject_HEAD tachyon_bus_t *bus;
+	tachyon_msg_view_t			*views;
+	size_t						 count;
+	int							 committed;
+	Py_ssize_t					 exports;
+} RxBatchGuard;
+
+static PyTypeObject RxBatchGuardType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+typedef struct {
+	PyObject_HEAD RxBatchGuard *parent_batch;
+	const tachyon_msg_view_t   *view;
+} RxMsgView;
+
+static PyTypeObject RxMsgViewType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
 /**
  * Gets the actual payload size for the current TX transaction
  * @param self The TxGuard instance
@@ -401,6 +418,129 @@ static PyBufferProcs RxGuardBufferProcs = {
  */
 static PyTypeObject RxGuardType = {PyVarObject_HEAD_INIT(nullptr, 0)};
 
+static PyObject *RxBatchGuard_enter(RxBatchGuard *self, PyObject *Py_UNUSED(ignore)) {
+	Py_INCREF(self);
+	return reinterpret_cast<PyObject *>(self);
+}
+
+static PyObject *RxBatchGuard_exit(RxBatchGuard *self, PyObject *Py_UNUSED(args)) {
+	if (self->exports > 0) {
+		PyErr_SetString(PyExc_BufferError, "Dangling memoryview detected in batch: release before exiting context.");
+		return nullptr;
+	}
+
+	if (!self->committed && self->bus != nullptr) {
+		tachyon_commit_rx_batch(self->bus, self->views, self->count);
+		self->committed = 1;
+	}
+
+	Py_RETURN_FALSE;
+}
+
+static Py_ssize_t RxBatchGuard_len(RxBatchGuard *self) {
+	return static_cast<Py_ssize_t>(self->count);
+}
+
+static PyObject *RxBatchGuard_getitem(RxBatchGuard *self, Py_ssize_t i) {
+	if (i < 0 || i >= static_cast<Py_ssize_t>(self->count)) {
+		PyErr_SetString(PyExc_IndexError, "Batch index out of range.");
+		return nullptr;
+	}
+
+	if (self->committed) {
+		PyErr_SetString(PyExc_RuntimeError, "Cannot access messages: batch already committed.");
+		return nullptr;
+	}
+
+	RxMsgView *msg_view = PyObject_New(RxMsgView, &RxMsgViewType);
+	if (!msg_view)
+		return PyErr_NoMemory();
+
+	Py_INCREF(self);
+	msg_view->parent_batch = self;
+	msg_view->view		   = &self->views[i];
+	return reinterpret_cast<PyObject *>(msg_view);
+}
+
+static void RxBatchGuard_dealloc(RxBatchGuard *self) {
+	if (self->views) {
+		delete[] self->views;
+		self->views = nullptr;
+	}
+
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
+static PySequenceMethods RxBatchGuardSequenceMethods = {
+	reinterpret_cast<lenfunc>(RxBatchGuard_len),
+	nullptr,
+	nullptr,
+	reinterpret_cast<ssizeargfunc>(RxBatchGuard_getitem),
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr
+};
+
+static PyMethodDef RxBatchGuardMethods[3] = {
+	{"__enter__", reinterpret_cast<PyCFunction>(RxBatchGuard_enter), METH_NOARGS, "Enter RxBatchContext"},
+	{"__exit__", reinterpret_cast<PyCFunction>(RxBatchGuard_exit), METH_NOARGS, "Exit RxBatchContext and commit"},
+	{nullptr, nullptr, 0, nullptr}
+};
+
+static PyObject *RxMsgView_get_actual_size(const RxMsgView *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromSize_t(self->view->actual_size);
+}
+
+static PyObject *RxMsgView_get_type_id(const RxMsgView *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLong(self->view->type_id);
+}
+
+static PyGetSetDef RxMsgViewGettersSetters[3]{
+	{const_cast<char *>("actual_size"),
+	 reinterpret_cast<getter>(RxMsgView_get_actual_size),
+	 nullptr,
+	 const_cast<char *>("Payload size"),
+	 nullptr},
+	{const_cast<char *>("type_id"),
+	 reinterpret_cast<getter>(RxMsgView_get_type_id),
+	 nullptr,
+	 const_cast<char *>("Message type ID"),
+	 nullptr},
+	{nullptr, nullptr, nullptr, nullptr, nullptr}
+};
+
+static int RxMsgView_getbuffer(RxMsgView *self, Py_buffer *view, const int flags) {
+	if (self->parent_batch->committed != 0) {
+		PyErr_SetString(PyExc_BufferError, "Cannot access memory: batch already committed.");
+		return -1;
+	}
+
+	const int ret = PyBuffer_FillInfo(
+		view,
+		reinterpret_cast<PyObject *>(self),
+		const_cast<void *>(self->view->ptr),
+		static_cast<Py_ssize_t>(self->view->actual_size),
+		1,
+		flags
+	);
+
+	if (ret == 0) {
+		self->parent_batch->exports++;
+	}
+	return ret;
+}
+
+static void RxMsgView_releasebuffer(RxMsgView *self, Py_buffer *Py_UNUSED(view)) {
+	self->parent_batch->exports--;
+}
+
+static PyBufferProcs RxMsgViewBufferProcs = {
+	reinterpret_cast<getbufferproc>(RxMsgView_getbuffer), reinterpret_cast<releasebufferproc>(RxMsgView_releasebuffer)
+};
+
 /**
  * Allocates memory for a new TachyonBus Python object
  * @param type The Python type object
@@ -645,16 +785,76 @@ static PyObject *TachyonBus_acquire_rx(const TachyonBus *self, PyObject *args, P
 	return reinterpret_cast<PyObject *>(guard);
 }
 
+static PyObject *TachyonBus_drain_batch(TachyonBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[]		= {const_cast<char *>("max_msgs"), const_cast<char *>("spin_threshold"), nullptr};
+	Py_ssize_t	 max_msgs		= 1024;
+	unsigned int spin_threshold = 10000;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nI", kwlist, &max_msgs, &spin_threshold))
+		return nullptr;
+
+	if (self->bus == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "Bus is not initialized.");
+		return nullptr;
+	}
+
+	if (max_msgs <= 0) {
+		PyErr_SetString(PyExc_ValueError, "max_msgs must be > 0");
+		return nullptr;
+	}
+
+	auto *views = new (std::nothrow) tachyon_msg_view_t[max_msgs];
+	if (!views)
+		return PyErr_NoMemory();
+
+	size_t count = 0;
+	while (true) {
+		Py_BEGIN_ALLOW_THREADS count =
+			tachyon_drain_batch(self->bus, views, static_cast<size_t>(max_msgs), spin_threshold);
+		Py_END_ALLOW_THREADS
+
+			if (count > 0) break;
+
+		const tachyon_state_t state = tachyon_get_state(self->bus);
+		if (state == TACHYON_STATE_FATAL_ERROR) {
+			delete[] views;
+			PyErr_SetString(PeerDeadError, "Peer process is dead.");
+			return nullptr;
+		}
+
+		if (PyErr_CheckSignals() != 0) {
+			delete[] views;
+			return nullptr;
+		}
+	}
+
+	RxBatchGuard *guard = PyObject_New(RxBatchGuard, &RxBatchGuardType);
+	if (!guard) {
+		tachyon_commit_rx_batch(self->bus, views, count);
+		delete[] views;
+		return PyErr_NoMemory();
+	}
+
+	guard->bus		 = self->bus;
+	guard->views	 = views;
+	guard->count	 = count;
+	guard->committed = 0;
+	guard->exports	 = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
 /**
  * @brief Array of methods exposed by TachyonBus object
  */
-static PyMethodDef TachyonBusMethods[7] = {
+static PyMethodDef TachyonBusMethods[8] = {
 	{"listen", reinterpret_cast<PyCFunction>(TachyonBus_listen), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"connect", reinterpret_cast<PyCFunction>(TachyonBus_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"destroy", reinterpret_cast<PyCFunction>(TachyonBus_destroy), METH_NOARGS, nullptr},
 	{"flush", reinterpret_cast<PyCFunction>(TachyonBus_flush), METH_NOARGS, nullptr},
 	{"acquire_tx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_tx), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"acquire_rx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_rx), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"drain_batch", reinterpret_cast<PyCFunction>(TachyonBus_drain_batch), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{nullptr, nullptr, 0, nullptr}
 };
 
@@ -697,6 +897,32 @@ static int tachyon_exec(PyObject *m) {
 		return -1;
 	}
 
+	/* Initialize RxBatchGuard Type */
+	RxBatchGuardType.tp_name		= "tachyon.RxBatchGuard";
+	RxBatchGuardType.tp_basicsize	= sizeof(RxBatchGuard);
+	RxBatchGuardType.tp_itemsize	= 0;
+	RxBatchGuardType.tp_flags		= Py_TPFLAGS_DEFAULT;
+	RxBatchGuardType.tp_doc			= "Tachyon Rx Batch Guard";
+	RxBatchGuardType.tp_methods		= RxBatchGuardMethods;
+	RxBatchGuardType.tp_as_sequence = &RxBatchGuardSequenceMethods;
+
+	if (PyType_Ready(&RxBatchGuardType) < 0) {
+		return -1;
+	}
+
+	/* Initialize RxMsgView Type */
+	RxMsgViewType.tp_name	   = "tachyon.RxMsgView";
+	RxMsgViewType.tp_basicsize = sizeof(RxMsgView);
+	RxMsgViewType.tp_itemsize  = 0;
+	RxMsgViewType.tp_flags	   = Py_TPFLAGS_DEFAULT;
+	RxMsgViewType.tp_doc	   = "Tachyon Rx Msg View";
+	RxMsgViewType.tp_getset	   = RxMsgViewGettersSetters;
+	RxMsgViewType.tp_as_buffer = &RxMsgViewBufferProcs;
+
+	if (PyType_Ready(&RxMsgViewType) < 0) {
+		return -1;
+	}
+
 	/* Initialize TachyonBus Type */
 	TachyonBusType.tp_name		= "tachyon.TachyonBus";
 	TachyonBusType.tp_basicsize = sizeof(TachyonBus);
@@ -732,8 +958,29 @@ static int tachyon_exec(PyObject *m) {
 		return -1;
 	}
 
+	Py_INCREF(&RxBatchGuardType);
+	if (PyModule_AddObject(m, "RxBatchGuard", reinterpret_cast<PyObject *>(&RxBatchGuardType)) < 0) {
+		Py_DECREF(&RxBatchGuardType);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
+	Py_INCREF(&RxMsgViewType);
+	if (PyModule_AddObject(m, "RxMsgView", reinterpret_cast<PyObject *>(&RxMsgViewType)) < 0) {
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
 	TachyonError = PyErr_NewException("tachyon.TachyonError", nullptr, nullptr);
 	if (!TachyonError) {
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
 		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
@@ -743,6 +990,8 @@ static int tachyon_exec(PyObject *m) {
 	Py_INCREF(TachyonError);
 	if (PyModule_AddObject(m, "TachyonError", TachyonError) < 0) {
 		Py_DECREF(TachyonError);
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
 		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
@@ -753,6 +1002,8 @@ static int tachyon_exec(PyObject *m) {
 	PeerDeadError = PyErr_NewException("tachyon.PeerDeadError", TachyonError, nullptr);
 	if (!PeerDeadError) {
 		Py_DECREF(TachyonError);
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
 		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
@@ -763,6 +1014,8 @@ static int tachyon_exec(PyObject *m) {
 	if (PyModule_AddObject(m, "PeerDeadError", PeerDeadError) < 0) {
 		Py_DECREF(PeerDeadError);
 		Py_DECREF(TachyonError);
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
 		Py_DECREF(&TxGuardType);
 		Py_DECREF(&TachyonBusType);
