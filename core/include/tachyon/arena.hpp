@@ -31,8 +31,6 @@ namespace tachyon::core {
 		Unknown		  = 5
 	};
 
-	enum class WaitResult : uint8_t { Woken, Timeout, Interrupted };
-
 	struct alignas(TACHYON_MSG_ALIGNMENT) MessageHeader {
 		uint32_t size;
 		uint32_t type_id;
@@ -127,7 +125,7 @@ namespace tachyon::core {
 
 		void set_consumer_sleeping(bool sleeping) const noexcept;
 
-		WaitResult wait_consumer_sleeping() const noexcept;
+		int wait_consumer_sleeping() const noexcept;
 
 		uint64_t get_producer_heartbeat() const noexcept;
 

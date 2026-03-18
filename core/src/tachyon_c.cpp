@@ -249,12 +249,12 @@ const void *tachyon_acquire_rx_blocking(
 			const uint64_t hb_before = bus->arena.get_producer_heartbeat();
 			bus->consumer_lock.clear(std::memory_order_release);
 
-			const auto wait_res = bus->arena.wait_consumer_sleeping();
+			const int wait_res = bus->arena.wait_consumer_sleeping();
 			bus->arena.set_consumer_sleeping(false);
-			if (wait_res == WaitResult::Interrupted)
+			if (wait_res == -1) // Interrupted
 				return nullptr;
 
-			if (wait_res == WaitResult::Timeout) {
+			if (wait_res == 1) { // Timeout
 				const uint64_t hb_after = bus->arena.get_producer_heartbeat();
 				if (hb_before == hb_after && hb_before != 0) {
 					bus->arena.set_fatal_error();
@@ -335,12 +335,12 @@ size_t tachyon_drain_batch(
 			const uint64_t hb_before = bus->arena.get_producer_heartbeat();
 			bus->consumer_lock.clear(std::memory_order_release);
 
-			const auto wait_res = bus->arena.wait_consumer_sleeping();
+			const int wait_res = bus->arena.wait_consumer_sleeping();
 			bus->arena.set_consumer_sleeping(false);
-			if (wait_res == WaitResult::Interrupted)
+			if (wait_res == -1) // Interrupted
 				return 0;
 
-			if (wait_res == WaitResult::Timeout) {
+			if (wait_res == 1) { // Timeout
 				const uint64_t hb_after = bus->arena.get_producer_heartbeat();
 				if (hb_before == hb_after && hb_before != 0) {
 					bus->arena.set_fatal_error();

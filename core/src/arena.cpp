@@ -14,6 +14,8 @@ namespace tachyon::core {
 		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
 		constexpr uint32_t WATCHDOG_TIMEOUT_US = 1'000'000;
 
+		enum class WaitResult : int8_t { Woken = 0, Timeout = 1, Interrupted = -1 };
+
 #if defined(__APPLE__)
 #define UL_COMPARE_AND_WAIT 1
 #define ULF_WAKE_ALL 0x00000100
@@ -405,8 +407,8 @@ namespace tachyon::core {
 		}
 	}
 
-	WaitResult Arena::wait_consumer_sleeping() const noexcept {
-		return platform_wait(&layout_->indices.consumer_sleeping);
+	int Arena::wait_consumer_sleeping() const noexcept {
+		return static_cast<int>(platform_wait(&layout_->indices.consumer_sleeping));
 	}
 
 	uint64_t Arena::get_producer_heartbeat() const noexcept {
