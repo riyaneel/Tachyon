@@ -105,4 +105,4 @@ class TachyonBus:
         Blocks until at least 1 message is available, then drains up to `max_msgs` from the ring buffer.
         Returns a context manager yielding a sequence of messages.
         """
-        return self._bus.drain_batch(max_msgs, spin_threshold)
+        ...
