@@ -58,6 +58,9 @@ static PyObject *raise_tachyon_error(const tachyon_error_t error) {
 	case TACHYON_ERR_SYSTEM:
 		PyErr_SetFromErrno(PyExc_OSError);
 		break;
+	case TACHYON_ERR_INTERRUPTED:
+		PyErr_SetNone(PyExc_KeyboardInterrupt);
+		return nullptr;
 	default:
 		PyErr_Format(TachyonError, "Unknown Tachyon internal error (code: %d).", error);
 		break;
@@ -455,10 +458,21 @@ static PyObject *TachyonBus_listen(TachyonBus *self, PyObject *args, PyObject *k
 	}
 
 	tachyon_error_t err;
+	while (true) {
+		Py_BEGIN_ALLOW_THREADS;
+		err = tachyon_bus_listen(socket_path, static_cast<size_t>(capacity), &self->bus);
+		Py_END_ALLOW_THREADS;
 
-	Py_BEGIN_ALLOW_THREADS;
-	err = tachyon_bus_listen(socket_path, static_cast<size_t>(capacity), &self->bus);
-	Py_END_ALLOW_THREADS;
+		if (err == TACHYON_ERR_INTERRUPTED) {
+			if (PyErr_CheckSignals() != 0) {
+				return nullptr;
+			}
+
+			continue;
+		}
+
+		break;
+	}
 
 	if (err != TACHYON_SUCCESS) {
 		return raise_tachyon_error(err);

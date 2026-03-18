@@ -49,7 +49,14 @@ class TachyonBus:
     """Tachyon IPC Bus"""
 
     def listen(self, socket_path: str, capacity: int) -> None:
-        """Formats and initializes a new IPC bus on the specified UNIX socket"""
+        """
+        Creates a new shared memory ring buffer and listens for a consumer.
+        This call blocks until a consumer connects via `TachyonBus.connect()`
+
+        :raise KeyboardInterrupt: If interrupted by a signal while waiting.
+        :raise RuntimeError: If the bus is already initialized.
+        :raise SystemError: On SHM or OS failure.
+        """
         ...
 
     def connect(self, socket_path: str) -> None:
