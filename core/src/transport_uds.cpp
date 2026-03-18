@@ -1,4 +1,6 @@
+#include <cerrno>
 #include <cstring>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -33,10 +35,35 @@ namespace tachyon::core {
 			return std::unexpected(TransportError::ListenFailed);
 		}
 
-		const int client_sock = ::accept(sock, nullptr, nullptr);
-		if (client_sock < 0) {
-			::close(sock);
-			return std::unexpected(TransportError::AcceptFailed);
+		int client_sock = -1;
+		while (true) {
+			struct pollfd pfd{};
+			pfd.fd	   = sock;
+			pfd.events = POLLIN;
+
+			const int ret = ::poll(&pfd, 1, 100);
+			if (ret > 0) {
+				client_sock = ::accept(sock, nullptr, nullptr);
+				if (client_sock >= 0) {
+					break;
+				}
+				if (errno == EINTR) {
+					::close(sock);
+					::unlink(addr.sun_path);
+					return std::unexpected(TransportError::Interrupted);
+				}
+			} else if (ret == 0) {
+				continue;
+			} else {
+				if (errno == EINTR) {
+					::close(sock);
+					::unlink(addr.sun_path);
+					return std::unexpected(TransportError::Interrupted);
+				}
+				::close(sock);
+				::unlink(addr.sun_path);
+				return std::unexpected(TransportError::AcceptFailed);
+			}
 		}
 
 		struct msghdr msg{};
@@ -96,8 +123,8 @@ namespace tachyon::core {
 		struct msghdr	 msg{};
 		TachyonHandshake hs{};
 		struct iovec	 io = {&hs, sizeof(hs)};
-		msg.msg_iov	   = &io;
-		msg.msg_iovlen = 1;
+		msg.msg_iov			= &io;
+		msg.msg_iovlen		= 1;
 
 		char c_buffer[CMSG_SPACE(sizeof(int))] = {};
 		msg.msg_control						   = c_buffer;

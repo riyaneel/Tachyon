@@ -29,7 +29,8 @@ namespace tachyon::core {
 		SendFailed,
 		ReceiveFailed,
 		ProtocolMismatch,
-		SystemError
+		SystemError,
+		Interrupted
 	};
 
 	struct ImportedShm {

@@ -55,6 +55,8 @@ static tachyon_error_t map_transport_error(const TransportError error) TACHYON_N
 	switch (error) {
 	case TransportError::ProtocolMismatch:
 		return TACHYON_ERR_SYSTEM;
+	case TransportError::Interrupted:
+		return TACHYON_ERR_INTERRUPTED;
 	default:
 		return TACHYON_ERR_NETWORK;
 	}
