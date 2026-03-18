@@ -1,11 +1,12 @@
 import os
 import time
+import struct
 import threading
 import pytest
 import tachyon
 
 SOCKET_PATH = "/tmp/tachyon_test.sock"
-CAPACITY = 1 << 16 # 64KB
+CAPACITY = 1 << 16
 
 
 @pytest.fixture
@@ -61,5 +62,39 @@ def test_bus_zero_copy_api(clean_socket):
             with memoryview(tx) as mv:
                 mv[:] = payload
             tx.actual_size = len(payload)
+
+    server_thread.join(timeout=2.0)
+
+
+def test_bus_dlpack_pytorch(clean_socket):
+    try:
+        import torch
+    except ImportError:
+        pytest.skip("PyTorch is not installed. Skipping DLPack zero-copy test.")
+
+    data = struct.pack("4f", 1.5, 2.5, 3.5, 4.5)
+
+    def run_server():
+        with tachyon.Bus.listen(clean_socket, CAPACITY) as server:
+            with server.drain_batch() as batch:
+                msg = batch[0]
+                tensor = torch.from_dlpack(msg).view(torch.float32)
+
+                assert tensor.tolist() == [1.5, 2.5, 3.5, 4.5]
+                assert msg.actual_size == 16
+                assert msg.type_id == 99
+
+                del tensor
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.start()
+
+    time.sleep(0.1)
+
+    with tachyon.Bus.connect(clean_socket) as client:
+        with client.send_zero_copy(size=len(data), type_id=99) as tx:
+            with memoryview(tx) as mv:
+                mv[:] = data
+            tx.actual_size = len(data)
 
     server_thread.join(timeout=2.0)
