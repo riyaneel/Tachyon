@@ -574,6 +574,14 @@ static PyBufferProcs RxMsgViewBufferProcs = {
 	reinterpret_cast<getbufferproc>(RxMsgView_getbuffer), reinterpret_cast<releasebufferproc>(RxMsgView_releasebuffer)
 };
 
+namespace {
+	struct DLManagedTensorOwned {
+		DLManagedTensor tensor;
+		int64_t			shape[1];
+		int64_t			strides[1];
+	};
+} // namespace
+
 static PyObject *RxMsgView_dlpack_device(RxMsgView *self, PyObject *Py_UNUSED(ignored)) {
 	return Py_BuildValue("(ii)", 1, 0); // Return (kDLCPU, 0)
 }
@@ -590,9 +598,11 @@ static PyObject *RxMsgView_dlpack(RxMsgView *self, PyObject *args, PyObject *kwd
 		return nullptr;
 	}
 
-	auto *dlm = new (std::nothrow) DLManagedTensor{};
-	if (!dlm)
+	auto *owned = new (std::nothrow) DLManagedTensorOwned{};
+	if (!owned)
 		return PyErr_NoMemory();
+
+	DLManagedTensor *dlm = &owned->tensor;
 
 	// Raw Data Mapping
 	dlm->dl_tensor.data				  = const_cast<void *>(self->view->ptr);
@@ -603,20 +613,10 @@ static PyObject *RxMsgView_dlpack(RxMsgView *self, PyObject *args, PyObject *kwd
 	dlm->dl_tensor.dtype.bits		  = 8;
 	dlm->dl_tensor.dtype.lanes		  = 1;
 
-	auto *shape	  = new (std::nothrow) int64_t[1];
-	auto *strides = new (std::nothrow) int64_t[1];
-
-	if (!shape || !strides) {
-		delete[] shape;
-		delete[] strides;
-		delete dlm;
-		return PyErr_NoMemory();
-	}
-
-	shape[0]			   = static_cast<int64_t>(self->view->actual_size);
-	dlm->dl_tensor.shape   = shape;
-	strides[0]			   = 1;
-	dlm->dl_tensor.strides = strides;
+	owned->shape[0]		   = static_cast<int64_t>(self->view->actual_size);
+	dlm->dl_tensor.shape   = owned->shape;
+	owned->strides[0]	   = 1;
+	dlm->dl_tensor.strides = owned->strides;
 
 	dlm->dl_tensor.byte_offset = 0;
 
@@ -628,9 +628,8 @@ static PyObject *RxMsgView_dlpack(RxMsgView *self, PyObject *args, PyObject *kwd
 			parent->exports--;
 			Py_DECREF(parent);
 		}
-		delete[] managed_tensor->dl_tensor.shape;
-		delete[] managed_tensor->dl_tensor.strides;
-		delete managed_tensor;
+
+		delete reinterpret_cast<DLManagedTensorOwned *>(managed_tensor);
 	};
 
 	self->parent_batch->exports++;
