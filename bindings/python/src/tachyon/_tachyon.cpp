@@ -216,6 +216,12 @@ static PyObject *TxGuard_exit(TxGuard *self, PyObject *args) {
 	}
 
 	if (self->exports > 0) {
+		if (!self->committed && self->bus != nullptr) {
+			tachyon_commit_tx(self->bus, 0, 0);
+			self->committed = 1;
+			self->ptr		= nullptr;
+		}
+
 		PyErr_SetString(PyExc_BufferError, "Dangling memoryview detected: release buffer before exiting context.");
 		return nullptr;
 	}
@@ -442,6 +448,11 @@ static PyObject *RxBatchGuard_exit(RxBatchGuard *self, PyObject *args) {
 	}
 
 	if (self->exports > 0) {
+		if (!self->committed && self->bus != nullptr) {
+			tachyon_commit_rx_batch(self->bus, self->views, self->count);
+			self->committed = 1;
+		}
+
 		PyErr_SetString(PyExc_BufferError, "Dangling memoryview detected in batch: release before exiting context.");
 		return nullptr;
 	}
