@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "tachyon-sys",
+    "tachyon"
+]
+
+resolver = "2"

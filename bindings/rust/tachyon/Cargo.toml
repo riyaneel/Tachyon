@@ -1,0 +1,7 @@
+[package]
+name = "tachyon"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tachyon-sys = { path = "../tachyon-sys" }
