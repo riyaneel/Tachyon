@@ -245,6 +245,10 @@ namespace tachyon::core {
 	}
 
 	size_t Arena::acquire_rx_batch(RxView *views, const size_t max_msgs) noexcept {
+		// NOTE: This function is non-destructive. `local_tail_` is NOT advanced here.
+		// The caller MUST call commit_rx_batch() to release the consumer lock and
+		// advance the tail. A second call to acquire_rx_batch() before commit will
+		// return the same views.
 		if (max_msgs == 0) [[unlikely]]
 			return 0;
 
