@@ -369,8 +369,7 @@ tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, con
 void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (bus) {
 		TasGuard p_lock(bus->producer_lock);
-		TasGuard c_lock(bus->consumer_lock);
-		bus->arena.flush();
+		bus->arena.flush_tx();
 	}
 }
 

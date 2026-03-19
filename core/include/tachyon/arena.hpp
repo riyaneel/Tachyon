@@ -124,6 +124,8 @@ namespace tachyon::core {
 
 		void flush() noexcept;
 
+		void flush_tx() noexcept;
+
 		void set_consumer_sleeping(bool sleeping) const noexcept;
 
 		int wait_consumer_sleeping() const noexcept;

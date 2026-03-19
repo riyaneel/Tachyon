@@ -395,6 +395,17 @@ namespace tachyon::core {
 		}
 	}
 
+	void Arena::flush_tx() noexcept {
+		if (pending_tx_ > 0) {
+			layout_->indices.head.store(local_head_, std::memory_order_release);
+			pending_tx_ = 0;
+			std::atomic_thread_fence(std::memory_order_seq_cst);
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
+				platform_wake(&layout_->indices.consumer_sleeping);
+			}
+		}
+	}
+
 	void Arena::set_consumer_sleeping(const bool sleeping) const noexcept {
 		layout_->indices.consumer_sleeping.store(
 			sleeping ? 1 : 0, sleeping ? std::memory_order_release : std::memory_order_relaxed
