@@ -69,6 +69,10 @@ namespace tachyon::core {
 			return std::unexpected(ShmError::MapFailed);
 		}
 
+#if defined(__linux__)
+		::madvise(ptr, size, MADV_DONTFORK); // CoW safety
+#endif // #if defined(__linux__)
+
 		return SharedMemory(ptr, size, std::move(path), fd, true);
 	}
 
@@ -85,6 +89,10 @@ namespace tachyon::core {
 		if (ptr == MAP_FAILED) [[unlikely]] {
 			return std::unexpected(ShmError::MapFailed);
 		}
+
+#if defined(__linux__)
+		::madvise(ptr, size, MADV_DONTFORK); // CoW safety
+#endif // #if defined(__linux__)
 
 		return SharedMemory(ptr, size, "", fd, false);
 	}
