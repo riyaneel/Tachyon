@@ -5,3 +5,11 @@ edition = "2024"
 
 [dependencies]
 tachyon-sys = { path = "../tachyon-sys" }
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+
+[profile.release.build-override]
+opt-level = 3
