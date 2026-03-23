@@ -29,6 +29,33 @@ set(LINK_OPTIONS
 		$<$<CONFIG:Debug>:-fsanitize=address -fsanitize=undefined>
 )
 
+set(TACHYON_PGO_PHASE "" CACHE STRING "PGO phase: GENERATE or USE (empty = disabled)")
+
+set(TACHYON_PGO_DIR "${CMAKE_BINARY_DIR}/pgo-data" CACHE PATH "Directory for PGO profile data")
+
+if (TACHYON_PGO_PHASE STREQUAL "GENERATE")
+	message(STATUS "Tachyon: PGO phase 1 — GENERATE (profile dir: ${TACHYON_PGO_DIR})")
+	list(APPEND TACHYON_RELEASE_FLAGS -fprofile-generate=${TACHYON_PGO_DIR})
+	list(APPEND LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-generate=${TACHYON_PGO_DIR}>)
+elseif (TACHYON_PGO_PHASE STREQUAL "USE")
+	if (NOT EXISTS "${TACHYON_PGO_DIR}")
+		message(FATAL_ERROR "PGO_PHASE=USE but profile directory does not exist: ${TACHYON_PGO_DIR}\n"
+				"Run phase GENERATE first, then execute the benchmark.")
+	endif ()
+	message(STATUS "Tachyon: PGO phase 2 — USE (profile dir: ${TACHYON_PGO_DIR})")
+	list(APPEND TACHYON_RELEASE_FLAGS
+			-fprofile-use=${TACHYON_PGO_DIR}
+			-fprofile-correction       # tolerate minor counter mismatches from LTO+PGO
+			-Wno-missing-profile       # expected: some TUs have no counters
+	)
+	list(APPEND LINK_OPTIONS
+			$<$<CONFIG:Release>:-fprofile-use=${TACHYON_PGO_DIR}>
+			$<$<CONFIG:Release>:-fprofile-correction>
+	)
+elseif (NOT TACHYON_PGO_PHASE STREQUAL "")
+	message(FATAL_ERROR "Invalid TACHYON_PGO_PHASE '${TACHYON_PGO_PHASE}'. Use GENERATE or USE.")
+endif ()
+
 add_subdirectory(core)
 add_subdirectory(test)
 add_subdirectory(benchmark)
