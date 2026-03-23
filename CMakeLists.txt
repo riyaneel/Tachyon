@@ -61,4 +61,27 @@ add_subdirectory(test)
 add_subdirectory(benchmark)
 add_subdirectory(bindings)
 
+option(TACHYON_ENABLE_FUZZING "Build libFuzzer harnesses (Clang only)" OFF)
+
+if(TACHYON_ENABLE_FUZZING)
+	if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		message(FATAL_ERROR
+				"TACHYON_ENABLE_FUZZING=ON requires Clang.\n"
+				"Current compiler: ${CMAKE_CXX_COMPILER_ID} (${CMAKE_CXX_COMPILER})\n"
+				"libFuzzer is part of the Clang toolchain and is not available under GCC.\n"
+				"Re-run cmake with: -DCMAKE_CXX_COMPILER=clang++"
+		)
+	endif()
+
+	if(TACHYON_PGO_PHASE STREQUAL "GENERATE")
+		message(FATAL_ERROR
+				"TACHYON_ENABLE_FUZZING=ON is incompatible with TACHYON_PGO_PHASE=GENERATE.\n"
+				"PGO instrumentation and libFuzzer instrumentation conflict at link time."
+		)
+	endif()
+
+	message(STATUS "Tachyon: Fuzzing enabled (libFuzzer + ASan)")
+	add_subdirectory(fuzz)
+endif()
+
 message(STATUS "Tachyon: Build type -> ${CMAKE_BUILD_TYPE}")
