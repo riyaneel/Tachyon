@@ -1,5 +1,20 @@
 #include <new>
 
+#if defined(__linux__)
+#include <sys/syscall.h>
+#include <unistd.h>
+
+// Inline the constants to avoid requiring linux/mempolicy.h in all environments.
+// These values are stable ABI since Linux 2.6.7.
+#ifndef MPOL_PREFERRED
+#define MPOL_PREFERRED 1
+#endif // #ifndef MPOL_PREFERRED
+
+#ifndef MPOL_MF_MOVE
+#define MPOL_MF_MOVE (1 << 1)
+#endif // #ifndef MPOL_MF_MOVE
+#endif // #if defined(__linux__)
+
 #include <tachyon.h>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
@@ -142,6 +157,53 @@ void tachyon_bus_destroy(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (bus && bus->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
 		delete bus;
 	}
+}
+
+tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, const int node_id) TACHYON_NOEXCEPT {
+	if (!bus) [[unlikely]]
+		return TACHYON_ERR_NULL_PTR;
+
+#if defined(__linux__)
+	if (node_id < 0) [[unlikely]]
+		return TACHYON_ERR_INVALID_SZ;
+
+	void  *ptr  = bus->shm.get_ptr();
+	const size_t size = bus->shm.get_size();
+
+	if (!ptr || size == 0) [[unlikely]]
+		return TACHYON_ERR_NULL_PTR;
+
+	if (node_id >= 64) [[unlikely]]
+		return TACHYON_ERR_INVALID_SZ;
+
+	const unsigned long nodeMask = 1UL << static_cast<unsigned int>(node_id);
+	const unsigned long maxNode  = static_cast<unsigned long>(node_id) + 2UL;
+
+	// MPOL_PREFERRED: allocate on the requested node when possible.
+	// Falls back to other nodes rather than failing hard — production-safe.
+	// MPOL_MF_MOVE: migrate pages already allocated by mmap(MAP_POPULATE).
+	// Without this flag, pages allocated before this call would remain on
+	// their original node, defeating the purpose entirely.
+	const long ret = syscall(
+		SYS_mbind,
+		ptr,
+		size,
+		MPOL_PREFERRED,
+		&nodeMask,
+		maxNode,
+		static_cast<unsigned long>(MPOL_MF_MOVE)
+	);
+
+	if (ret != 0) [[unlikely]]
+		return TACHYON_ERR_SYSTEM;
+
+	return TACHYON_SUCCESS;
+#else  // #if defined(__linux__)
+	// NUMA memory binding is a Linux-specific feature.
+	// On macOS and other platforms, this is a no-op.
+	(void)node_id;
+	return TACHYON_SUCCESS;
+#endif // #if defined(__linux__) #else
 }
 
 void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) TACHYON_NOEXCEPT {

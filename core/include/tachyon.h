@@ -64,6 +64,8 @@ TACHYON_ABI void tachyon_bus_ref(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI void tachyon_bus_destroy(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
+TACHYON_ABI tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, int node_id) TACHYON_NOEXCEPT;
+
 TACHYON_ABI void *tachyon_acquire_tx(tachyon_bus_t *bus, size_t max_payload_size) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_error_t
