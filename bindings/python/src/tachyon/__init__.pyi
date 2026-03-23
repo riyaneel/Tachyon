@@ -1,5 +1,5 @@
 import types
-from typing import Iterator, Generator, Optional, Type
+from typing import Iterator, Generator, Optional, Type, Any
 from . import _tachyon
 
 __all__ = [
@@ -15,9 +15,11 @@ __all__ = [
 ]
 __version__ = "0.1.0"
 
+
 class PeerDeadError:
     """Raised when the peer process is dead or unresponsive."""
     pass
+
 
 class TachyonError(Exception):
     """Base Tachyon IPC exception."""
@@ -65,6 +67,19 @@ class Bus:
         """Unmaps SHM and closes FDs."""
         ...
 
+    def set_numa_node(self, node_id: int) -> None:
+        """
+        Binds the shared memory backing this bus to a specific NUMA node.
+
+        Uses MPOL_PREFERRED + MPOL_MF_MOVE. Call immediately after listen()/connect().
+        No-op on non-Linux platforms.
+
+        :param node_id: NUMA node index (0-based, 0–63).
+        :raise OSError: mbind() failure (invalid node or missing CAP_SYS_NICE).
+        :raise ValueError: node_id negative or >= 64.
+        """
+        ...
+
     def send(self, data: bytes, type_id: int = 0) -> None:
         """Blocking SPSC write. Copies payload, commits, and flushes."""
         ...
@@ -79,4 +94,8 @@ class Bus:
 
     def recv_zero_copy(self) -> RxGuard:
         """Zero-copy RX lock. Returns raw RxGuard. Caller must release memoryview before context exit."""
+        ...
+
+    def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> Any:
+        """Batch RX. Blocks until ≥1 message, drains up to max_msgs."""
         ...

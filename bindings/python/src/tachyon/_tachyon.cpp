@@ -959,9 +959,39 @@ static PyObject *TachyonBus_drain_batch(TachyonBus *self, PyObject *args, PyObje
 }
 
 /**
+ * Binds the shared memory backing this bus to a specific NUMA node.
+ * Uses MPOL_PREFERRED policy with MPOL_MF_MOVE to migrate existing pages.
+ * No-op on non-Linux platforms (returns None silently).
+ * @param self The TachyonBus instance
+ * @param args Positional args containing node_id
+ * @param kwds Keyword args containing node_id
+ * @return Py_None on success, or nullptr if an exception is raised
+ */
+static PyObject *TachyonBus_set_numa_node(TachyonBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("node_id"), nullptr};
+	int			 node_id;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "i", kwlist, &node_id)) {
+		return nullptr;
+	}
+
+	if (self->bus == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonBus is not initialized.");
+		return nullptr;
+	}
+
+	const tachyon_error_t err = tachyon_bus_set_numa_node(self->bus, node_id);
+	if (err != TACHYON_SUCCESS) {
+		return raise_tachyon_error(err);
+	}
+
+	Py_RETURN_NONE;
+}
+
+/**
  * @brief Array of methods exposed by TachyonBus object
  */
-static PyMethodDef TachyonBusMethods[8] = {
+static PyMethodDef TachyonBusMethods[9] = {
 	{"listen", reinterpret_cast<PyCFunction>(TachyonBus_listen), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"connect", reinterpret_cast<PyCFunction>(TachyonBus_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"destroy", reinterpret_cast<PyCFunction>(TachyonBus_destroy), METH_NOARGS, nullptr},
@@ -969,6 +999,7 @@ static PyMethodDef TachyonBusMethods[8] = {
 	{"acquire_tx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_tx), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"acquire_rx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_rx), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"drain_batch", reinterpret_cast<PyCFunction>(TachyonBus_drain_batch), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"set_numa_node", reinterpret_cast<PyCFunction>(TachyonBus_set_numa_node), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{nullptr, nullptr, 0, nullptr}
 };
 

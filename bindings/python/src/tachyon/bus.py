@@ -39,6 +39,25 @@ class Bus:
         instance._bus.connect(socket_path=socket_path)
         return instance
 
+    def set_numa_node(self, node_id: int) -> None:
+        """
+        Binds the shared memory backing this bus to a specific NUMA node.
+
+        Uses MPOL_PREFERRED policy: allocates on the requested node when possible,
+        falling back to other nodes rather than failing. Pages already allocated by
+        mmap(MAP_POPULATE) are migrated via MPOL_MF_MOVE.
+
+        Call immediately after listen()/connect(), before the first message, to
+        ensure all ring buffer pages are on the desired node before the hot path.
+
+        No-op on non-Linux platforms.
+
+        :param node_id: NUMA node index (0-based, 0–63). Must be online.
+        :raise OSError: If mbind() fails (invalid node, or missing CAP_SYS_NICE).
+        :raise ValueError: If node_id is negative or >= 64.
+        """
+        self._bus.set_numa_node(node_id=node_id)
+
     def send(self, data: bytes, type_id: int = 0) -> None:
         """Blocking SPSC write. Copies payload, commits, and flushes."""
         size = len(data)
