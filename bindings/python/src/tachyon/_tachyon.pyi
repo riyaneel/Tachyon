@@ -110,3 +110,13 @@ class TachyonBus:
         Returns a context manager yielding a sequence of messages.
         """
         ...
+
+    def set_numa_node(self, node_id: int) -> None:
+        """
+        Binds the shared memory backing this bus to a specific NUMA node.
+        Uses MPOL_PREFERRED + MPOL_MF_MOVE. No-op on non-Linux platforms.
+
+        :raise ValueError: node_id negative or >= 64.
+        :raise OSError: mbind() failure.
+        """
+        ...
