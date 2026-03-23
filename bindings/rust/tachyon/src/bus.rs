@@ -55,6 +55,26 @@ impl Bus {
         })
     }
 
+    /// Bind the shared memory backing this bus to a specific NUMA node.
+    ///
+    /// Uses `MPOL_PREFERRED` policy — prefers the requested node but falls back
+    /// rather than failing hard. Pages already allocated by `mmap(MAP_POPULATE)`
+    /// are migrated via `MPOL_MF_MOVE`.
+    ///
+    /// **Call immediately after `listen()`/`connect()`, before the first message.**
+    /// This ensures all ring buffer pages are on the desired node before the hot
+    /// path begins, avoiding cross-socket cache coherence traffic on every access.
+    ///
+    /// No-op on non-Linux platforms (returns `Ok(())`).
+    ///
+    /// # Errors
+    /// - `InvalidSize` if `node_id` is negative or >= 64
+    /// - `SystemError` if `mbind()` fails (check `errno`: `EINVAL` = invalid node,
+    ///   `EPERM` = missing `CAP_SYS_NICE`)
+    pub fn set_numa_node(&self, node_id: i32) -> Result<(), TachyonError> {
+        from_raw(unsafe { tachyon_bus_set_numa_node(self.inner.as_ptr(), node_id) })
+    }
+
     /// Blocking SPSC write. Copies payload, commits, and flushes.
     pub fn send(&self, data: &[u8], type_id: u32) -> Result<(), TachyonError> {
         let guard = self.acquire_tx(data.len())?;
