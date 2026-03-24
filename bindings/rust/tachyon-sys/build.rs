@@ -9,7 +9,7 @@ fn main() {
     cc::Build::new()
         .cpp(true)
         .opt_level(3)
-        .flag("-std=c++26")
+        .flag("-std=c++23")
         .flag("-march=native")
         .flag("-mtune=native")
         .flag("-fno-exceptions")

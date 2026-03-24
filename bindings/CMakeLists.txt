@@ -4,6 +4,6 @@ if (Python3_FOUND)
 	target_link_libraries(tachyon_python PRIVATE tachyon Python3::Python)
 	set_target_properties(tachyon_python PROPERTIES
 			EXCLUDE_FROM_ALL ON
-			CXX_STANDARD 26
+			CXX_STANDARD 23
 	)
 endif ()

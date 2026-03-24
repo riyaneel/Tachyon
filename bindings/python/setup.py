@@ -15,7 +15,7 @@ if os.path.exists(CORE_SRC_DIR):
     shutil.copytree(CORE_SRC_DIR, CORE_LOCAL_DIR)
 
 compile_args = [
-    "-std=c++26",
+    "-std=c++23",
     "-O3",
     "-march=native",
     "-mtune=native",

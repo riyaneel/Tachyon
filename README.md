@@ -36,7 +36,7 @@ instantly rejected, physically preventing silent memory corruption or segmentati
 ### 1.2 The Data Plane (Hot Path)
 
 Once the memory mapping (`mmap`) is established, the socket is permanently discarded. All subsequent I/O operations
-occur directly in the shared RAM segment. The SPSC ring buffer relies on C++26 atomic primitives utilizing strict
+occur directly in the shared RAM segment. The SPSC ring buffer relies on C++23 atomic primitives utilizing strict
 `memory_order_acquire` and `memory_order_release` semantics. Data materialized by the producer is instantly visible in
 the consumer's virtual address space.
 
@@ -118,9 +118,9 @@ language's memory model:
 
 ## 5. Build Requirements
 
-Tachyon leverages modern C++26 features and requires an up-to-date build toolchain.
+Tachyon leverages modern C++23 features and requires an up-to-date build toolchain.
 
-* **CMake:** 3.31+ (Required for C++26 support)
+* **CMake:** 3.31+
 * **Compiler:** GCC 14.0+ or Clang 17.0+
 * **OS:** Linux (Kernel 5.10+) or macOS 13+
 
