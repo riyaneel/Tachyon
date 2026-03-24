@@ -136,5 +136,6 @@ dmypy.json
 cython_debug/
 Pipfile.lock
 bindings/python/_core_local/
+bindings/rust/tachyon-sys/vendor/
 fuzz/corpus/artifacts/
 fuzz/corpus/crashes/
