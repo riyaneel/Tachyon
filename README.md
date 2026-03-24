@@ -5,9 +5,38 @@
 [![Crates.io](https://img.shields.io/crates/v/tachyon-ipc)](https://crates.io/crates/tachyon-ipc)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-Tachyon is a bare-metal, lock-free IPC primitive. Strictly-bounded SPSC ring
-buffer over POSIX shared memory, with zero-copy bindings for Python, Rust,
-and C++.
+Tachyon is a bare-metal, lock-free IPC primitive. Strictly-bounded SPSC ring buffer over POSIX shared memory, with
+zero-copy bindings for Python, Rust, and C++.
+
+---
+
+- [When to use](#when-to-use-tachyon)
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Benchmarks](#benchmarks)
+- [Examples](#examples)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+
+---
+
+## When to use Tachyon
+
+- **ML inference pipeline** — a C++ or Rust process generates feature vectors
+  faster than Python can consume them. Tachyon lets PyTorch read directly from
+  shared memory via DLPack or `memoryview`, with no serialization and no kernel
+  copies on the hot path.
+- **Trading feed** — a native order book process pushes market data ticks at
+  1M+ msg/sec to a Python strategy. Zero-copy `send_zero_copy` + typed
+  `type_id` routing keeps the producer below 100 ns per message.
+- **Audio / video inter-process** — a real-time encoder or DSP process pushes
+  fixed-size frames to a consumer on the same machine. The SPSC ring absorbs
+  bursts during consumer pauses without dropping frames or blocking the
+  producer.
+
+If both ends are Python, use `multiprocessing.SharedMemory` — it is simpler.
+Tachyon is the right tool when at least one end is native code that must feed
+data at RAM speed.
 
 ---
 
@@ -85,7 +114,7 @@ def server():
     with tachyon.Bus.listen("/tmp/demo_zc.sock", 1 << 16) as bus:
         with bus.recv_zero_copy() as rx:
             with memoryview(rx) as mv:
-                data = mv.tobytes()  # single copy into Python heap
+                data = mv.tobytes()
 
 
 t = threading.Thread(target=server)
@@ -106,7 +135,7 @@ t.join()
 import struct, threading
 import torch, tachyon
 
-data = struct.pack("4f", 1.0, 2.0, 3.0, 4.0)  # 16 bytes, 4× float32
+data = struct.pack("4f", 1.0, 2.0, 3.0, 4.0)
 
 
 def server():
@@ -114,7 +143,7 @@ def server():
         with bus.drain_batch() as batch:
             tensor = torch.from_dlpack(batch[0]).view(torch.float32)
             print(tensor)  # tensor([1., 2., 3., 4.])
-            del tensor  # release before batch commits
+            del tensor
 
 
 t = threading.Thread(target=server)
@@ -172,13 +201,11 @@ int main() {
     auto producer = Arena::format(shm.data(), CAPACITY).value();
     auto consumer = Arena::attach(shm.data()).value();
 
-    // TX
     std::byte *tx = producer.acquire_tx(32);
     std::memset(tx, 0xAB, 32);
     producer.commit_tx(32, /*type_id=*/1);
     producer.flush();
 
-    // RX
     uint32_t type_id = 0;
     size_t   actual  = 0;
     const std::byte *rx = consumer.acquire_rx(type_id, actual);
@@ -190,25 +217,51 @@ int main() {
 
 ## Benchmarks
 
-Ping-pong RTT, two threads, 32-byte payload, 1 000 000 samples.  
+Ping-pong RTT, two processes, 32-byte payload, 1 000 000 samples.  
 **Machine:** Intel Core i7-12650H, 64 GiB DDR5-5600 SODIMM.  
-**Build:** GCC 14, PGO Release (`scripts/pgo_build.sh`), `taskset -c 7,8,9`.
+**Build:** GCC 14, Release, `SCHED_FIFO` priority 99, `mlockall`, cores 8/9 pinned.
 
-| Percentile | Latency   |
-|------------|-----------|
-| Min        | 78 ns     |
-| p50        | 93 ns     |
-| p90        | 145 ns    |
-| p99        | 155 ns    |
-| p99.9      | 166 ns    |
-| p99.99     | 350 ns    |
-| Max        | 17 540 ns |
+| Percentile | Latency  |
+|------------|----------|
+| Min        | 95 ns    |
+| p50        | 124 ns   |
+| p90        | 191 ns   |
+| p99        | 205 ns   |
+| p99.9      | 237 ns   |
+| p99.99     | 510 ns   |
+| Max        | 4 938 ns |
+
+**Throughput: 6 686 K RTT/sec · One-way p50: 62 ns**
+
+p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`,
+the tail converges toward the p99 band.
+
+Intra-process benchmark (two threads, same arena, PGO):
+
+| Percentile | Latency |
+|------------|---------|
+| p50        | 93 ns   |
+| p99        | 155 ns  |
+| p99.99     | 350 ns  |
 
 **Throughput: 8 553 K RTT/sec**
 
-Max spikes reflect OS scheduler preemption on a non-isolated laptop core — not
-a ring buffer pathology. On a server with isolated cores, p99.99 converges
-toward the p99.9 band.
+---
+
+## Examples
+
+End-to-end cross-language examples in [`examples/`](./examples). Each runs in
+two terminals and uses a typed payload with a sentinel shutdown signal.
+
+| Example                                                                   | Producer | Consumer       | Throughput                     | Payload                |
+|---------------------------------------------------------------------------|----------|----------------|--------------------------------|------------------------|
+| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **6 686 K RTT/s** · p50 124 ns | 32 bytes               |
+| [python_producer_rust_consumer](./examples/python_producer_rust_consumer) | Python   | Rust           | **1 060 K msg/s**              | 32 bytes `MarketTick`  |
+| [rust_producer_python_consumer](./examples/rust_producer_python_consumer) | Rust     | Python (torch) | **466 K frames/s** · 0.48 GB/s | 1 024 bytes `f32[256]` |
+| [cpp_producer_python_consumer](./examples/cpp_producer_python_consumer)   | C++      | Python (torch) | **370 K frames/s** · 0.38 GB/s | 1 024 bytes `f32[256]` |
+
+All numbers: i7-12650H · DDR5-5600 · Ubuntu 24.04 · no CPU isolation (except
+`cpp_producer_cpp_consumer` which uses `SCHED_FIFO` + core pinning).
 
 ---
 
@@ -244,7 +297,8 @@ the ring buffer lifetime. Python surfaces the buffer protocol
 (`memoryview`) and DLPack (`__dlpack__`), allowing PyTorch, JAX, and NumPy
 to consume payloads directly from shared memory without copying.
 
-For wire protocol details and ABI guarantees → [`ABI.md`](./ABI.md).
+For wire protocol details and ABI guarantees → [`ABI.md`](./ABI.md).  
+For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATION.md`](./INTEGRATION.md).
 
 ---
 
