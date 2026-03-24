@@ -10,6 +10,16 @@
 
 #include <tachyon/arena.hpp>
 
+#if defined(__has_feature) && __has_feature(thread_sanitizer)
+extern "C" void __tsan_acquire(void *addr);
+extern "C" void __tsan_release(void *addr);
+#define TACHYON_TSAN_ACQUIRE(p) __tsan_acquire(p)
+#define TACHYON_TSAN_RELEASE(p) __tsan_release(p)
+#else // #if defined(__has_feature) && __has_feature(thread_sanitizer)
+#define TACHYON_TSAN_ACQUIRE(p) (void)(p)
+#define TACHYON_TSAN_RELEASE(p) (void)(p)
+#endif // #if defined(__has_feature) && __has_feature(thread_sanitizer) # else
+
 namespace tachyon::core {
 	namespace {
 		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
@@ -37,6 +47,7 @@ namespace tachyon::core {
 				if (errno == ETIMEDOUT)
 					return WaitResult::Timeout;
 			}
+			TACHYON_TSAN_ACQUIRE(addr);
 			return WaitResult::Woken;
 #elif defined(__APPLE__)
 			if (__ulock_wait(UL_COMPARE_AND_WAIT, addr, 1, WATCHDOG_TIMEOUT_US) == -1) {
@@ -45,6 +56,7 @@ namespace tachyon::core {
 				if (errno == ETIMEDOUT)
 					return WaitResult::Timeout;
 			}
+			TACHYON_TSAN_ACQUIRE(addr);
 			return WaitResult::Woken;
 #else
 #include <thread>
@@ -55,6 +67,7 @@ namespace tachyon::core {
 		}
 
 		inline void platform_wake(std::atomic<uint32_t> *addr) noexcept {
+			TACHYON_TSAN_RELEASE(addr);
 #if defined(__linux__)
 			syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
 #elif defined(__APPLE__)
