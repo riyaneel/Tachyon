@@ -1,11 +1,61 @@
 import os
 import shutil
 import sys
+import subprocess
 import urllib.request
 from setuptools import setup, Extension, find_packages
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(HERE, "..", ".."))
+
+
+def _check_compiler():
+    cxx = os.environ.get("CXX", "g++")
+    try:
+        result = subprocess.run(
+            [cxx, "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        version_line = result.stdout.splitlines()[0]
+
+        if "g++" in version_line or "GCC" in version_line:
+            import re
+            m = re.search(r"(\d+)\.\d+\.\d+", version_line)
+            if m and int(m.group(1)) < 14:
+                sys.exit(
+                    f"\n[tachyon-ipc] Unsupported GCC version: {version_line}\n"
+                    f"  Required: GCC 14+\n"
+                    f"  Install:  sudo apt-get install gcc-14 g++-14\n"
+                    f"  Then:     CXX=g++-14 pip install tachyon-ipc\n"
+                )
+
+        if "clang" in version_line.lower():
+            import re
+            m = re.search(r"(\d+)\.\d+\.\d+", version_line)
+            if m and int(m.group(1)) < 17:
+                sys.exit(
+                    f"\n[tachyon-ipc] Unsupported Clang version: {version_line}\n"
+                    f"  Required: Clang 17+\n"
+                    f"  Install:  sudo apt-get install clang-18\n"
+                    f"  Then:     CXX=clang++-18 pip install tachyon-ipc\n"
+                )
+
+    except FileNotFoundError:
+        sys.exit(
+            f"\n[tachyon-ipc] C++ compiler not found: '{cxx}'\n"
+            f"  tachyon-ipc compiles a C++23 extension at install time.\n"
+            f"  Install GCC 14+:  sudo apt-get install gcc-14 g++-14\n"
+            f"  Then:             CXX=g++-14 pip install tachyon-ipc\n"
+            f"  Or Clang 17+:     sudo apt-get install clang-18\n"
+            f"                    CXX=clang++-18 pip install tachyon-ipc\n"
+        )
+    except subprocess.CalledProcessError:
+        pass
+
+
+_check_compiler()
 
 CORE_SRC_DIR = os.path.join(ROOT_DIR, "core")
 CORE_LOCAL_DIR = os.path.join(HERE, "_core_local")

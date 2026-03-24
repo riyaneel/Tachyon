@@ -19,6 +19,9 @@ and C++.
 pip install tachyon-ipc
 ```
 
+> **Note:** the PyPI package is `tachyon-ipc` — not `tachyon` (which is an unrelated quantum simulator). Always install
+> with `pip install tachyon-ipc`.
+
 **Rust:**
 
 ```bash
