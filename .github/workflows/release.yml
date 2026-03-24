@@ -1,4 +1,4 @@
-name: Changelog
+name: Release
 
 on:
   push:
@@ -6,10 +6,9 @@ on:
       - "v*"
 
 jobs:
-  generate:
-    name: Generate and commit CHANGELOG
+  changelog:
+    name: Generate CHANGELOG
     runs-on: ubuntu-24.04
-
     permissions:
       contents: write
 
@@ -26,10 +25,168 @@ jobs:
       - name: Generate CHANGELOG section
         run: python3 scripts/gen_changelog.py "${{ github.ref_name }}"
 
-      - name: Commit and push CHANGELOG
+      - name: Commit CHANGELOG
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG
-          git diff --cached --quiet || git commit -m "docs(changelog): update for ${{ github.ref_name }}"
+          git diff --cached --quiet || \
+            git commit -m "docs(changelog): update for ${{ github.ref_name }}"
           git push origin HEAD:main
+
+  python_sdist:
+    name: Build sdist + Publish PyPI
+    needs: [ changelog ]
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tachyon-ipc
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-14 g++-14 python3-dev
+          sudo mkdir -p /usr/local/include/dlpack
+          sudo curl -fsSL -o /usr/local/include/dlpack/dlpack.h \
+            https://raw.githubusercontent.com/dmlc/dlpack/main/include/dlpack/dlpack.h
+
+      - name: Build sdist
+        env:
+          CXX: g++-14
+          CC: gcc-14
+        working-directory: bindings/python
+        run: |
+          pip install build
+          python -m build --sdist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-sdist
+          path: bindings/python/dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Publish to PyPI
+        if: |
+          !contains(github.ref_name, '-rc') &&
+          !contains(github.ref_name, '-alpha') &&
+          !contains(github.ref_name, '-beta')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: bindings/python/dist/
+
+  rust_publish:
+    name: Publish crates.io
+    needs: [ changelog ]
+    if: |
+      !contains(github.ref_name, '-rc') &&
+      !contains(github.ref_name, '-alpha') &&
+      !contains(github.ref_name, '-beta')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-14 g++-14
+
+      - name: Vendor C++ core
+        run: bash scripts/vendor_rust.sh
+
+      - name: Publish tachyon-sys
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CXX: g++-14
+          CC: gcc-14
+        working-directory: bindings/rust
+        run: cargo publish -p tachyon-sys
+
+      - name: Wait for crates.io index propagation
+        run: sleep 60
+
+      - name: Publish tachyon-ipc
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CXX: g++-14
+          CC: gcc-14
+        working-directory: bindings/rust
+        run: cargo publish -p tachyon-ipc
+
+  github_release:
+    name: Create GitHub Release
+    needs: [ python_sdist ]
+    if: always() && needs.python_sdist.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download Python sdist
+        uses: actions/download-artifact@v8
+        with:
+          name: python-sdist
+          path: dist/
+
+      - name: Create C++ source tarball
+        run: |
+          TAG="${{ github.ref_name }}"
+          git archive \
+            --format=tar.gz \
+            --prefix="tachyon-${TAG}/" \
+            --output="dist/tachyon-${TAG}-source.tar.gz" \
+            "${TAG}"
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          python3 - <<'EOF' > /tmp/release_notes.md
+          import re, sys
+
+          tag = "${{ github.ref_name }}"
+          try:
+              text = open("CHANGELOG").read()
+              pattern = rf"(## \[{re.escape(tag)}\].*?)(?=\n## |\Z)"
+              m = re.search(pattern, text, re.DOTALL)
+              if m:
+                  print(m.group(1).strip())
+              else:
+                  print(f"Release {tag}")
+          except FileNotFoundError:
+              print(f"Release {tag}")
+          EOF
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          PRERELEASE_FLAG=""
+          if echo "${TAG}" | grep -qE '\-(rc|alpha|beta)'; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "${TAG}" \
+            --title "Tachyon ${TAG}" \
+            --notes-file /tmp/release_notes.md \
+            ${PRERELEASE_FLAG} \
+            dist/*.tar.gz
