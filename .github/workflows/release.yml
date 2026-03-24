@@ -114,7 +114,7 @@ jobs:
           CXX: g++-14
           CC: gcc-14
         working-directory: bindings/rust
-        run: cargo publish -p tachyon-sys
+        run: cargo publish -p tachyon-sys --allow-dirty
 
       - name: Wait for crates.io index propagation
         run: sleep 60
@@ -125,7 +125,7 @@ jobs:
           CXX: g++-14
           CC: gcc-14
         working-directory: bindings/rust
-        run: cargo publish -p tachyon-ipc
+        run: cargo publish -p tachyon-ipc --allow-dirty
 
   github_release:
     name: Create GitHub Release
