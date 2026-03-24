@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import urllib.request
 from setuptools import setup, Extension, find_packages
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -13,6 +14,23 @@ if os.path.exists(CORE_SRC_DIR):
     if os.path.exists(CORE_LOCAL_DIR):
         shutil.rmtree(CORE_LOCAL_DIR)
     shutil.copytree(CORE_SRC_DIR, CORE_LOCAL_DIR)
+
+DLPACK_LOCAL_DIR = os.path.join(HERE, "_dlpack_local", "dlpack")
+DLPACK_LOCAL_PATH = os.path.join(DLPACK_LOCAL_DIR, "dlpack.h")
+
+if not os.path.exists(DLPACK_LOCAL_PATH):
+    os.makedirs(DLPACK_LOCAL_DIR, exist_ok=True)
+    print(f"Downloading dlpack.h → {DLPACK_LOCAL_PATH}")
+    urllib.request.urlretrieve(
+        "https://raw.githubusercontent.com/dmlc/dlpack/main/include/dlpack/dlpack.h",
+        DLPACK_LOCAL_PATH,
+    )
+
+README_PATH = os.path.join(HERE, "README.md")
+if not os.path.exists(README_PATH):
+    root_readme = os.path.join(ROOT_DIR, "README.md")
+    if os.path.exists(root_readme):
+        shutil.copy(root_readme, README_PATH)
 
 compile_args = [
     "-std=c++23",
@@ -36,12 +54,15 @@ ext_modules = [
             "_core_local/src/arena.cpp",
             "_core_local/src/shm.cpp",
             "_core_local/src/tachyon_c.cpp",
-            "_core_local/src/transport_uds.cpp"
+            "_core_local/src/transport_uds.cpp",
         ],
-        include_dirs=["_core_local/include"],
+        include_dirs=[
+            "_core_local/include",
+            "_dlpack_local",
+        ],
         libraries=libraries,
         extra_compile_args=compile_args,
-        language="c++"
+        language="c++",
     )
 ]
 

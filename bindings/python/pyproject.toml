@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tachyon-ipc"
 version = "0.1.0"
-description = "Low-latency IPC"
+description = "Low-latency bare-metal IPC — SPSC ring buffer over POSIX shared memory"
+readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [{ name = "Riyane El Qoqui" }]
