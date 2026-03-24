@@ -1,0 +1,68 @@
+name: Fuzz regression
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  regression:
+    name: libFuzzer corpus regression
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang-18 \
+            libgtest-dev libbenchmark-dev \
+            gcc-14 g++-14 python3-dev \
+            libc++-18-dev libc++abi-18-dev
+
+      - name: Build fuzz targets
+        run: |
+          cmake -S . -B build-fuzz \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DTACHYON_ENABLE_FUZZING=ON \
+            "-DCMAKE_CXX_FLAGS=-stdlib=libc++" \
+            "-DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++"
+          cmake --build build-fuzz \
+            --target \
+              tachyon_fuzz_arena_rx \
+              tachyon_fuzz_arena_rx_batch \
+              tachyon_fuzz_header_parser
+
+      - name: Regression — arena_rx
+        run: |
+          mkdir -p fuzz/corpus/crashes
+          ./build-fuzz/fuzz/tachyon_fuzz_arena_rx \
+            fuzz/corpus/arena_rx \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
+      - name: Regression — arena_rx_batch
+        run: |
+          ./build-fuzz/fuzz/tachyon_fuzz_arena_rx_batch \
+            fuzz/corpus/arena_rx_batch \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
+      - name: Regression — header_parser
+        run: |
+          ./build-fuzz/fuzz/tachyon_fuzz_header_parser \
+            fuzz/corpus/header_parser \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
+      - name: Upload crashes
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crashes-${{ github.sha }}
+          path: fuzz/corpus/crashes/
+          if-no-files-found: ignore
