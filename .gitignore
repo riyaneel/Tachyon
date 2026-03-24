@@ -136,3 +136,5 @@ dmypy.json
 cython_debug/
 Pipfile.lock
 bindings/python/_core_local/
+fuzz/corpus/artifacts/
+fuzz/corpus/crashes/
