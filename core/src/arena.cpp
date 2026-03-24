@@ -4,6 +4,7 @@
 
 #if defined(__linux__)
 #include <linux/futex.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #endif // #if defined(__linux__)
 

@@ -17,10 +17,9 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build clang-18 \
-            libgtest-dev libbenchmark-dev \
-            gcc-14 g++-14 python3-dev \
-            libc++-18-dev libc++abi-18-dev
+          cmake ninja-build clang-18 \
+          libgtest-dev libbenchmark-dev \
+          gcc-14 g++-14 python3-dev
 
       - name: Build fuzz targets
         run: |
@@ -29,8 +28,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER=clang++-18 \
             -DTACHYON_ENABLE_FUZZING=ON \
-            "-DCMAKE_CXX_FLAGS=-stdlib=libc++" \
-            "-DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++"
+            "-DCMAKE_CXX_FLAGS=-isystem /usr/include/c++/14 -isystem /usr/include/x86_64-linux-gnu/c++/14"
           cmake --build build-fuzz \
             --target \
               tachyon_fuzz_arena_rx \

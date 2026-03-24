@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -12,8 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [gcc, clang]
-        build_type: [Debug, Release]
+        compiler: [ gcc, clang ]
+        build_type: [ Debug, Release ]
 
     steps:
       - uses: actions/checkout@v6
@@ -38,26 +38,22 @@ jobs:
         if: matrix.compiler == 'clang'
         run: |
           cmake -S . -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_C_COMPILER=clang-18 \
-            "-DCMAKE_CXX_FLAGS=-stdlib=libc++" \
-            "-DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++" \
-            "-DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++"
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_CXX_COMPILER=clang++-18 \
+          -DCMAKE_C_COMPILER=clang-18 \
+          "-DCMAKE_CXX_FLAGS=-isystem /usr/include/c++/14 -isystem /usr/include/x86_64-linux-gnu/c++/14"
 
-      - name: Build (GCC)
-        if: matrix.compiler == 'gcc'
-        run: cmake --build build --parallel
+          - name: Build (GCC)
+            if: matrix.compiler == 'gcc'
+            run: cmake --build build --parallel
 
-      - name: Build (Clang — core library only)
-        if: matrix.compiler == 'clang'
-        run: |
-          cmake --build build --parallel --target tachyon
+          - name: Build (Clang)
+            if: matrix.compiler == 'clang'
+            run: cmake --build build --parallel
 
-      - name: Test
-        if: matrix.compiler == 'gcc'
-        run: ctest --test-dir build --output-on-failure --parallel 4
+          - name: Test
+            run: ctest --test-dir build --output-on-failure --parallel 4
 
   python:
     name: Python bindings
