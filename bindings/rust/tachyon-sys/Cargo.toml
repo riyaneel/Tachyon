@@ -3,6 +3,16 @@ name = "tachyon-sys"
 version = "0.1.0"
 edition = "2024"
 links = "tachyon"
+description = "Low-level FFI bindings for the Tachyon IPC C core"
+license = "Apache-2.0"
+repository = "https://github.com/riyaneel/tachyon"
+include = [
+    "src/**/*",
+    "build.rs",
+    "Cargo.toml",
+    "vendor/core/include/**/*",
+    "vendor/core/src/**/*",
+]
 
 [build-dependencies]
 bindgen = "0.72.1"

@@ -1,6 +1,6 @@
 use std::thread;
 use std::time::Instant;
-use tachyon::Bus;
+use tachyon_ipc::Bus;
 
 const CAPACITY: usize = 1 << 24; // 16MB
 const WARMUP: usize = 1_000;

@@ -2,7 +2,15 @@ use std::path::PathBuf;
 
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let core_dir = manifest_dir.join("../../../core");
+    let core_dir = {
+        let vendored = manifest_dir.join("vendor/core");
+        if vendored.exists() {
+            vendored
+        } else {
+            manifest_dir.join("../../../core")
+        }
+    };
+
     let include_dir = core_dir.join("include");
     let src_dir = core_dir.join("src");
 
