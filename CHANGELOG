@@ -1,5 +1,21 @@
 # Changelog
 
+## [v0.1.1] — 2026-03-24
+
+### feat
+
+- `feat(examples)`: add Python producer and Rust consumer example with shared memory communication
+- `feat(examples)`: add C++ producer and Python consumer inference example with shared memory communication
+- `feat(examples)`: add Rust producer and Python consumer inference example with shared memory communication
+- `feat(examples)`: add C++ producer-consumer RTT benchmark with `ping`/`pong`
+- `feat(python)`: add compiler version checks and clarify installation instructions
+
+### docs
+
+- `docs(readme)`: expand documentation with use cases, architecture, and integration guide
+- `docs(rust)`: add README files for `tachyon-ipc` and `tachyon-sys` crates
+- `docs(changelog)`: update for v0.1.0
+
 ## [v0.1.0] — 2026-03-24
 
 ### feat
