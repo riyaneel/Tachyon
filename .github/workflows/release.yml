@@ -1,0 +1,35 @@
+name: Changelog
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  generate:
+    name: Generate and commit CHANGELOG
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Generate CHANGELOG section
+        run: python3 scripts/gen_changelog.py "${{ github.ref_name }}"
+
+      - name: Commit and push CHANGELOG
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG
+          git diff --cached --quiet || git commit -m "docs(changelog): update for ${{ github.ref_name }}"
+          git push origin HEAD:main
