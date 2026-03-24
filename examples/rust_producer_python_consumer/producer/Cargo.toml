@@ -1,0 +1,11 @@
+[package]
+name    = "inference-producer"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "producer"
+path = "src/main.rs"
+
+[dependencies]
+tachyon-ipc = { path = "../../../bindings/rust/tachyon" }
