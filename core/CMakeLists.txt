@@ -34,9 +34,13 @@ target_include_directories(tachyon
 		PRIVATE src
 )
 
-if(UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE)
 	target_link_libraries(tachyon PRIVATE rt)
-	target_link_options(tachyon PRIVATE "-Wl,-z,defs" "-Wl,-z,now" "-Wl,-z,relro")
-endif()
+	target_link_options(tachyon PRIVATE
+			$<$<NOT:$<CONFIG:Debug>>:-Wl,-z,defs>
+			"-Wl,-z,now"
+			"-Wl,-z,relro"
+	)
+endif ()
 
 set(TACHYON_LIBRARY tachyon PARENT_SCOPE)

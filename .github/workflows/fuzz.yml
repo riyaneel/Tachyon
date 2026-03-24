@@ -26,7 +26,7 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L" \
+            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined" \
             -DTACHYON_ENABLE_FUZZING=ON
           cmake --build build-fuzz \
             --target \

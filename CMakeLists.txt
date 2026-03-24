@@ -21,12 +21,12 @@ set(TACHYON_RELEASE_FLAGS
 )
 
 set(TACHYON_DEBUG_FLAGS
-		-O0 -g3 -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+		-O0 -g3 -fsanitize=address,undefined -fno-omit-frame-pointer
 )
 
 set(LINK_OPTIONS
 		$<$<CONFIG:Release>:-flto>
-		$<$<CONFIG:Debug>:-fsanitize=address -fsanitize=undefined>
+		$<$<CONFIG:Debug>:-fsanitize=address,undefined>
 )
 
 set(TACHYON_PGO_PHASE "" CACHE STRING "PGO phase: GENERATE or USE (empty = disabled)")
