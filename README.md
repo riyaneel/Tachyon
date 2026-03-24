@@ -1,139 +1,262 @@
 # Tachyon
 
----
+[![CI](https://github.com/riyaneel/tachyon/actions/workflows/ci.yml/badge.svg)](https://github.com/riyaneel/tachyon/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/tachyon-ipc)](https://pypi.org/project/tachyon-ipc/)
+[![Crates.io](https://img.shields.io/crates/v/tachyon-ipc)](https://crates.io/crates/tachyon-ipc)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-Tachyon is a bare-metal, lock-free Inter-Process Communication (IPC) primitive. It implements a strictly bounded,
-Single-Producer Single-Consumer (SPSC) ring buffer operating directly over POSIX shared memory.
-
-Engineered for extreme throughput and deterministic sub-microsecond latency, Tachyon bypasses the kernel, network
-stacks, and serialization schemas entirely. It acts as a pure, localized memory pipe, moving raw byte payloads across
-language boundaries at the physical limit of the CPU's memory controller.
-
----
-
-## 1. System Architecture
-
-Tachyon achieves deterministic latency on the hot path by strictly decoupling connection lifecycle management (the
-Control Plane) from data transmission (the Data Plane).
-
-### 1.1 The Control Plane (Bootstrapping & Discovery)
-
-Process discovery and connection handshakes are negotiated over Unix Domain Sockets (UDS). The UDS is exclusively used
-for two operations:
-
-1. **ABI Handshake:** Exchanging a strictly versioned payload containing ring capacity and memory layout configurations.
-2. **File Descriptor Passing:** Transferring anonymous shared memory file descriptors to the peer via the `SCM_RIGHTS`
-   ancillary message.
-
-**Non-Blocking Initialization:** To ensure host applications remain responsive, the UDS `accept()` and `connect()`
-phases utilize non-blocking I/O (`poll()`). This allows frameworks (e.g., CPython) to periodically release their
-execution locks, check for signals (`SIGINT`), and cleanly abort bootstrapping without inducing kernel-level deadlocks.
-
-**Runtime ABI Validation:** Tachyon dynamically validates micro-architectural parameters during the handshake. If the
-producer and consumer were compiled with differing cache-line alignments (`TACHYON_MSG_ALIGNMENT`), the connection is
-instantly rejected, physically preventing silent memory corruption or segmentation faults.
-
-### 1.2 The Data Plane (Hot Path)
-
-Once the memory mapping (`mmap`) is established, the socket is permanently discarded. All subsequent I/O operations
-occur directly in the shared RAM segment. The SPSC ring buffer relies on C++23 atomic primitives utilizing strict
-`memory_order_acquire` and `memory_order_release` semantics. Data materialized by the producer is instantly visible in
-the consumer's virtual address space.
+Tachyon is a bare-metal, lock-free IPC primitive. Strictly-bounded SPSC ring
+buffer over POSIX shared memory, with zero-copy bindings for Python, Rust,
+and C++.
 
 ---
 
-## 2. Hardware Sympathy & Concurrency
+## Install
 
-Tachyon is explicitly designed around the physical constraints of modern CPU micro-architectures (x86_64, aarch64).
-
-### 2.1 Cache-Line Packing & False Sharing Elimination
-
-Every internal control structure—including message headers, atomic read/write indices, and watchdog flags—is strictly
-padded and aligned to 64-byte or 128-byte boundaries. This mathematical alignment guarantees the absolute elimination of
-false sharing and cache-line straddling between producer and consumer cores.
-
-### 2.2 Amortized Atomics & Vectorized Batching
-
-To circumvent the heavy CPU pipeline penalty of memory barriers, Tachyon exposes a high-throughput batching topology (
-`drain_batch`). Consumers can ingest thousands of contiguous messages in a single Foreign Function Interface (FFI)
-boundary crossing. The engine computes the spatial advancement using SIMD-friendly reduction loops and updates the
-shared atomic tail index with a single instruction, drastically amortizing synchronization costs.
-
-### 2.3 The FFI Drop-Lock Pattern (MPSC/SPMC Safety)
-
-While the underlying memory ring is SPSC, Tachyon is designed to operate safely within multi-threaded host runtimes (
-e.g., Python with `Py_GIL_DISABLED` or Go runtimes). The C-API rigorously employs a **Drop-Lock** pattern: local atomic
-spinlocks are acquired strictly to evaluate the ring's state and are instantly released before the thread yields to the
-OS or begins a spin-cycle. This guarantees that multiple threads within the same process can concurrently contend for
-the bus without starving each other or deadlocking the application.
-
-### 2.4 Hybrid Wait Strategy & Graceful Degradation
-
-Unbounded spin-polling is hostile to multi-tenant servers. Tachyon implements a multi-stage synchronization fallback:
-
-1. **Spin Phase:** The consumer actively polls the L1 cache using `cpu_relax()` for a bounded threshold, ensuring
-   minimal latency during dense burst traffic.
-2. **Sleep Phase:** Upon breaching the threshold, the consumer gracefully yields to the OS scheduler using lightweight,
-   kernel-level wait queues (`SYS_futex` on Linux, `__ulock` on macOS).
-3. **Periodic Wakeup:** Kernel sleeps are bounded by timeouts, forcing the thread to periodically yield back to the host
-   runtime to process background tasks and OS signals, rather than permanently blocking in kernel space.
-
----
-
-## 3. Resilience & Transactional Safety
-
-Shared memory IPC expands the failure domain of interconnected processes. Tachyon confines this blast radius through
-strict transactional semantics.
-
-### 3.1 Torn-Write Protection & Exception Rollbacks
-
-Message headers are published to the consumer strictly after the payload has been fully materialized and fenced. In
-managed language bindings (like Python), write transactions are guarded by context managers. If an unhandled exception
-occurs while writing the payload, the transaction automatically rolls back by injecting a zero-sized `SKIP_MARKER`. The
-ring buffer continues to advance cleanly, and the consumer silently ignores the aborted transaction.
-
-### 3.2 Dead-Peer Detection (Watchdog)
-
-Tachyon embeds monotonic heartbeat counters in the shared memory layout. If a sleeping consumer is abruptly terminated (
-`SIGKILL`), the OS-level wait is cleanly interrupted for the producer. The engine relies on robust timeout semantics and
-UDS lifecycle monitoring to detect unresponsive peers, ensuring that idle connections are not falsely flagged as dead.
-
----
-
-## 4. The Zero-Copy Contract & DLPack
-
-Tachyon ensures true zero-copy transport at the physical layer, surfacing this capability according to the host
-language's memory model:
-
-* **Tier 1 - Native (C++/Rust):** Direct raw pointer access to the memory segment. Ownership is tied to lexical scopes
-  or borrow checkers, resulting in zero allocations and zero copies.
-* **Tier 2 - Machine Learning (Python):** Deep integration with the Buffer Protocol (`memoryview`) and **DLPack** (
-  `__dlpack__`). Inference frameworks such as PyTorch, JAX, and NumPy can ingest raw IPC payloads directly into hardware
-  tensors with zero copying. Memory safety is strictly enforced via **Poison-Pill** context managers that prevent
-  dangling tensors from outliving the underlying ring buffer transaction.
-* **Tier 3 - Garbage Collected (Go/Node.js):** Bulk memory ingestion via the batch API, copying data into the language
-  heap while heavily amortizing CGO/N-API boundary overhead.
-
----
-
-## 5. Build Requirements
-
-Tachyon leverages modern C++23 features and requires an up-to-date build toolchain.
-
-* **CMake:** 3.31+
-* **Compiler:** GCC 14.0+ or Clang 17.0+
-* **OS:** Linux (Kernel 5.10+) or macOS 13+
-
-### Compilation
+**Python** — compiles the C++ core at install time, requires GCC 14+ or Clang 17+:
 
 ```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+pip install tachyon-ipc
 ```
+
+**Rust:**
+
+```bash
+cargo add tachyon-ipc
+```
+
+**C++ (CMake FetchContent):**
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(tachyon
+		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
+		GIT_TAG v0.1.0
+)
+FetchContent_GetProperties(tachyon)
+if (NOT tachyon_POPULATED)
+	FetchContent_Populate(tachyon)
+	add_subdirectory(${tachyon_SOURCE_DIR}/core ${tachyon_BINARY_DIR}/tachyon-core)
+endif ()
+
+target_link_libraries(my_app PRIVATE tachyon)
+```
+
+---
+
+## Quickstart
+
+### Python — Standard API
+
+```python
+import threading
+import tachyon
+
+
+def server():
+    with tachyon.Bus.listen("/tmp/demo.sock", 1 << 16) as bus:
+        msg = next(iter(bus))
+        print(f"received type_id={msg.type_id} data={msg.data}")
+
+
+t = threading.Thread(target=server)
+t.start()
+
+with tachyon.Bus.connect("/tmp/demo.sock") as bus:
+    bus.send(b"hello tachyon", type_id=1)
+
+t.join()
+```
+
+### Python — Zero-Copy
+
+```python
+import threading
+import tachyon
+
+payload = b"zero_copy_payload"
+
+
+def server():
+    with tachyon.Bus.listen("/tmp/demo_zc.sock", 1 << 16) as bus:
+        with bus.recv_zero_copy() as rx:
+            with memoryview(rx) as mv:
+                data = mv.tobytes()  # single copy into Python heap
+
+
+t = threading.Thread(target=server)
+t.start()
+
+with tachyon.Bus.connect("/tmp/demo_zc.sock") as bus:
+    with bus.send_zero_copy(size=len(payload), type_id=42) as tx:
+        with memoryview(tx) as mv:
+            mv[:] = payload
+        tx.actual_size = len(payload)
+
+t.join()
+```
+
+### Python — DLPack / PyTorch
+
+```python
+import struct, threading
+import torch, tachyon
+
+data = struct.pack("4f", 1.0, 2.0, 3.0, 4.0)  # 16 bytes, 4× float32
+
+
+def server():
+    with tachyon.Bus.listen("/tmp/demo_dl.sock", 1 << 16) as bus:
+        with bus.drain_batch() as batch:
+            tensor = torch.from_dlpack(batch[0]).view(torch.float32)
+            print(tensor)  # tensor([1., 2., 3., 4.])
+            del tensor  # release before batch commits
+
+
+t = threading.Thread(target=server)
+t.start()
+
+with tachyon.Bus.connect("/tmp/demo_dl.sock") as bus:
+    with bus.send_zero_copy(size=len(data), type_id=1) as tx:
+        with memoryview(tx) as mv:
+            mv[:] = data
+        tx.actual_size = len(data)
+
+t.join()
+```
+
+### Rust
+
+```rust
+use std::thread;
+use tachyon_ipc::Bus;
+
+const SOCK: &str = "/tmp/demo_rust.sock";
+const CAP: usize = 1 << 16;
+
+fn main() {
+    let srv = thread::spawn(|| {
+        let bus = Bus::listen(SOCK, CAP).unwrap();
+        let guard = bus.acquire_rx(10_000).unwrap();
+        println!("received {} bytes, type_id={}", guard.actual_size, guard.type_id);
+        guard.commit().unwrap();
+    });
+
+    thread::sleep(std::time::Duration::from_millis(20));
+
+    let bus = Bus::connect(SOCK).unwrap();
+    bus.send(b"hello tachyon", 1).unwrap();
+
+    srv.join().unwrap();
+}
+```
+
+### C++
+
+```cpp
+#include <tachyon/arena.hpp>
+#include <tachyon/shm.hpp>
+#include <cstring>
+
+using namespace tachyon::core;
+
+int main() {
+    constexpr size_t CAPACITY = 4096;
+    constexpr size_t SHM_SIZE = sizeof(MemoryLayout) + CAPACITY;
+
+    auto shm      = SharedMemory::create("demo", SHM_SIZE).value();
+    auto producer = Arena::format(shm.data(), CAPACITY).value();
+    auto consumer = Arena::attach(shm.data()).value();
+
+    // TX
+    std::byte *tx = producer.acquire_tx(32);
+    std::memset(tx, 0xAB, 32);
+    producer.commit_tx(32, /*type_id=*/1);
+    producer.flush();
+
+    // RX
+    uint32_t type_id = 0;
+    size_t   actual  = 0;
+    const std::byte *rx = consumer.acquire_rx(type_id, actual);
+    consumer.commit_rx();
+}
+```
+
+---
+
+## Benchmarks
+
+Ping-pong RTT, two threads, 32-byte payload, 1 000 000 samples.  
+**Machine:** Intel Core i7-12650H, 64 GiB DDR5-5600 SODIMM.  
+**Build:** GCC 14, PGO Release (`scripts/pgo_build.sh`), `taskset -c 7,8,9`.
+
+| Percentile | Latency   |
+|------------|-----------|
+| Min        | 78 ns     |
+| p50        | 93 ns     |
+| p90        | 145 ns    |
+| p99        | 155 ns    |
+| p99.9      | 166 ns    |
+| p99.99     | 350 ns    |
+| Max        | 17 540 ns |
+
+**Throughput: 8 553 K RTT/sec**
+
+Max spikes reflect OS scheduler preemption on a non-isolated laptop core — not
+a ring buffer pathology. On a server with isolated cores, p99.99 converges
+toward the p99.9 band.
+
+---
+
+## Architecture
+
+Tachyon decouples the **control plane** (connection bootstrap) from the
+**data plane** (hot-path I/O).
+
+**Control plane.** Process discovery and the initial ABI handshake run over
+a Unix domain socket. The socket transfers an anonymous `memfd` file
+descriptor via `SCM_RIGHTS`, then is permanently discarded. If the producer
+and consumer were compiled with differing `TACHYON_MSG_ALIGNMENT` values,
+the connection is rejected before the first byte of data is exchanged.
+
+**Data plane.** All subsequent I/O operates directly in the shared memory
+segment with no kernel involvement. The SPSC ring uses
+`memory_order_acquire` / `memory_order_release` atomics with amortized
+batch publication: the shared head/tail indices are updated at most once
+every 32 messages or on an explicit `flush()`.
+
+**Hardware sympathy.** Every control structure — message headers, atomic
+indices, watchdog flags — is padded to 64-byte or 128-byte boundaries.
+False sharing between producer and consumer cache lines is structurally
+impossible.
+
+**Hybrid wait strategy.** The consumer spins for a bounded threshold
+(`cpu_relax()`), then sleeps via `SYS_futex` (Linux) or `__ulock_wait`
+(macOS) with a 200 ms watchdog timeout. Kernel sleeps are bounded so the
+thread periodically returns to the host runtime to process signals.
+
+**Zero-copy contract.** C++ and Rust expose raw pointers or slices tied to
+the ring buffer lifetime. Python surfaces the buffer protocol
+(`memoryview`) and DLPack (`__dlpack__`), allowing PyTorch, JAX, and NumPy
+to consume payloads directly from shared memory without copying.
+
+For wire protocol details and ABI guarantees → [`ABI.md`](./ABI.md).
+
+---
+
+## Requirements
+
+| Component | Minimum                                   |
+|-----------|-------------------------------------------|
+| OS        | Linux 5.10+ (primary), macOS 13+ (tier-2) |
+| Compiler  | GCC 14+ or Clang 17+                      |
+| CMake     | 3.31+                                     |
+| Python    | 3.10+                                     |
+| Rust      | stable (2024 edition)                     |
 
 ---
 
 ## License
 
-This project is licensed under the [Apache 2.0](./LICENSE).
+[Apache 2.0](./LICENSE)
