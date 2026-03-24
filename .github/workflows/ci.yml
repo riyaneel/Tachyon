@@ -57,7 +57,46 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Test
+        env:
+          ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1:print_stacktrace=1"
+          UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1:print_summary=1"
         run: ctest --test-dir build --output-on-failure --parallel 4
+
+  cpp_tsan:
+    name: C++ TSan (clang-18, Debug)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libgtest-dev libbenchmark-dev \
+            clang-18 libstdc++-14-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-tsan \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined" \
+            -DTACHYON_SANITIZER=tsan
+
+      - name: Build
+        run: cmake --build build-tsan --parallel
+
+      - name: Test
+        env:
+          TSAN_OPTIONS: >-
+            suppressions=${{ github.workspace }}/tsan.supp
+            halt_on_error=1
+            second_deadlock_stack=1
+            history_size=5
+        run: ctest --test-dir build-tsan --output-on-failure --parallel 1
 
   python:
     name: Python bindings
