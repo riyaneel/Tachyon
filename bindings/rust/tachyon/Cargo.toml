@@ -5,6 +5,7 @@ edition = "2024"
 description = "Bare-metal lock-free IPC — SPSC ring buffer over POSIX shared memory"
 license = "Apache-2.0"
 repository = "https://github.com/riyaneel/tachyon"
+readme = "README.md"
 
 [dependencies]
 tachyon-sys = { version = "0.1.0", path = "../tachyon-sys" }

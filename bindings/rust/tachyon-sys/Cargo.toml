@@ -6,6 +6,7 @@ links = "tachyon"
 description = "Low-level FFI bindings for the Tachyon IPC C core"
 license = "Apache-2.0"
 repository = "https://github.com/riyaneel/tachyon"
+readme = "README.md"
 include = [
     "src/**/*",
     "build.rs",
