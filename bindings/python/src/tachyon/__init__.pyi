@@ -13,7 +13,7 @@ __all__ = [
     "Bus",
     "Message",
 ]
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 class PeerDeadError:
