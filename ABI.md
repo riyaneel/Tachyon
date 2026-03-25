@@ -20,11 +20,11 @@ Native endian. Flat `iovec`, no framing.
 
 ### Validation at `connect()`
 
-| Field           | Condition                         | Failure              |
-|-----------------|-----------------------------------|----------------------|
-| `magic`         | `== 0x54414348`                   | `TACHYON_ERR_SYSTEM` |
-| `version`       | `== TACHYON_VERSION` (`0x02`)     | `TACHYON_ERR_SYSTEM` |
-| `msg_alignment` | `== TACHYON_MSG_ALIGNMENT` (`64`) | `TACHYON_ERR_SYSTEM` |
+| Field           | Condition                         | Failure                    |
+|-----------------|-----------------------------------|----------------------------|
+| `magic`         | `== 0x54414348`                   | `TACHYON_ERR_ABI_MISMATCH` |
+| `version`       | `== TACHYON_VERSION` (`0x02`)     | `TACHYON_ERR_ABI_MISMATCH` |
+| `msg_alignment` | `== TACHYON_MSG_ALIGNMENT` (`64`) | `TACHYON_ERR_ABI_MISMATCH` |
 
 Secondary validation in `Arena::attach()`: re-checks `magic`, `msg_alignment`, capacity power-of-two.
 
@@ -67,7 +67,5 @@ Visibility: `TACHYON_ABI` on all exported symbols. Internals: `-fvisibility=hidd
 
 ## Known Limitations
 
-- `TACHYON_ERR_SYSTEM` is returned on handshake mismatch — maps to `OSError` in Python and reads `errno`, which is
-  misleading. A dedicated `TACHYON_ERR_ABI_MISMATCH` is planned.
 - Endianness: assumed identical between producer and consumer. Not detected.
 - Version check is strict equality. No forward compatibility.
