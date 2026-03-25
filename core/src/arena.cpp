@@ -93,6 +93,7 @@ namespace tachyon::core {
 		  pending_tx_(std::exchange(other.pending_tx_, 0)), local_tail_(std::exchange(other.local_tail_, 0)),
 		  cached_head_(std::exchange(other.cached_head_, 0)), pending_rx_(std::exchange(other.pending_rx_, 0)),
 		  tx_reserved_size_(std::exchange(other.tx_reserved_size_, 0)),
+		  pre_acquire_head_(std::exchange(other.pre_acquire_head_, 0)),
 		  rx_reserved_size_(std::exchange(other.rx_reserved_size_, 0)) {}
 
 	Arena &Arena::operator=(Arena &&other) noexcept {
@@ -106,6 +107,7 @@ namespace tachyon::core {
 			cached_head_	  = std::exchange(other.cached_head_, 0);
 			pending_rx_		  = std::exchange(other.pending_rx_, 0);
 			tx_reserved_size_ = std::exchange(other.tx_reserved_size_, 0);
+			pre_acquire_head_ = std::exchange(other.pre_acquire_head_, 0);
 			rx_reserved_size_ = std::exchange(other.rx_reserved_size_, 0);
 		}
 
@@ -179,6 +181,7 @@ namespace tachyon::core {
 			physical_idx = 0;
 		}
 
+		pre_acquire_head_ = local_head_;
 		tx_reserved_size_ = aligned_msg_size;
 
 		std::byte *ptr = layout_->data_arena() + physical_idx + sizeof(MessageHeader);
@@ -213,6 +216,15 @@ namespace tachyon::core {
 			}
 		}
 
+		return true;
+	}
+
+	bool Arena::rollback_tx() noexcept {
+		if (tx_reserved_size_ == 0) [[unlikely]]
+			return false;
+
+		local_head_		  = pre_acquire_head_;
+		tx_reserved_size_ = 0;
 		return true;
 	}
 

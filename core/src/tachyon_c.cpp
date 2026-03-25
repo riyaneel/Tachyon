@@ -167,7 +167,7 @@ tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, const int no
 	if (node_id < 0) [[unlikely]]
 		return TACHYON_ERR_INVALID_SZ;
 
-	void  *ptr  = bus->shm.get_ptr();
+	void		*ptr  = bus->shm.get_ptr();
 	const size_t size = bus->shm.get_size();
 
 	if (!ptr || size == 0) [[unlikely]]
@@ -177,22 +177,15 @@ tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, const int no
 		return TACHYON_ERR_INVALID_SZ;
 
 	const unsigned long nodeMask = 1UL << static_cast<unsigned int>(node_id);
-	const unsigned long maxNode  = static_cast<unsigned long>(node_id) + 2UL;
+	const unsigned long maxNode	 = static_cast<unsigned long>(node_id) + 2UL;
 
 	// MPOL_PREFERRED: allocate on the requested node when possible.
 	// Falls back to other nodes rather than failing hard — production-safe.
 	// MPOL_MF_MOVE: migrate pages already allocated by mmap(MAP_POPULATE).
 	// Without this flag, pages allocated before this call would remain on
 	// their original node, defeating the purpose entirely.
-	const long ret = syscall(
-		SYS_mbind,
-		ptr,
-		size,
-		MPOL_PREFERRED,
-		&nodeMask,
-		maxNode,
-		static_cast<unsigned long>(MPOL_MF_MOVE)
-	);
+	const long ret =
+		syscall(SYS_mbind, ptr, size, MPOL_PREFERRED, &nodeMask, maxNode, static_cast<unsigned long>(MPOL_MF_MOVE));
 
 	if (ret != 0) [[unlikely]]
 		return TACHYON_ERR_SYSTEM;
@@ -229,6 +222,16 @@ tachyon_commit_tx(tachyon_bus_t *bus, const size_t actual_payload_size, const ui
 		return TACHYON_ERR_NULL_PTR;
 
 	const bool success = bus->arena.commit_tx(actual_payload_size, type_id);
+	bus->producer_lock.clear(std::memory_order_release);
+
+	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+}
+
+tachyon_error_t tachyon_rollback_tx(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
+	if (!bus)
+		return TACHYON_ERR_NULL_PTR;
+
+	const bool success = bus->arena.rollback_tx();
 	bus->producer_lock.clear(std::memory_order_release);
 
 	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;

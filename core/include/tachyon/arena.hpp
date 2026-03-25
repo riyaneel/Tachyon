@@ -85,6 +85,7 @@ namespace tachyon::core {
 		size_t					cached_head_{0};
 		size_t					pending_rx_{0};
 		size_t					tx_reserved_size_{0};
+		size_t					pre_acquire_head_{0};
 		size_t					rx_reserved_size_{0};
 
 		explicit Arena(MemoryLayout *layout, size_t capacity) noexcept;
@@ -107,6 +108,8 @@ namespace tachyon::core {
 		[[nodiscard]] std::byte *acquire_tx(size_t max_size) noexcept;
 
 		[[nodiscard]] bool commit_tx(size_t actual_size, uint32_t type_id) noexcept;
+
+		[[nodiscard]] bool rollback_tx() noexcept;
 
 		[[nodiscard]] const std::byte *acquire_rx(uint32_t &out_type_id, size_t &out_actual_size) noexcept;
 

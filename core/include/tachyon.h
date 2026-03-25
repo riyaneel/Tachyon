@@ -72,6 +72,8 @@ TACHYON_ABI void *tachyon_acquire_tx(tachyon_bus_t *bus, size_t max_payload_size
 TACHYON_ABI tachyon_error_t
 tachyon_commit_tx(tachyon_bus_t *bus, size_t actual_payload_size, uint32_t type_id) TACHYON_NOEXCEPT;
 
+TACHYON_ABI tachyon_error_t tachyon_rollback_tx(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
 TACHYON_ABI const void *
 tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size) TACHYON_NOEXCEPT;
 
