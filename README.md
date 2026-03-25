@@ -64,7 +64,7 @@ include(FetchContent)
 
 FetchContent_Declare(tachyon
 		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
-		GIT_TAG v0.1.0
+		GIT_TAG v0.1.2
 )
 FetchContent_GetProperties(tachyon)
 if (NOT tachyon_POPULATED)
