@@ -97,6 +97,6 @@ class Bus:
         """Zero-copy RX lock. Returns raw RxGuard. Caller must release memoryview before context exit."""
         ...
 
-    def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> Any:
+    def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> RxBatchGuard:
         """Batch RX. Blocks until ≥1 message, drains up to max_msgs."""
         ...
