@@ -26,6 +26,7 @@ class TachyonError(Exception):
     pass
 
 
+TachyonBus = _tachyon.TachyonBus
 TxGuard = _tachyon.TxGuard
 RxGuard = _tachyon.RxGuard
 RxBatchGuard = _tachyon.RxBatchGuard
