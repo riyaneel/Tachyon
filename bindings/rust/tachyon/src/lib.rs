@@ -150,7 +150,7 @@ mod tests {
 
         let bus = Bus::connect(&path).unwrap();
 
-        // Drop without explicit commit → zero-size message published.
+        // Drop without explicit commit → rollback, no message published.
         {
             let _guard = bus.acquire_tx(32).unwrap();
         }

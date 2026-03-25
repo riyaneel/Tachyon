@@ -9,7 +9,8 @@ It is not intended for direct use — use [`tachyon-ipc`](https://crates.io/crat
 
 - `tachyon_bus_t`, `tachyon_msg_view_t` — opaque and layout types
 - `tachyon_bus_listen`, `tachyon_bus_connect`, `tachyon_bus_destroy`
-- `tachyon_acquire_tx`, `tachyon_commit_tx`, `tachyon_flush`
+- `tachyon_bus_set_numa_node`
+- `tachyon_acquire_tx`, `tachyon_commit_tx`, `tachyon_rollback_tx`, `tachyon_flush`
 - `tachyon_acquire_rx_blocking`, `tachyon_commit_rx`
 - `tachyon_drain_batch`, `tachyon_commit_rx_batch`
 - `tachyon_error_t`, `tachyon_state_t` — error and state enums
