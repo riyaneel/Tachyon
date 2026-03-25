@@ -350,7 +350,7 @@ tachyon_acquire_rx_batch(tachyon_bus_t *bus, tachyon_msg_view_t *out_views, cons
 
 	auto		*cxx_views = reinterpret_cast<RxView *>(out_views);
 	const size_t count	   = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
-	if (count == 0) [[unlikely]] {
+	if (count == 0) [[likely]] {
 		// DROP LOCK released immediately on empty to prevent consumer starvation
 		bus->consumer_lock.clear(std::memory_order_release);
 	}
