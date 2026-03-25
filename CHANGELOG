@@ -1,5 +1,24 @@
 # Changelog
 
+## [v0.1.2] — 2026-03-25
+
+### fix
+
+- `fix(bindings)`: add error handling for ABI mismatch in Python and Rust
+- `fix(core)`: refine error mapping for ABI mismatch detection
+- `fix(benchmark)`: add core availability check and improve pinning error handling
+- `fix(core)`: correct branch prediction hint in `tachyon_c.cpp`
+
+### docs
+
+- `docs(abi)`: update error codes from `TACHYON_ERR_SYSTEM` to `TACHYON_ERR_ABI_MISMATCH`
+- `docs(changelog)`: update for v0.1.1
+
+### release
+
+- `release(bindings)`: bump version to 0.1.2 for Python and Rust packages
+- `release(bindings)`: bump version to 0.1.2 for Python and Rust packages
+
 ## [v0.1.1] — 2026-03-24
 
 ### feat
