@@ -834,7 +834,7 @@ static PyObject *TachyonBus_acquire_tx(const TachyonBus *self, PyObject *args, P
 
 	TxGuard *guard = PyObject_New(TxGuard, &TxGuardType);
 	if (guard == nullptr) {
-		tachyon_commit_tx(self->bus, 0, 0);
+		tachyon_rollback_tx(self->bus);
 		return PyErr_NoMemory();
 	}
 
