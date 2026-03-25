@@ -285,6 +285,15 @@ static void TxGuard_releasebuffer(TxGuard *self, Py_buffer *Py_UNUSED(view)) {
 	self->exports--;
 }
 
+static void TxGuard_dealloc(TxGuard *self) {
+	if (!self->committed && self->bus != nullptr) {
+		tachyon_rollback_tx(self->bus);
+		self->committed = 1;
+		self->ptr		= nullptr;
+	}
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
 /**
  * @brief Buffer protocol definition for TxGuard
  */
@@ -1026,6 +1035,7 @@ static int tachyon_exec(PyObject *m) {
 	TxGuardType.tp_name		 = "tachyon.TxGuard";
 	TxGuardType.tp_basicsize = sizeof(TxGuard);
 	TxGuardType.tp_itemsize	 = 0;
+	TxGuardType.tp_dealloc	 = reinterpret_cast<destructor>(TxGuard_dealloc);
 	TxGuardType.tp_flags	 = Py_TPFLAGS_DEFAULT;
 	TxGuardType.tp_doc		 = "Tachyon TX Guard Context Manager";
 	TxGuardType.tp_methods	 = TxGuardMethods;
