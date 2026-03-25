@@ -92,7 +92,7 @@ class Bus:
         """Zero-copy RX lock. Returns raw RxGuard. Caller must release memoryview before context exit."""
         return self._bus.acquire_rx()
 
-    def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> Any:
+    def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> _tachyon.RxBatchGuard:
         """
         Blocks until at least 1 message is available, then drains up to `max_msgs` from the ring buffer.
         Returns a context manager yielding a sequence of messages.

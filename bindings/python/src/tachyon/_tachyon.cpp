@@ -943,8 +943,7 @@ static PyObject *TachyonBus_drain_batch(TachyonBus *self, PyObject *args, PyObje
 		Py_BEGIN_ALLOW_THREADS s = tachyon_drain_batch(self->bus, views, static_cast<size_t>(max_msgs), spin_threshold);
 		Py_END_ALLOW_THREADS
 
-			if (s > 0)
-				break;
+			if (s > 0) break;
 
 		const tachyon_state_t state = tachyon_get_state(self->bus);
 		if (state == TACHYON_STATE_FATAL_ERROR) {
