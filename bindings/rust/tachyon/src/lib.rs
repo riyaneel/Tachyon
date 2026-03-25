@@ -139,13 +139,7 @@ mod tests {
         let srv = thread::spawn(move || {
             let bus = Bus::listen(&path_srv, CAPACITY).unwrap();
 
-            // First: the zero-size message from the dropped guard.
-            let zero = bus.acquire_rx(10_000).unwrap();
-            assert_eq!(zero.actual_size, 0);
-            assert_eq!(zero.type_id, 0);
-            zero.commit().unwrap();
-
-            // Second: the properly committed message.
+            // Drop without commit is now a true rollback — no phantom message.
             let guard = bus.acquire_rx(10_000).unwrap();
             assert_eq!(guard.type_id, 99);
             assert_eq!(guard.data(), b"committed");

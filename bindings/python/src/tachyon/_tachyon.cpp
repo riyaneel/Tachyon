@@ -224,7 +224,7 @@ static PyObject *TxGuard_exit(TxGuard *self, PyObject *args) {
 
 	if (self->exports > 0) {
 		if (!self->committed && self->bus != nullptr) {
-			tachyon_commit_tx(self->bus, 0, 0);
+			tachyon_rollback_tx(self->bus);
 			self->committed = 1;
 			self->ptr		= nullptr;
 		}
@@ -235,11 +235,12 @@ static PyObject *TxGuard_exit(TxGuard *self, PyObject *args) {
 
 	if (!self->committed && self->bus != nullptr) {
 		if (exc_type != Py_None) {
-			self->actual_size = 0;
-			self->type_id	  = 0;
+			tachyon_rollback_tx(self->bus);
+		} else {
+			tachyon_commit_tx(self->bus, self->actual_size, self->type_id);
 		}
-		tachyon_commit_tx(self->bus, self->actual_size, self->type_id);
 		self->committed = 1;
+		self->ptr		= nullptr;
 	}
 
 	Py_RETURN_FALSE;

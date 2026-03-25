@@ -244,11 +244,7 @@ impl<'bus> TxGuard<'bus> {
 impl Drop for TxGuard<'_> {
     fn drop(&mut self) {
         if !self.committed {
-            // Rollback: actual_size=0 releases producer_lock.
-            // This publishes a zero-size message — consumer will see it.
-            // If true skip behaviour is needed, use commit_unflushed(0, 0)
-            // with a deliberate SKIP_MARKER — not currently exposed in the C API.
-            unsafe { tachyon_commit_tx(self.bus.inner.as_ptr(), 0, 0) };
+            unsafe { tachyon_rollback_tx(self.bus.inner.as_ptr()) };
         }
     }
 }
