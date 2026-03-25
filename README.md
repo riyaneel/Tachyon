@@ -64,7 +64,7 @@ include(FetchContent)
 
 FetchContent_Declare(tachyon
 		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
-		GIT_TAG v0.1.2
+		GIT_TAG v0.1.3
 )
 FetchContent_GetProperties(tachyon)
 if (NOT tachyon_POPULATED)
@@ -81,81 +81,72 @@ target_link_libraries(my_app PRIVATE tachyon)
 
 ### Python — Standard API
 
-```python
-import threading
+Two terminals, two processes.
+
+```bash
+# terminal 1 — consumer first (owns the socket)
+python3 - <<'EOF'
 import tachyon
+with tachyon.Bus.listen("/tmp/demo.sock", 1 << 16) as bus:
+    msg = next(iter(bus))
+    print(f"received type_id={msg.type_id} data={msg.data}")
+EOF
 
-
-def server():
-    with tachyon.Bus.listen("/tmp/demo.sock", 1 << 16) as bus:
-        msg = next(iter(bus))
-        print(f"received type_id={msg.type_id} data={msg.data}")
-
-
-t = threading.Thread(target=server)
-t.start()
-
+# terminal 2
+python3 - <<'EOF'
+import tachyon
 with tachyon.Bus.connect("/tmp/demo.sock") as bus:
     bus.send(b"hello tachyon", type_id=1)
-
-t.join()
+EOF
 ```
 
 ### Python — Zero-Copy
 
-```python
-import threading
+```bash
+# terminal 1
+python3 - <<'EOF'
 import tachyon
+with tachyon.Bus.listen("/tmp/demo_zc.sock", 1 << 16) as bus:
+    with bus.recv_zero_copy() as rx:
+        with memoryview(rx) as mv:
+            print(f"received {mv.tobytes()}")
+EOF
 
+# terminal 2
+python3 - <<'EOF'
+import tachyon
 payload = b"zero_copy_payload"
-
-
-def server():
-    with tachyon.Bus.listen("/tmp/demo_zc.sock", 1 << 16) as bus:
-        with bus.recv_zero_copy() as rx:
-            with memoryview(rx) as mv:
-                data = mv.tobytes()
-
-
-t = threading.Thread(target=server)
-t.start()
-
 with tachyon.Bus.connect("/tmp/demo_zc.sock") as bus:
     with bus.send_zero_copy(size=len(payload), type_id=42) as tx:
         with memoryview(tx) as mv:
             mv[:] = payload
         tx.actual_size = len(payload)
-
-t.join()
+EOF
 ```
 
 ### Python — DLPack / PyTorch
 
-```python
-import struct, threading
+```bash
+# terminal 1
+python3 - <<'EOF'
 import torch, tachyon
+with tachyon.Bus.listen("/tmp/demo_dl.sock", 1 << 16) as bus:
+    with bus.drain_batch() as batch:
+        tensor = torch.from_dlpack(batch[0]).view(torch.float32)
+        print(tensor)  # tensor([1., 2., 3., 4.])
+        del tensor
+EOF
 
+# terminal 2
+python3 - <<'EOF'
+import struct, tachyon
 data = struct.pack("4f", 1.0, 2.0, 3.0, 4.0)
-
-
-def server():
-    with tachyon.Bus.listen("/tmp/demo_dl.sock", 1 << 16) as bus:
-        with bus.drain_batch() as batch:
-            tensor = torch.from_dlpack(batch[0]).view(torch.float32)
-            print(tensor)  # tensor([1., 2., 3., 4.])
-            del tensor
-
-
-t = threading.Thread(target=server)
-t.start()
-
 with tachyon.Bus.connect("/tmp/demo_dl.sock") as bus:
     with bus.send_zero_copy(size=len(data), type_id=1) as tx:
         with memoryview(tx) as mv:
             mv[:] = data
         tx.actual_size = len(data)
-
-t.join()
+EOF
 ```
 
 ### Rust
@@ -186,7 +177,7 @@ fn main() {
 
 ### C++
 
-```cpp
+```c++
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
 #include <cstring>
