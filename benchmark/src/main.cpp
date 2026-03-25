@@ -19,12 +19,21 @@ constexpr size_t SHM_SIZE		= sizeof(MemoryLayout) + ARENA_CAPACITY;
 constexpr size_t ITERATIONS		= 1'000'000;
 constexpr size_t WARMUP_ITERS	= 10'000;
 
-void pin_thread_to_core(const int core_id) {
+static int available_cores() noexcept {
+	return static_cast<int>(std::thread::hardware_concurrency());
+}
+
+static void pin_thread_to_core(const int core_id) {
+	const int max_core = available_cores() - 1;
+	if (core_id > max_core) {
+		std::cerr << "WARNING: core " << core_id << " unavailable (max=" << max_core << ") — running unpinned\n";
+		return;
+	}
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
 	CPU_SET(static_cast<size_t>(core_id), &cpuset);
 	if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) != 0) {
-		std::cerr << "ERROR: Failed to pin thread to core " << core_id << "\n";
+		std::cerr << "WARNING: Failed to pin thread to core " << core_id << "\n";
 	}
 }
 
