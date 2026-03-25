@@ -1,4 +1,5 @@
 use tachyon_sys::{
+    tachyon_error_t_TACHYON_ERR_ABI_MISMATCH as ERR_ABI_MISMATCH,
     tachyon_error_t_TACHYON_ERR_CHMOD as ERR_CHMOD, tachyon_error_t_TACHYON_ERR_EMPTY as ERR_EMPTY,
     tachyon_error_t_TACHYON_ERR_FULL as ERR_FULL,
     tachyon_error_t_TACHYON_ERR_INTERRUPTED as ERR_INTERRUPTED,
@@ -27,6 +28,7 @@ pub enum TachyonError {
     NetworkError,
     SystemError,
     Interrupted,
+    AbiMismatch,
     PeerDead,
     Unknown(u32),
 }
@@ -47,6 +49,10 @@ impl std::fmt::Display for TachyonError {
             Self::NetworkError => write!(f, "UNIX socket error"),
             Self::SystemError => write!(f, "OS error"),
             Self::Interrupted => write!(f, "Interrupted by signal"),
+            Self::AbiMismatch => write!(
+                f,
+                "ABI mismatch: rebuild both producer and consumer from the same Tachyon version"
+            ),
             Self::PeerDead => write!(f, "Peer process dead or unresponsive"),
             Self::Unknown(c) => write!(f, "Unknown error code: {c}"),
         }
@@ -71,6 +77,7 @@ pub(crate) fn from_raw(code: u32) -> Result<(), TachyonError> {
         c if c == ERR_NETWORK => Err(TachyonError::NetworkError),
         c if c == ERR_SYSTEM => Err(TachyonError::SystemError),
         c if c == ERR_INTERRUPTED => Err(TachyonError::Interrupted),
+        c if c == ERR_ABI_MISMATCH => Err(TachyonError::AbiMismatch),
         c => Err(TachyonError::Unknown(c)),
     }
 }

@@ -82,7 +82,14 @@ class TachyonBus:
         ...
 
     def connect(self, socket_path: str) -> None:
-        """Connects to an existing IPC bus via UNIX socket descriptor"""
+        """
+        Connects to an existing IPC bus via UNIX socket descriptor.
+
+        :raise ConnectionError: If the producer was compiled with a different
+            Tachyon version or TACHYON_MSG_ALIGNMENT value (ABI mismatch).
+        :raise ConnectionError: If the UNIX socket is unreachable.
+        :raise RuntimeError: If the bus is already initialized.
+        """
         ...
 
     def destroy(self) -> None:

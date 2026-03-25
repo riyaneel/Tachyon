@@ -62,6 +62,13 @@ static PyObject *raise_tachyon_error(const tachyon_error_t error) {
 	case TACHYON_ERR_INTERRUPTED:
 		PyErr_SetNone(PyExc_KeyboardInterrupt);
 		return nullptr;
+	case TACHYON_ERR_ABI_MISMATCH:
+		PyErr_SetString(
+			PyExc_ConnectionError,
+			"ABI mismatch: producer and consumer were compiled with incompatible "
+			"Tachyon versions or TACHYON_MSG_ALIGNMENT values. Rebuild both sides from the same version."
+		);
+		break;
 	default:
 		PyErr_Format(TachyonError, "Unknown Tachyon internal error (code: %d).", error);
 		break;
