@@ -310,7 +310,7 @@ const void *tachyon_acquire_rx_blocking(
 			while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
 				tachyon::cpu_relax();
 
-			// Deliberate lost-wakeup window: ratched by WATCHDOG_TIMEOUT_US (200ms) retry.
+			// Deliberate lost-wakeup window: bounded by WATCHDOG_TIMEOUT_US (200ms) retry.
 			// Heartbeat-based dead-peer detection intentionally omitted — false positives on
 			// idle producers. Proper detection deferred to Phase 8.3 (TSC watchdog).
 			bus->arena.set_consumer_sleeping(true);
@@ -392,7 +392,7 @@ size_t tachyon_drain_batch(
 			while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
 				tachyon::cpu_relax();
 
-			// Deliberate lost-wakeup window: ratched by WATCHDOG_TIMEOUT_US (200ms) retry.
+			// Deliberate lost-wakeup window: bounded by WATCHDOG_TIMEOUT_US (200ms) retry.
 			// Heartbeat-based dead-peer detection intentionally omitted — false positives on
 			// idle producers. Proper detection deferred to Phase 8.3 (TSC watchdog).
 			bus->arena.set_consumer_sleeping(true);
