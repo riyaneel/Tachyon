@@ -7,6 +7,11 @@ class TachyonError(Exception):
     pass
 
 
+class PeerDeadError(TachyonError):
+    """Raised when the bus transitions to FatalError state (corrupted message header)."""
+    pass
+
+
 class TxGuard:
     """Tachyon TX Guard Context Manager"""
     actual_size: int

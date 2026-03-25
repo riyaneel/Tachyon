@@ -16,13 +16,13 @@ __all__ = [
 __version__ = "0.1.3"
 
 
-class PeerDeadError(TachyonError):
-    """Raised when the bus detects a corrupted message header (FatalError state)."""
+class TachyonError(Exception):
+    """Base Tachyon IPC exception."""
     pass
 
 
-class TachyonError(Exception):
-    """Base Tachyon IPC exception."""
+class PeerDeadError(TachyonError):
+    """Raised when the bus detects a corrupted message header (FatalError state)."""
     pass
 
 
