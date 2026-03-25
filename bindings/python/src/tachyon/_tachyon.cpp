@@ -938,13 +938,13 @@ static PyObject *TachyonBus_drain_batch(TachyonBus *self, PyObject *args, PyObje
 	if (!views)
 		return PyErr_NoMemory();
 
-	size_t count = 0;
+	size_t s = 0;
 	while (true) {
-		Py_BEGIN_ALLOW_THREADS count =
-			tachyon_drain_batch(self->bus, views, static_cast<size_t>(max_msgs), spin_threshold);
+		Py_BEGIN_ALLOW_THREADS s = tachyon_drain_batch(self->bus, views, static_cast<size_t>(max_msgs), spin_threshold);
 		Py_END_ALLOW_THREADS
 
-			if (count > 0) break;
+			if (s > 0)
+				break;
 
 		const tachyon_state_t state = tachyon_get_state(self->bus);
 		if (state == TACHYON_STATE_FATAL_ERROR) {
@@ -961,14 +961,14 @@ static PyObject *TachyonBus_drain_batch(TachyonBus *self, PyObject *args, PyObje
 
 	RxBatchGuard *guard = PyObject_New(RxBatchGuard, &RxBatchGuardType);
 	if (!guard) {
-		tachyon_commit_rx_batch(self->bus, views, count);
+		tachyon_commit_rx_batch(self->bus, views, s);
 		delete[] views;
 		return PyErr_NoMemory();
 	}
 
 	guard->bus		 = self->bus;
 	guard->views	 = views;
-	guard->count	 = count;
+	guard->count	 = s;
 	guard->committed = 0;
 	guard->exports	 = 0;
 
