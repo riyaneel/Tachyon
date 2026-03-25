@@ -1,5 +1,42 @@
 # Changelog
 
+## [v0.1.3] — 2026-03-25
+
+### feat
+
+- `feat(bindings/python)`: expose `TachyonBus` in Python bindings
+- `feat(core)`: add transaction rollback mechanism in `Arena` and `tachyon_c`
+
+### fix
+
+- `fix(bindings/python)`: consolidate `drain_batch` return type
+- `fix(core)`: correct typo in timeout retry comment
+- `fix(bindings/python)`: update `drain_batch` return type to `RxBatchGuard` for stricter type safety
+- `fix(bindings/python)`: add dealloc handler to `TxGuard` to ensure rollback on deletion
+- `fix(bindings/rust)`: update rollback behavior and README with `tachyon_rollback_tx`
+- `fix(bindings/python)`: reorder `PeerDeadError` definition for consistency across modules
+- `fix(bindings/python)`: replace commit with rollback on guard initialization failure
+- `fix(bindings)`: replace phantom commit with proper rollback mechanism in Python and Rust
+- `fix(bindings/python)`: extend `PeerDeadError` and add buffer interface to `_tachyon`
+
+### refactor
+
+- `refactor(bindings/python)`: rename `count` to `s` in `drain_batch`
+
+### docs
+
+- `docs(readme)`: modify Python examples
+- `docs(integration)`: reformat and expand IPC lifecycle and error handling sections
+- `docs(changelog)`: update for v0.1.2
+
+### chore
+
+- `chore(changelog)`: remove redundant entries for concise history
+
+### release
+
+- `release(bindings)`: bump version to 0.1.3 for Python and Rust packages
+
 ## [v0.1.2] — 2026-03-25
 
 ### fix
