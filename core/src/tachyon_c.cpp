@@ -69,7 +69,7 @@ static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
 static tachyon_error_t map_transport_error(const TransportError error) TACHYON_NOEXCEPT {
 	switch (error) {
 	case TransportError::ProtocolMismatch:
-		return TACHYON_ERR_SYSTEM;
+		return TACHYON_ERR_ABI_MISMATCH;
 	case TransportError::Interrupted:
 		return TACHYON_ERR_INTERRUPTED;
 	default:
@@ -129,7 +129,7 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 	const auto &[received_fd, hs] = transport_res.value();
 	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION || hs.msg_alignment != TACHYON_MSG_ALIGNMENT) {
 		close(received_fd);
-		return TACHYON_ERR_SYSTEM;
+		return TACHYON_ERR_ABI_MISMATCH;
 	}
 
 	auto shm_join = SharedMemory::join(received_fd, hs.shm_size);
