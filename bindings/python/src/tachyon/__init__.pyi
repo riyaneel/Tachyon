@@ -16,8 +16,8 @@ __all__ = [
 __version__ = "0.1.2"
 
 
-class PeerDeadError:
-    """Raised when the peer process is dead or unresponsive."""
+class PeerDeadError(TachyonError):
+    """Raised when the bus detects a corrupted message header (FatalError state)."""
     pass
 
 
