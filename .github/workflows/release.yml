@@ -13,7 +13,8 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -46,9 +47,11 @@ jobs:
       url: https://pypi.org/p/tachyon-ipc
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version: "3.14"
 
@@ -96,9 +99,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
         run: |
@@ -127,9 +132,70 @@ jobs:
         working-directory: bindings/rust
         run: cargo publish -p tachyon-ipc --allow-dirty
 
+  go_publish:
+    name: Tag Go Module
+    needs: [ changelog ]
+    if: |
+      !contains(github.ref_name, '-rc') &&
+      !contains(github.ref_name, '-alpha') &&
+      !contains(github.ref_name, '-beta')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Derive Go module tag
+        id: gotag
+        run: |
+          VERSION="${{ github.ref_name }}"
+          GO_TAG="bindings/go/${VERSION}"
+          echo "tag=${GO_TAG}"     >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Sanity-check go.mod
+        run: |
+          MODULE=$(grep '^module ' bindings/go/go.mod | awk '{print $2}')
+          TOOLCHAIN=$(grep '^go ' bindings/go/go.mod | awk '{print $2}')
+          echo "module:    ${MODULE}"
+          echo "toolchain: go ${TOOLCHAIN}"
+          [ "${MODULE}" = "github.com/riyaneel/tachyon/bindings/go" ] || \
+            { echo "unexpected module path: ${MODULE}"; exit 1; }
+
+      - name: Push Go module tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GO_TAG="${{ steps.gotag.outputs.tag }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git rev-parse "${GO_TAG}" >/dev/null 2>&1; then
+            echo "Tag ${GO_TAG} already exists — skipping."
+          else
+            git tag "${GO_TAG}"
+            git push origin "${GO_TAG}"
+            echo "Pushed ${GO_TAG}"
+          fi
+
+      - name: Trigger pkg.go.dev indexing
+        env:
+          MODULE: github.com/riyaneel/tachyon/bindings/go
+          VERSION: ${{ steps.gotag.outputs.version }}
+        run: |
+          echo "Triggering proxy fetch for ${MODULE}@${VERSION}"
+          curl -fsSL --retry 3 --retry-delay 5 \
+            "https://proxy.golang.org/${MODULE}/@v/${VERSION}.info" || true
+          curl -fsSL --retry 3 --retry-delay 5 \
+            "https://sum.golang.org/lookup/${MODULE}@${VERSION}"    || true
+
   github_release:
     name: Create GitHub Release
-    needs: [ python_sdist ]
+    needs: [ python_sdist, rust_publish, go_publish ]
     if: always() && needs.python_sdist.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
