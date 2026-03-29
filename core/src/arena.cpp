@@ -24,6 +24,13 @@ namespace tachyon::core {
 	namespace {
 		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
 		constexpr uint32_t WATCHDOG_TIMEOUT_US = 200'000;
+		constexpr uint32_t HDR_SIZE			   = TACHYON_MSG_ALIGNMENT;
+		constexpr uint32_t ALIGN_MASK		   = TACHYON_MSG_ALIGNMENT - 1U;
+
+		static_assert(
+			sizeof(MessageHeader) == TACHYON_MSG_ALIGNMENT,
+			"HDR_SIZE assumption violated: sizeof(MessageHeader) != TACHYON_MSG_ALIGNMENT"
+		);
 
 		enum class WaitResult : int8_t { Woken = 0, Timeout = 1, Interrupted = -1 };
 
@@ -247,7 +254,8 @@ namespace tachyon::core {
 			std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
 		}
 
-		if (hdr.reserved_size > capacity || hdr.size > hdr.reserved_size - sizeof(MessageHeader)) [[unlikely]] {
+		if (hdr.reserved_size < HDR_SIZE || hdr.reserved_size > capacity || (hdr.reserved_size & ALIGN_MASK) != 0U ||
+			hdr.size > hdr.reserved_size - HDR_SIZE) [[unlikely]] {
 			layout_->header.state.store(BusState::FatalError, std::memory_order_release);
 			return nullptr;
 		}
@@ -308,7 +316,8 @@ namespace tachyon::core {
 				std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
 			}
 
-			if (hdr.reserved_size > capacity || hdr.size > hdr.reserved_size - sizeof(MessageHeader)) [[unlikely]] {
+			if (hdr.reserved_size < HDR_SIZE || hdr.reserved_size > capacity ||
+				(hdr.reserved_size & ALIGN_MASK) != 0U || hdr.size > hdr.reserved_size - HDR_SIZE) [[unlikely]] {
 				layout_->header.state.store(BusState::FatalError, std::memory_order_release);
 				break;
 			}
