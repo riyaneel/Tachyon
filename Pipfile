@@ -16,6 +16,7 @@ psutil = "*"
 pytest = "*"
 pytest-cov = "*"
 ruff = "*"
+google.benchmark = "*"
 
 [requires]
 python_version = "3.14"
