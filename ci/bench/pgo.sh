@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BUILD_DIR="${1:-${ROOT_DIR}/cmake-build-pgo}"
 CORES="${2:-$(nproc)}"
 PGO_DIR="${BUILD_DIR}/pgo-data"
@@ -23,7 +23,7 @@ err() {
 	exit 1
 }
 
-[[ -f "${ROOT_DIR}/CMakeLists.txt" ]] || err "Must be run from the Tachyon root or scripts/ directory."
+[[ -f "${ROOT_DIR}/CMakeLists.txt" ]] || err "Must be run from the Tachyon root or via ci/bench/pgo.sh."
 [[ "${EUID}" -eq 0 ]] && err "Do not run as root. taskset does not require sudo for your own processes."
 
 detect_compiler() {

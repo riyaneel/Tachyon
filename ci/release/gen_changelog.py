@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-CHANGELOG_PATH = Path(__file__).parent.parent / "CHANGELOG"
+CHANGELOG_PATH = Path(__file__).parent.parent.parent / "CHANGELOG"
 
 SECTION_ORDER = ["feat", "fix", "perf", "refactor", "build", "ci", "test", "docs", "chore"]
 

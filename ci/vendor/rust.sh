@@ -3,8 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DEST="${ROOT_DIR}/bindings/go/tachyon/_core_local"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+DEST="${ROOT_DIR}/bindings/rust/tachyon-sys/vendor/core"
 
 rm -rf "${DEST}"
 mkdir -p "${DEST}"
