@@ -24,7 +24,7 @@ jobs:
           python-version: "3.14"
 
       - name: Generate CHANGELOG section
-        run: python3 scripts/gen_changelog.py "${{ github.ref_name }}"
+        run: python3 ci/release/gen_changelog.py "${{ github.ref_name }}"
 
       - name: Commit CHANGELOG
         run: |
@@ -111,7 +111,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends gcc-14 g++-14
 
       - name: Vendor C++ core
-        run: bash scripts/vendor_rust.sh
+        run: bash ci/vendor/rust.sh
 
       - name: Publish tachyon-sys
         env:

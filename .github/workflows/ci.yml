@@ -164,7 +164,7 @@ jobs:
           go-version: '1.23'
 
       - name: Vendor C++ core
-        run: bash scripts/vendor_go.sh
+        run: bash ci/vendor/go.sh
 
       - name: Go Test
         env:
