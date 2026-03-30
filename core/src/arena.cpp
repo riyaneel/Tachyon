@@ -311,6 +311,7 @@ namespace tachyon::core {
 
 			if (hdr.size == SKIP_MARKER) [[unlikely]] {
 				const size_t space_until_end = capacity - physical_idx;
+				local_tail_ += space_until_end;
 				current_tail += space_until_end;
 				physical_idx = 0;
 				std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
