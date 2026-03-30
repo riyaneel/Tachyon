@@ -134,6 +134,7 @@ dmypy.json
 .pytype/
 cython_debug/
 Pipfile.lock
+benchmark/results/
 bindings/go/tachyon/_core_local/
 bindings/python/README.md
 bindings/python/_core_local/
