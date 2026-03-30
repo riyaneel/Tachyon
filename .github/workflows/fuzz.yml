@@ -2,7 +2,6 @@ name: Fuzz regression
 
 on:
   push:
-    branches: [ main ]
   pull_request:
 
 jobs:
@@ -11,7 +10,8 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
@@ -32,7 +32,8 @@ jobs:
             --target \
               tachyon_fuzz_arena_rx \
               tachyon_fuzz_arena_rx_batch \
-              tachyon_fuzz_header_parser
+              tachyon_fuzz_header_parser \
+              tachyon_fuzz_toctou
 
       - name: Regression — arena_rx
         run: |
@@ -53,6 +54,13 @@ jobs:
         run: |
           ./build-fuzz/fuzz/tachyon_fuzz_header_parser \
             fuzz/corpus/header_parser \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
+      - name: Regression — toctou
+        run: |
+          ./build-fuzz/fuzz/tachyon_fuzz_toctou \
+            fuzz/corpus/toctou \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
