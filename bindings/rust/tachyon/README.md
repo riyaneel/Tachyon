@@ -7,7 +7,7 @@ p50 RTT.
 ## Install
 
     [dependencies]
-    tachyon-ipc = "0.1.3"
+    tachyon-ipc = "0.2.0"
 
 Requires GCC 14+ or Clang 17+ at build time (the C++ core is compiled via `cc`).
 
