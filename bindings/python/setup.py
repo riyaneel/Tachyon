@@ -86,14 +86,15 @@ if not os.path.exists(README_PATH):
 compile_args = [
     "-std=c++23",
     "-O3",
-    "-march=native",
-    "-mtune=native",
     "-flto",
     "-fno-exceptions",
     "-fno-rtti",
     "-Wall",
     "-Wextra",
 ]
+
+if not sys.platform.startswith("darwin"):
+    compile_args += ["-march=native", "-mtune=native"]
 
 libraries = ["rt"] if sys.platform.startswith("linux") else []
 
