@@ -52,12 +52,14 @@ static void pin_to_core(const int core_id) noexcept {
 	if (core_id < 0)
 		return;
 
+#if defined(__linux__)
 	cpu_set_t cs;
 	CPU_ZERO(&cs);
 	CPU_SET(static_cast<size_t>(core_id), &cs);
 	if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cs) != 0) {
 		std::fprintf(stderr, "[bench_inter] WARNING: failed to pin to core %d\n", core_id);
 	}
+#endif // #if defined(__linux__)
 }
 
 static void try_set_sched_fifo() noexcept {

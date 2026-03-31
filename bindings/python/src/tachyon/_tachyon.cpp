@@ -1,5 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 
+#include <new>
+
 #include <Python.h>
 #include <dlpack/dlpack.h>
 

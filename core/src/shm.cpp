@@ -62,12 +62,12 @@ namespace tachyon::core {
 			return std::unexpected(ShmError::TruncateFailed);
 		}
 
+#if defined(__linux__)
 		if (::fchmod(fd, 0600) == -1) [[unlikely]] {
 			::close(fd);
 			return std::unexpected(ShmError::ChmodFailed);
 		}
 
-#if defined(__linux__)
 		if (::fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_SEAL) == -1) [[unlikely]] {
 			::close(fd);
 			return std::unexpected(ShmError::SealFailed);

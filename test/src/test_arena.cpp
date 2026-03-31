@@ -56,13 +56,13 @@ namespace tachyon::core::test {
 		const std::byte *rx_ptr			 = consumer.acquire_rx(type_id_out, actual_size_out);
 		ASSERT_NE(rx_ptr, nullptr);
 
-		EXPECT_EQ(type_id_out, 1);
+		EXPECT_EQ(type_id_out, 1U);
 		EXPECT_EQ(actual_size_out, sizeof(DummyOrder));
 
 		const auto *recv_order = reinterpret_cast<const DummyOrder *>(rx_ptr);
-		EXPECT_EQ(recv_order->id, 42);
+		EXPECT_EQ(recv_order->id, uint64_t{42});
 		EXPECT_DOUBLE_EQ(recv_order->price, 9500.50);
-		EXPECT_EQ(recv_order->qty, 100);
+		EXPECT_EQ(recv_order->qty, 100U);
 
 		EXPECT_TRUE(consumer.commit_rx());
 	}
@@ -82,14 +82,14 @@ namespace tachyon::core::test {
 		const std::byte *rx_ptr		 = consumer.acquire_rx(type_id, actual_size);
 		ASSERT_NE(rx_ptr, nullptr);
 
-		EXPECT_EQ(actual_size, 256);
+		EXPECT_EQ(actual_size, size_t{256});
 		EXPECT_TRUE(consumer.commit_rx());
 
 		std::byte *tx_ptr2 = producer.acquire_tx(10);
 		ASSERT_NE(tx_ptr2, nullptr);
 
 		const auto spatial_difference = static_cast<size_t>(tx_ptr2 - tx_ptr1);
-		EXPECT_EQ(spatial_difference, 1024 + TACHYON_MSG_ALIGNMENT);
+		EXPECT_EQ(spatial_difference, size_t{1024} + TACHYON_MSG_ALIGNMENT);
 		EXPECT_TRUE(producer.commit_tx(10, 43));
 	}
 
@@ -101,7 +101,7 @@ namespace tachyon::core::test {
 		for (const size_t sz : random_sizes) {
 			std::byte *tx_ptr = producer.acquire_tx(sz);
 			ASSERT_NE(tx_ptr, nullptr);
-			EXPECT_EQ(reinterpret_cast<uintptr_t>(tx_ptr) % 32, 0);
+			EXPECT_EQ(reinterpret_cast<uintptr_t>(tx_ptr) % 32, 0U);
 			EXPECT_TRUE(producer.commit_tx(sz, 1));
 		}
 
@@ -112,7 +112,7 @@ namespace tachyon::core::test {
 			size_t			 actual_size;
 			const std::byte *rx_ptr = consumer.acquire_rx(type_id, actual_size);
 			ASSERT_NE(rx_ptr, nullptr);
-			EXPECT_EQ(reinterpret_cast<uintptr_t>(rx_ptr) % 32, 0);
+			EXPECT_EQ(reinterpret_cast<uintptr_t>(rx_ptr) % 32, 0U);
 			EXPECT_EQ(actual_size, sz);
 			EXPECT_TRUE(consumer.commit_rx());
 		}
@@ -135,7 +135,7 @@ namespace tachyon::core::test {
 
 		std::byte *tx_ptr2 = producer.acquire_tx(100);
 		ASSERT_NE(tx_ptr2, nullptr);
-		EXPECT_EQ(reinterpret_cast<uintptr_t>(tx_ptr2) % 32, 0);
+		EXPECT_EQ(reinterpret_cast<uintptr_t>(tx_ptr2) % 32, 0U);
 		tx_ptr2[0]	= std::byte{'A'};
 		tx_ptr2[99] = std::byte{'Z'};
 		EXPECT_TRUE(producer.commit_tx(100, 2));
@@ -143,8 +143,8 @@ namespace tachyon::core::test {
 
 		const std::byte *rx_ptr2 = consumer.acquire_rx(tid, sz);
 		ASSERT_NE(rx_ptr2, nullptr);
-		EXPECT_EQ(sz, 100);
-		EXPECT_EQ(tid, 2);
+		EXPECT_EQ(sz, size_t{100});
+		EXPECT_EQ(tid, 2U);
 		EXPECT_EQ(rx_ptr2[0], std::byte{'A'});
 		EXPECT_EQ(rx_ptr2[99], std::byte{'Z'});
 
@@ -167,8 +167,8 @@ namespace tachyon::core::test {
 
 		const std::byte *rx_ptr = consumer.acquire_rx(tid, sz);
 		ASSERT_NE(rx_ptr, nullptr);
-		EXPECT_EQ(sz, 0);
-		EXPECT_EQ(tid, 99);
+		EXPECT_EQ(sz, size_t{0});
+		EXPECT_EQ(tid, 99U);
 		EXPECT_TRUE(consumer.commit_rx());
 
 		EXPECT_EQ(producer.acquire_tx(arena_capacity * 2), nullptr);
@@ -185,7 +185,7 @@ namespace tachyon::core::test {
 		}
 
 		producer.flush();
-		EXPECT_GT(msg_count, 0);
+		EXPECT_GT(msg_count, size_t{0});
 		EXPECT_EQ(producer.acquire_tx(32), nullptr);
 
 		size_t rx_count = 0;
@@ -266,7 +266,7 @@ namespace tachyon::core::test {
 
 			const std::byte *ptr = consumer.acquire_rx_blocking(type_id, recv_size, 1);
 			ASSERT_NE(ptr, nullptr);
-			EXPECT_EQ(type_id, 99);
+			EXPECT_EQ(type_id, 99U);
 			EXPECT_TRUE(consumer.commit_rx());
 		});
 
@@ -308,7 +308,7 @@ namespace tachyon::core::test {
 
 		for (size_t i = 0; i < read_count; ++i) {
 			EXPECT_EQ(views[i].actual_size, sizeof(DummyOrder));
-			EXPECT_EQ(views[i].type_id, 42);
+			EXPECT_EQ(views[i].type_id, 42U);
 			ASSERT_NE(views[i].ptr, nullptr);
 			const auto *order = reinterpret_cast<const DummyOrder *>(views[i].ptr);
 			EXPECT_EQ(order->id, i);
@@ -323,6 +323,6 @@ namespace tachyon::core::test {
 		size_t	 out_actual_size = 0;
 		EXPECT_EQ(consumer.acquire_rx(out_type_id, out_actual_size), nullptr);
 
-		EXPECT_EQ(consumer.acquire_rx_batch(views.data(), views.size()), 0);
+		EXPECT_EQ(consumer.acquire_rx_batch(views.data(), views.size()), 0U);
 	}
 } // namespace tachyon::core::test

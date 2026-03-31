@@ -1,4 +1,5 @@
 #include <new>
+#include <unistd.h>
 
 #if defined(__linux__)
 #include <sys/syscall.h>
