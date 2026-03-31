@@ -1,5 +1,6 @@
 #include <atomic>
 #include <fcntl.h>
+#include <string>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -47,7 +48,7 @@ namespace tachyon::core {
 		static std::atomic<uint32_t> shm_counter{0};
 		const std::string			 shm_name = std::to_string("/tachyon-") + std::to_string(::getpid()) + "-" +
 									 std::to_string(shm_counter.fetch_add(1, std::memory_order_relaxed));
-		const int fd = ::shm_open(shm_name.c_str(), O_CREAT || O_RDWR | O_EXCL, 0600);
+		const int fd = ::shm_open(shm_name.c_str(), O_CREAT | O_RDWR | O_EXCL, 0600);
 		if (fd == -1) [[unlikely]]
 			return std::unexpected(ShmError::OpenFailed);
 		::shm_unlink(shm_name.c_str());
