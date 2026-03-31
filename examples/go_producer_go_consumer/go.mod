@@ -1,4 +1,4 @@
-module github.com/riyaneel/tachyon/examples/go_telemetry_agent
+module github.com/riyaneel/tachyon/examples/go_producer_go_consumer
 
 go 1.23
 
