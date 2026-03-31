@@ -33,14 +33,15 @@ def _check_compiler():
 
         if "clang" in version_line.lower():
             import re
-            m = re.search(r"(\d+)\.\d+\.\d+", version_line)
-            if m and int(m.group(1)) < 17:
-                sys.exit(
-                    f"\n[tachyon-ipc] Unsupported Clang version: {version_line}\n"
-                    f"  Required: Clang 17+\n"
-                    f"  Install:  sudo apt-get install clang-18\n"
-                    f"  Then:     CXX=clang++-18 pip install tachyon-ipc\n"
-                )
+            if "apple" not in version_line.lower():
+                m = re.search(r"(\d+)\.\d+\.\d+", version_line)
+                if m and int(m.group(1)) < 17:
+                    sys.exit(
+                        f"\n[tachyon-ipc] Unsupported Clang version: {version_line}\n"
+                        f"  Required: Clang 17+\n"
+                        f"  Install:  sudo apt-get install clang-18\n"
+                        f"  Then:     CXX=clang++-18 pip install tachyon-ipc\n"
+                    )
 
     except FileNotFoundError:
         sys.exit(
