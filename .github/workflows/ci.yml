@@ -99,8 +99,38 @@ jobs:
             history_size=5
         run: ctest --test-dir build-tsan --output-on-failure --parallel 1
 
+  cpp_macos:
+    name: C++ macOS (${{ matrix.runner }}, ${{ matrix.build_type }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ macos-26, macos-26-intel ]
+        build_type: [ Debug, Release ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: brew install cmake ninja googletest google-benchmark
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix) \
+            -DTACHYON_SANITIZER=none
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 4
+
   python:
-    name: Python bindings
+    name: Python bindings (Linux)
     runs-on: ubuntu-24.04
 
     steps:
@@ -122,8 +152,31 @@ jobs:
           CXX=g++-14 CC=gcc-14 .venv/bin/pip install ./bindings/python pytest
           .venv/bin/pytest bindings/python/tests/ -v
 
+  python_macos:
+    name: Python bindings (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ macos-26, macos-26-intel ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install and test
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install ./bindings/python pytest
+          .venv/bin/pytest bindings/python/tests/ -v
+
   rust:
-    name: Rust bindings
+    name: Rust bindings (Linux)
     runs-on: ubuntu-24.04
 
     steps:
@@ -145,8 +198,27 @@ jobs:
         run: cargo test
         working-directory: bindings/rust
 
+  rust_macos:
+    name: Rust bindings (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ macos-26, macos-26-intel ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test
+        run: cargo test
+        working-directory: bindings/rust
+
   go:
-    name: Go bindings
+    name: Go bindings (Linux)
     runs-on: ubuntu-24.04
 
     steps:
@@ -178,6 +250,38 @@ jobs:
         env:
           CXX: g++-14
           CC: gcc-14
+          CGO_ENABLED: "1"
+        working-directory: bindings/go
+        run: go vet ./tachyon/...
+
+  go_macos:
+    name: Go bindings (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ macos-26, macos-26-intel ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23'
+
+      - name: Vendor C++ core
+        run: bash ci/vendor/go.sh
+
+      - name: Go Test
+        env:
+          CGO_ENABLED: "1"
+        working-directory: bindings/go
+        run: go test -v -count=1 -timeout=120s ./tachyon/...
+
+      - name: Go Vet
+        env:
           CGO_ENABLED: "1"
         working-directory: bindings/go
         run: go vet ./tachyon/...
