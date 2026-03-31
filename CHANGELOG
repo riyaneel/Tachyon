@@ -1,5 +1,67 @@
 # Changelog
 
+## [v0.2.0] — 2026-03-31
+
+### feat
+
+- `feat(core)`: add support for macOS shared memory using `shm_open`
+- `feat(examples)`: add Go producer-consumer telemetry example
+- `feat(benchmark)`: add comparison script and runtime utility for Tachyon benchmarking
+- `feat(benchmark)`: add support for Intra-Process, Inter-Process, and ZeroMQ RTT benchmarking
+- `feat(fuzz)`: add TOCTOU fuzzing corpus with diverse seed scenarios
+- `feat(fuzz)`: add TOCTOU fuzzing target and update workflow with regression tests
+- `feat(fuzz)`: add TOCTOU fuzzing target for message validation and arena handling
+- `feat(core)`: add alignment checks and constants for message header validation
+- `feat(bindings/go)`: add `RxBatch` and `RxMsg` for zero-copy message reads and batch processing
+- `feat(bindings/go)`: add `RxGuard` for zero-copy shared memory reads and resource management
+- `feat(bindings/go)`: add `Bus` abstraction for SPSC IPC with methods for message passing and resource management
+- `feat(bindings/go)`: add `TxGuard` for transactional writes with shared memory rollback safety
+- `feat(bindings/go)`: add error handling and mapping for Tachyon C errors
+- `feat(bindings/go)`: add initial Go bindings with core vendoring script
+
+### fix
+
+- `fix(examples)`: correct Go module path in `go.mod`
+- `fix(test)`: improve type safety and enable CTest support
+- `fix(python)`: ensure compatibility of compiler flags across platforms
+- `fix(core)`: correct `shm_open` flag logic and update includes
+- `fix(python)`: handle Clang version check for Apple-specific builds
+- `fix(arena)`: adjust `local_tail_` to account for skipped space
+
+### refactor
+
+- `refactor(bindings/go)`: rename `guard.go` to `tx_guard.go`
+
+### ci
+
+- `ci`: add ASan workflow and update test directory paths
+- `ci`: add macOS workflows for all language bindings and C++ builds
+- `ci(workflows)`: update paths for changelog and vendor scripts
+- `ci(scripts)`: restructure and relocate scripts under `ci` folder
+- `ci`: remove branch restriction from push trigger for `ci.yml`
+- `ci(release)`: add Go module tagging and publishing steps to release workflow
+- `ci`: add Go bindings CI with setup and testing steps
+
+### test
+
+- `test(bindings/go)`: add benchmarks and unit tests for `Bus` and message passing features
+
+### docs
+
+- `docs(adr)`: add README and architecture decision records for Tachyon
+- `docs(examples)`: add README for Go producer-consumer telemetry example
+- `docs(benchmark)`: add README with build, run, and comparison instructions
+- `docs(ci)`: add README with usage instructions for CI scripts
+- `docs(fuzz)`: update README with TOCTOU fuzzing details and usage instructions
+- `docs(bindings/go)`: add README with usage, examples, and API refs
+- `docs(changelog)`: update for v0.1.3
+
+### chore
+
+- `chore(version)`: bump Tachyon core and bindings to v0.2.0
+- `chore(deps)`: add google benchmark to Pipfile
+- `chore(gitignore)`: add benchmark results to ignore list
+
 ## [v0.1.3] — 2026-03-25
 
 ### feat
