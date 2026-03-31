@@ -57,10 +57,41 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Test
+        run: ctest --test-dir build/test --output-on-failure --parallel 4
+
+  cpp_asan:
+    name: C++ ASan (clang-18, Debug)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libgtest-dev libbenchmark-dev \
+            clang-18 libstdc++-14-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-asan \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined" \
+            -DTACHYON_SANITIZER=asan_ubsan
+
+      - name: Build
+        run: cmake --build build-asan --parallel
+
+      - name: Test
         env:
           ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1:print_stacktrace=1"
           UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1:print_summary=1"
-        run: ctest --test-dir build --output-on-failure --parallel 4
+        run: ctest --test-dir build-asan/test --output-on-failure --parallel 1
 
   cpp_tsan:
     name: C++ TSan (clang-18, Debug)
@@ -97,7 +128,7 @@ jobs:
             halt_on_error=1
             second_deadlock_stack=1
             history_size=5
-        run: ctest --test-dir build-tsan --output-on-failure --parallel 1
+        run: ctest --test-dir build-tsan/test --output-on-failure --parallel 1
 
   cpp_macos:
     name: C++ macOS (${{ matrix.runner }}, ${{ matrix.build_type }})
@@ -127,7 +158,7 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure --parallel 4
+        run: ctest --test-dir build/test --output-on-failure --parallel 4
 
   python:
     name: Python bindings (Linux)
