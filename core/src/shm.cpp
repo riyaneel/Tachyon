@@ -1,3 +1,4 @@
+#include <atomic>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -37,9 +38,23 @@ namespace tachyon::core {
 			return std::unexpected(ShmError::InvalidSize);
 
 		std::string path(name);
-		const int	fd = ::memfd_create(path.c_str(), MFD_ALLOW_SEALING);
+
+#if defined(__linux__)
+		const int fd = ::memfd_create(path.c_str(), MFD_ALLOW_SEALING);
 		if (fd == -1) [[unlikely]]
 			return std::unexpected(ShmError::OpenFailed);
+#elif defined(__APPLE__) // #if defined(__linux__)
+		static std::atomic<uint32_t> shm_counter{0};
+		const std::string			 shm_name = std::to_string("/tachyon-") + std::to_string(::getpid()) + "-" +
+									 std::to_string(shm_counter.fetch_add(1, std::memory_order_relaxed));
+		const int fd = ::shm_open(shm_name.c_str(), O_CREAT || O_RDWR | O_EXCL, 0600);
+		if (fd == -1) [[unlikely]]
+			return std::unexpected(ShmError::OpenFailed);
+		::shm_unlink(shm_name.c_str());
+#else					 // #elif defined(__APPLE__)
+		(void)path;
+		return std::unexpected(ShmError::OpenFailed);
+#endif					 // #elif defined(__APPLE__) #else
 
 		if (::ftruncate(fd, static_cast<off_t>(size)) == -1) [[unlikely]] {
 			::close(fd);
@@ -71,7 +86,7 @@ namespace tachyon::core {
 
 #if defined(__linux__)
 		::madvise(ptr, size, MADV_DONTFORK); // CoW safety
-#endif // #if defined(__linux__)
+#endif										 // #if defined(__linux__)
 
 		return SharedMemory(ptr, size, std::move(path), fd, true);
 	}
@@ -92,7 +107,7 @@ namespace tachyon::core {
 
 #if defined(__linux__)
 		::madvise(ptr, size, MADV_DONTFORK); // CoW safety
-#endif // #if defined(__linux__)
+#endif										 // #if defined(__linux__)
 
 		return SharedMemory(ptr, size, "", fd, false);
 	}
