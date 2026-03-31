@@ -3,6 +3,7 @@
 [![CI](https://github.com/riyaneel/tachyon/actions/workflows/ci.yml/badge.svg)](https://github.com/riyaneel/tachyon/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/tachyon-ipc)](https://pypi.org/project/tachyon-ipc/)
 [![Crates.io](https://img.shields.io/crates/v/tachyon-ipc)](https://crates.io/crates/tachyon-ipc)
+[![Go Reference](https://pkg.go.dev/badge/github.com/riyaneel/tachyon/bindings/go.svg)](https://pkg.go.dev/github.com/riyaneel/tachyon/bindings/go)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 Tachyon is a bare-metal, lock-free IPC primitive. Strictly-bounded SPSC ring buffer over POSIX shared memory, with
