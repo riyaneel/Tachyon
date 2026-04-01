@@ -2,19 +2,25 @@
 
 ## Socket lifecycle
 
-The UDS socket is a **one-shot bootstrap mechanism**, not a persistent connection. `tachyon_bus_listen()` creates the
-socket file, waits for exactly one `accept()`, sends the `memfd` file descriptor via `SCM_RIGHTS`, then closes and
-unlinks the socket. After `tachyon_bus_connect()` returns, the socket file no longer exists and the entire IPC path runs
-through shared memory.
+The UDS socket is a **one-shot bootstrap mechanism**, not a persistent connection.
+`tachyon_bus_listen()` creates the socket file, waits for exactly one `accept()`,
+sends the `memfd` file descriptor via `SCM_RIGHTS`, then closes both the client and
+listening socket descriptors. The socket **file** is not unlinked at this point — it
+is removed at the start of the next `tachyon_bus_listen()` call on the same path
+(before `bind`). After `tachyon_bus_connect()` returns, nobody is listening on the
+socket file; the entire IPC path runs through shared memory.
 
 Consequences:
 
-- The socket path can be reused immediately after the consumer calls `Bus.listen()` again — there is no TIME_WAIT or
+- The socket path can be reused immediately after the consumer calls `Bus.listen()`
+  again — `listen()` unlinks the stale file before `bind`, with no TIME_WAIT or
   linger state.
-- A second `connect()` to the same path after the handshake will get `ECONNREFUSED` — the socket is gone.
+- A second `connect()` to the same path after the handshake will get
+  `ECONNREFUSED` — the file exists but no process is listening.
 - Deleting the socket file manually has no effect on an established bus.
-- On crash, the socket file may survive. Clean it up before restarting the listener: `rm -f /tmp/your.sock` or
-  `os.unlink()`.
+- On crash, the socket file survives. Clean it up before restarting the listener
+  on a **different** path: `rm -f /tmp/your.sock` or `os.unlink()`. If you reuse
+  the same path, the next `listen()` removes it automatically.
 
 ### Relisten pattern
 
@@ -51,7 +57,7 @@ loop {
 
 C++:
 
-```cpp
+```c++
 for (;;) {
     tachyon_bus_t *bus = nullptr;
     tachyon_bus_listen(SOCKET_PATH, CAPACITY, &bus);
@@ -59,7 +65,11 @@ for (;;) {
     uint32_t type_id = 0; size_t sz = 0;
     while (true) {
         const void *ptr = tachyon_acquire_rx_blocking(bus, &type_id, &sz, 10000);
-        if (!ptr || tachyon_get_state(bus) == TACHYON_STATE_FATAL_ERROR) break;
+        if (ptr == nullptr) {
+            // nullptr has two causes EINTR (signal) or FatalError.
+            if (tachyon_get_state(bus) == TACHYON_STATE_FATAL_ERROR) break;
+            continue; // EINTR — retry
+        }
         process(ptr, sz);
         tachyon_commit_rx(bus);
     }
@@ -77,9 +87,16 @@ for (;;) {
 `PeerDeadError` (Python) / `TachyonError::PeerDead` (Rust) / `TACHYON_STATE_FATAL_ERROR` (C++) is raised when the bus
 transitions to `FatalError`.
 
-**The only condition that triggers `FatalError`:** a corrupted message header is detected in `acquire_rx()` —
-specifically when `reserved_size > capacity` or `size > reserved_size - sizeof(MessageHeader)`. This indicates the
-shared memory ring buffer has been written with an incompatible layout or has been corrupted externally.
+**The only conditions that trigger `FatalError`:** a corrupted message header is
+detected in `acquire_rx()` — specifically when any of the following holds:
+
+- `reserved_size < sizeof(MessageHeader)` (64 bytes)
+- `reserved_size > capacity`
+- `reserved_size` is not a multiple of `TACHYON_MSG_ALIGNMENT` (64)
+- `size > reserved_size - sizeof(MessageHeader)`
+
+This indicates the ring buffer has been written with an incompatible layout or
+corrupted externally.
 
 The 200 ms futex timeout is a **wait bound**, not a dead-peer detector. When the consumer sleeps waiting for a message
 and the futex times out, it resets its spin counter and retries — it does not transition to `FatalError`. An idle
