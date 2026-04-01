@@ -191,10 +191,7 @@ namespace tachyon::core {
 		pre_acquire_head_ = local_head_;
 		tx_reserved_size_ = aligned_msg_size;
 
-		std::byte *ptr = layout_->data_arena() + physical_idx + sizeof(MessageHeader);
-		__builtin_prefetch(ptr, 1, 1);
-
-		return ptr;
+		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
 	}
 
 	bool Arena::commit_tx(const size_t actual_size, const uint32_t type_id) noexcept {
@@ -271,9 +268,6 @@ namespace tachyon::core {
 		local_tail_ += rx_reserved_size_;
 		rx_reserved_size_ = 0;
 		pending_rx_++;
-
-		const size_t next_physical = local_tail_ & capacity_mask_;
-		__builtin_prefetch(&layout_->data_arena()[next_physical], 0, 1);
 
 		layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
