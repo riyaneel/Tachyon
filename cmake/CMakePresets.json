@@ -1,0 +1,182 @@
+{
+  "version": 10,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 31,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "clang-base",
+      "hidden": true,
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/clang.cmake",
+      "cacheVariables": {
+        "LLVM_VERSION": 21
+      }
+    },
+    {
+      "name": "gcc-base",
+      "hidden": true,
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/gcc.cmake",
+      "cacheVariables": {
+        "GCC_VERSION": 14
+      }
+    },
+    {
+      "name": "clang-release",
+      "displayName": "Clang 21 - Release",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
+      "name": "gcc-release",
+      "displayName": "GCC 14 - Release",
+      "inherits": "gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "Clang 21 - Debug",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
+      "name": "gcc-debug",
+      "displayName": "GCC 14 - Debug",
+      "inherits": "gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "ASan + UBSan - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "asan_ubsan"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "TSan - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "tsan"
+      }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "libFuzzer - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_SANITIZER": "none",
+        "TACHYON_ENABLE_FUZZING": "ON"
+      }
+    },
+    {
+      "name": "pgo-generate",
+      "displayName": "PGO Profile Generation",
+      "inherits": "clang-release",
+      "cacheVariables": {
+        "TACHYON_PGO_PHASE": "GENERATE"
+      }
+    },
+    {
+      "name": "pgo-use",
+      "displayName": "PGO Profile Use",
+      "inherits": "clang-release",
+      "cacheVariables": {
+        "TACHYON_PGO_PHASE": "USE"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "clang-release",
+      "configurePreset": "clang-release",
+      "jobs": 0
+    },
+    {
+      "name": "gcc-release",
+      "configurePreset": "gcc-release",
+      "jobs": 0
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "jobs": 0
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "jobs": 0
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz",
+      "targets": [
+        "tachyon_fuzz_arena_rx",
+        "tachyon_fuzz_arena_rx_batch",
+        "tachyon_fuzz_header_parser",
+        "tachyon_fuzz_toctou"
+      ],
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "base-test",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "clang-release",
+      "inherits": "base-test",
+      "configurePreset": "clang-release"
+    },
+    {
+      "name": "asan",
+      "inherits": "base-test",
+      "configurePreset": "asan",
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "tsan",
+      "inherits": "base-test",
+      "configurePreset": "tsan",
+      "execution": {
+        "jobs": 1
+      }
+    }
+  ]
+}
