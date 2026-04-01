@@ -141,6 +141,16 @@
       "jobs": 0
     },
     {
+      "name": "clang-debug",
+      "configurePreset": "clang-debug",
+      "jobs": 0
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "gcc-debug",
+      "jobs": 0
+    },
+    {
       "name": "asan",
       "configurePreset": "asan",
       "jobs": 0
