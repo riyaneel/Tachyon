@@ -185,7 +185,7 @@
       }
     },
     {
-      "name": " msan",
+      "name": "msan",
       "inherits": "base-test",
       "configurePreset": " msan",
       "execution": {
