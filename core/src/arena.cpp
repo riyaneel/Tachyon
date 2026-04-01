@@ -32,6 +32,12 @@ namespace tachyon::core {
 			"HDR_SIZE assumption violated: sizeof(MessageHeader) != TACHYON_MSG_ALIGNMENT"
 		);
 
+		struct PackedMeta {
+			uint32_t size;
+			uint32_t type_id;
+			uint32_t reserved_size;
+		};
+
 		enum class WaitResult : int8_t { Woken = 0, Timeout = 1, Interrupted = -1 };
 
 #if defined(__APPLE__)
@@ -239,27 +245,27 @@ namespace tachyon::core {
 				return nullptr;
 		}
 
-		const size_t  capacity	   = capacity_mask_ + 1;
-		size_t		  physical_idx = local_tail_ & capacity_mask_;
-		MessageHeader hdr{};
-		std::memcpy(&hdr, &layout_->data_arena()[physical_idx], sizeof(MessageHeader));
+		const size_t capacity	  = capacity_mask_ + 1;
+		size_t		 physical_idx = local_tail_ & capacity_mask_;
+		PackedMeta	 pmeta{};
+		std::memcpy(&pmeta, &layout_->data_arena()[physical_idx], sizeof(PackedMeta));
 
-		if (hdr.size == SKIP_MARKER) [[unlikely]] {
+		if (pmeta.size == SKIP_MARKER) [[unlikely]] {
 			const size_t space_until_end = capacity - physical_idx;
 			local_tail_ += space_until_end;
 			physical_idx = 0;
-			std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
+			std::memcpy(&pmeta, &layout_->data_arena()[0], sizeof(PackedMeta));
 		}
 
-		if (hdr.reserved_size < HDR_SIZE || hdr.reserved_size > capacity || (hdr.reserved_size & ALIGN_MASK) != 0U ||
-			hdr.size > hdr.reserved_size - HDR_SIZE) [[unlikely]] {
+		if (pmeta.reserved_size < HDR_SIZE || pmeta.reserved_size > capacity ||
+			(pmeta.reserved_size & ALIGN_MASK) != 0U || pmeta.size > pmeta.reserved_size - HDR_SIZE) [[unlikely]] {
 			layout_->header.state.store(BusState::FatalError, std::memory_order_release);
 			return nullptr;
 		}
 
-		out_type_id		  = hdr.type_id;
-		out_actual_size	  = hdr.size;
-		rx_reserved_size_ = hdr.reserved_size;
+		out_type_id		  = pmeta.type_id;
+		out_actual_size	  = pmeta.size;
+		rx_reserved_size_ = pmeta.reserved_size;
 
 		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
 	}
@@ -299,20 +305,20 @@ namespace tachyon::core {
 		const size_t capacity = capacity_mask_ + 1;
 
 		while (count < max_msgs && current_tail < cached_head_) {
-			size_t		  physical_idx = current_tail & capacity_mask_;
-			MessageHeader hdr{};
-			std::memcpy(&hdr, &layout_->data_arena()[physical_idx], sizeof(MessageHeader));
+			size_t	   physical_idx = current_tail & capacity_mask_;
+			PackedMeta pmeta{};
+			std::memcpy(&pmeta, &layout_->data_arena()[physical_idx], sizeof(PackedMeta));
 
-			if (hdr.size == SKIP_MARKER) [[unlikely]] {
+			if (pmeta.size == SKIP_MARKER) [[unlikely]] {
 				const size_t space_until_end = capacity - physical_idx;
 				local_tail_ += space_until_end;
 				current_tail += space_until_end;
 				physical_idx = 0;
-				std::memcpy(&hdr, &layout_->data_arena()[0], sizeof(MessageHeader));
+				std::memcpy(&pmeta, &layout_->data_arena()[0], sizeof(PackedMeta));
 			}
 
-			if (hdr.reserved_size < HDR_SIZE || hdr.reserved_size > capacity ||
-				(hdr.reserved_size & ALIGN_MASK) != 0U || hdr.size > hdr.reserved_size - HDR_SIZE) [[unlikely]] {
+			if (pmeta.reserved_size < HDR_SIZE || pmeta.reserved_size > capacity ||
+				(pmeta.reserved_size & ALIGN_MASK) != 0U || pmeta.size > pmeta.reserved_size - HDR_SIZE) [[unlikely]] {
 				layout_->header.state.store(BusState::FatalError, std::memory_order_release);
 				break;
 			}
@@ -321,17 +327,17 @@ namespace tachyon::core {
 
 #if defined(__GNUC__) || defined(__clang__)
 			__builtin_prefetch(payload_ptr, 0, 3);
-			const size_t next_idx = (current_tail + hdr.reserved_size) & capacity_mask_;
+			const size_t next_idx = (current_tail + pmeta.reserved_size) & capacity_mask_;
 			__builtin_prefetch(&layout_->data_arena()[next_idx], 0, 3);
 #endif // #if defined(__GNUC__) || defined(__clang__)
 
 			views[count].ptr		 = payload_ptr;
-			views[count].actual_size = hdr.size;
-			views[count].reserved_	 = hdr.reserved_size;
-			views[count].type_id	 = hdr.type_id;
+			views[count].actual_size = pmeta.size;
+			views[count].reserved_	 = pmeta.reserved_size;
+			views[count].type_id	 = pmeta.type_id;
 			views[count].padding_	 = 0;
 
-			current_tail += hdr.reserved_size;
+			current_tail += pmeta.reserved_size;
 			count++;
 		}
 
