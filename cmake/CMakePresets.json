@@ -20,7 +20,10 @@
       "inherits": "base",
       "toolchainFile": "${sourceDir}/cmake/toolchains/clang.cmake",
       "cacheVariables": {
-        "LLVM_VERSION": 21
+        "LLVM_VERSION": {
+          "type": "STRING",
+          "value": "21"
+        }
       }
     },
     {
@@ -29,7 +32,10 @@
       "inherits": "base",
       "toolchainFile": "${sourceDir}/cmake/toolchains/gcc.cmake",
       "cacheVariables": {
-        "GCC_VERSION": 14
+        "GCC_VERSION": {
+          "type": "STRING",
+          "value": "14"
+        }
       }
     },
     {
@@ -118,7 +124,8 @@
       "displayName": "PGO Profile Use",
       "inherits": "clang-release",
       "cacheVariables": {
-        "TACHYON_PGO_PHASE": "USE"
+        "TACHYON_PGO_PHASE": "USE",
+        "TACHYON_PGO_DIR": "${sourceDir}/build/pgo-generate/pgo-data"
       }
     }
   ],
