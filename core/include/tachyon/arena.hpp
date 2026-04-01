@@ -22,6 +22,10 @@ namespace tachyon::core {
 	constexpr uint32_t TACHYON_MAGIC   = 0x54414348;
 	constexpr uint32_t TACHYON_VERSION = 0x02;
 
+	constexpr uint32_t CONSUMER_AWAKE	  = 0;
+	constexpr uint32_t CONSUMER_SLEEPING  = 1;
+	constexpr uint32_t CONSUMER_PURE_SPIN = 2;
+
 	enum class BusState : uint32_t {
 		Uninitialized = 0,
 		Initializing  = 1,
@@ -130,6 +134,8 @@ namespace tachyon::core {
 		void flush_tx() noexcept;
 
 		void set_consumer_sleeping(bool sleeping) const noexcept;
+
+		void set_polling_mode(bool pure_spin) const noexcept;
 
 		int wait_consumer_sleeping() const noexcept;
 

@@ -139,7 +139,7 @@ namespace tachyon::core {
 
 		layout->indices.head.store(0, std::memory_order_relaxed);
 		layout->indices.tail.store(0, std::memory_order_relaxed);
-		layout->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+		layout->indices.consumer_sleeping.store(CONSUMER_AWAKE, std::memory_order_relaxed);
 		layout->indices.producer_heartbeat.store(0, std::memory_order_relaxed);
 		layout->indices.consumer_heartbeat.store(0, std::memory_order_relaxed);
 		layout->header.state.store(BusState::Ready, std::memory_order_release);
@@ -220,9 +220,13 @@ namespace tachyon::core {
 			layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.head.store(local_head_, std::memory_order_release);
 			pending_tx_ = 0;
-			std::atomic_thread_fence(std::memory_order_seq_cst);
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
-				platform_wake(&layout_->indices.consumer_sleeping);
+
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
+				std::atomic_thread_fence(std::memory_order_seq_cst);
+				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
+					[[unlikely]] {
+					platform_wake(&layout_->indices.consumer_sleeping);
+				}
 			}
 		}
 
@@ -285,10 +289,6 @@ namespace tachyon::core {
 	}
 
 	size_t Arena::acquire_rx_batch(RxView *views, const size_t max_msgs) noexcept {
-		// NOTE: This function is non-destructive. `local_tail_` is NOT advanced here.
-		// The caller MUST call commit_rx_batch() to release the consumer lock and
-		// advance the tail. A second call to acquire_rx_batch() before commit will
-		// return the same views.
 		if (max_msgs == 0) [[unlikely]]
 			return 0;
 
@@ -355,9 +355,9 @@ namespace tachyon::core {
 
 		local_tail_ += total_reserved;
 		pending_rx_ += count;
-		layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
 		if (pending_rx_ >= BATCH_SIZE) {
+			layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
@@ -395,16 +395,16 @@ namespace tachyon::core {
 				cpu_relax();
 				spins++;
 			} else {
-				layout_->indices.consumer_sleeping.store(1, std::memory_order_release);
+				layout_->indices.consumer_sleeping.store(CONSUMER_SLEEPING, std::memory_order_release);
 				std::atomic_thread_fence(std::memory_order_seq_cst);
 
 				if ((ptr = acquire_rx(out_type_id, out_actual_size)) != nullptr) {
-					layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+					layout_->indices.consumer_sleeping.store(CONSUMER_AWAKE, std::memory_order_relaxed);
 					return ptr;
 				}
 
 				const WaitResult wait_result = platform_wait(&layout_->indices.consumer_sleeping);
-				layout_->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
+				layout_->indices.consumer_sleeping.store(CONSUMER_AWAKE, std::memory_order_relaxed);
 				if (wait_result == WaitResult::Interrupted) {
 					return nullptr;
 				}
@@ -419,19 +419,24 @@ namespace tachyon::core {
 	void Arena::flush() noexcept {
 		bool published_tx = false;
 		if (pending_tx_ > 0) {
+			layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.head.store(local_head_, std::memory_order_release);
 			pending_tx_	 = 0;
 			published_tx = true;
 		}
 
 		if (published_tx) {
-			std::atomic_thread_fence(std::memory_order_seq_cst);
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
-				platform_wake(&layout_->indices.consumer_sleeping);
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
+				std::atomic_thread_fence(std::memory_order_seq_cst);
+				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
+					[[unlikely]] {
+					platform_wake(&layout_->indices.consumer_sleeping);
+				}
 			}
 		}
 
 		if (pending_rx_ > 0) {
+			layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
@@ -439,22 +444,33 @@ namespace tachyon::core {
 
 	void Arena::flush_tx() noexcept {
 		if (pending_tx_ > 0) {
+			layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.head.store(local_head_, std::memory_order_release);
 			pending_tx_ = 0;
-			std::atomic_thread_fence(std::memory_order_seq_cst);
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == 1) [[unlikely]] {
-				platform_wake(&layout_->indices.consumer_sleeping);
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
+				std::atomic_thread_fence(std::memory_order_seq_cst);
+				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
+					[[unlikely]] {
+					platform_wake(&layout_->indices.consumer_sleeping);
+				}
 			}
 		}
 	}
 
 	void Arena::set_consumer_sleeping(const bool sleeping) const noexcept {
 		layout_->indices.consumer_sleeping.store(
-			sleeping ? 1 : 0, sleeping ? std::memory_order_release : std::memory_order_relaxed
+			sleeping ? CONSUMER_SLEEPING : CONSUMER_AWAKE,
+			sleeping ? std::memory_order_release : std::memory_order_relaxed
 		);
 		if (sleeping) {
 			std::atomic_thread_fence(std::memory_order_seq_cst);
 		}
+	}
+
+	void Arena::set_polling_mode(const bool pure_spin) const noexcept {
+		layout_->indices.consumer_sleeping.store(
+			pure_spin ? CONSUMER_PURE_SPIN : CONSUMER_AWAKE, std::memory_order_release
+		);
 	}
 
 	int Arena::wait_consumer_sleeping() const noexcept {
