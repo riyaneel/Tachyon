@@ -215,9 +215,9 @@ namespace tachyon::core {
 		local_head_ += tx_reserved_size_;
 		tx_reserved_size_ = 0;
 		pending_tx_++;
-		layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 
 		if (pending_tx_ >= BATCH_SIZE) [[unlikely]] {
+			layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.head.store(local_head_, std::memory_order_release);
 			pending_tx_ = 0;
 			std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -275,9 +275,8 @@ namespace tachyon::core {
 		rx_reserved_size_ = 0;
 		pending_rx_++;
 
-		layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
-
 		if (pending_rx_ >= BATCH_SIZE) [[unlikely]] {
+			layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
