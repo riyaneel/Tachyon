@@ -4,10 +4,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BUILD_DIR="${1:-${ROOT_DIR}/cmake-build-pgo}"
+BUILD_DIR="${1:-${ROOT_DIR}/build/pgo-generate}"
 CORES="${2:-$(nproc)}"
 PGO_DIR="${BUILD_DIR}/pgo-data"
-BENCHMARK="${BUILD_DIR}/benchmark/tachyon_benchmark"
+BENCHMARK="${BUILD_DIR}/benchmark/tachyon_bench_inter"
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -24,7 +24,6 @@ err() {
 }
 
 [[ -f "${ROOT_DIR}/CMakeLists.txt" ]] || err "Must be run from the Tachyon root or via ci/bench/pgo.sh."
-[[ "${EUID}" -eq 0 ]] && err "Do not run as root. taskset does not require sudo for your own processes."
 
 detect_compiler() {
 	local candidate
@@ -67,24 +66,15 @@ if [[ "${COMPILER_FAMILY}" == "clang" ]]; then
 	log "llvm-profdata: ${LLVM_PROFDATA}"
 fi
 
-TASKSET_CMD=""
-if command -v taskset &>/dev/null; then
-	TASKSET_CMD="taskset -c 7,8,9"
-	log "CPU pinning: cores 7,8,9"
-else
-	warn "taskset not found — running unpinned"
-fi
-echo
-
 cmake_build() {
 	local phase="$1"
-	cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" \
-		-DCMAKE_BUILD_TYPE=Release \
+	local preset="pgo-use"
+	[[ "${phase}" == "GENERATE" ]] && preset="pgo-generate"
+	cmake --preset "${preset}" -B "${BUILD_DIR}" \
 		-DCMAKE_CXX_COMPILER="${COMPILER_BIN}" \
-		-DTACHYON_PGO_PHASE="${phase}" \
 		-DTACHYON_PGO_DIR="${PGO_DIR}" \
-		-G Ninja --fresh -Wno-dev 2>&1 | grep -v "^--" || true
-	cmake --build "${BUILD_DIR}" --target tachyon_benchmark -- -j"${CORES}"
+		--fresh -Wno-dev
+	cmake --build "${BUILD_DIR}" --target tachyon_bench_inter -j"${CORES}"
 }
 
 log "=== Phase 1: GENERATE ==="
@@ -93,7 +83,9 @@ ok "Phase 1 complete."
 echo
 
 log "=== Profile collection ==="
-${TASKSET_CMD} "${BENCHMARK}"
+mkdir -p "${PGO_DIR}"
+export LLVM_PROFILE_FILE="${PGO_DIR}/%p.profraw"
+TACHYON_PING_CORE=8 TACHYON_PONG_CORE=9 "${BENCHMARK}"
 
 if [[ "${COMPILER_FAMILY}" == "clang" ]]; then
 	COUNT=$(find "${PGO_DIR}" -name "*.profraw" 2>/dev/null | wc -l)
@@ -114,8 +106,7 @@ ok "Phase 2 complete."
 echo
 
 log "=== Validation ==="
-${TASKSET_CMD} "${BENCHMARK}"
+TACHYON_PING_CORE=8 TACHYON_PONG_CORE=9 "${BENCHMARK}"
 
 echo
 ok "Binary: ${BENCHMARK}"
-ok "Baseline: ${ROOT_DIR}/cmake-build-release/benchmark/tachyon_benchmark"
