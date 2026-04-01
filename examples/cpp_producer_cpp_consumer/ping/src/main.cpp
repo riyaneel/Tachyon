@@ -201,8 +201,8 @@ int main() {
 	std::cout << "├──────────────────────────────────┼──────────────┤\n";
 
 	auto row = [](const std::string &label, double val) {
-		std::cout << "│  " << std::left << std::setw(33) << label << "│ " << std::right << std::fixed
-				  << std::setprecision(1) << std::setw(11) << val << " │\n";
+		std::cout << "│  " << std::left << std::setw(32) << label << "│ " << std::right << std::fixed
+				  << std::setprecision(1) << std::setw(12) << val << " │\n";
 	};
 
 	row("Min", static_cast<double>(ticks.front()) * ns_per_tick);
