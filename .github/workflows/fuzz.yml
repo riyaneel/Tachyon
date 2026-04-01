@@ -13,53 +13,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-          cmake ninja-build clang-18 libstdc++-14-dev \
+          kitware-archive-keyring cmake ninja-build libstdc++-14-dev \
           libgtest-dev libbenchmark-dev python3-dev
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
 
       - name: Build fuzz targets
         run: |
-          cmake -S . -B build-fuzz \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined" \
-            -DTACHYON_ENABLE_FUZZING=ON
-          cmake --build build-fuzz \
-            --target \
-              tachyon_fuzz_arena_rx \
-              tachyon_fuzz_arena_rx_batch \
-              tachyon_fuzz_header_parser \
-              tachyon_fuzz_toctou
+          cmake --preset fuzz
+          cmake --build --preset fuzz
 
       - name: Regression — arena_rx
         run: |
           mkdir -p fuzz/corpus/crashes
-          ./build-fuzz/fuzz/tachyon_fuzz_arena_rx \
+          ./build/fuzz/fuzz/tachyon_fuzz_arena_rx \
             fuzz/corpus/arena_rx \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression — arena_rx_batch
         run: |
-          ./build-fuzz/fuzz/tachyon_fuzz_arena_rx_batch \
+          ./build/fuzz/fuzz/tachyon_fuzz_arena_rx_batch \
             fuzz/corpus/arena_rx_batch \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression — header_parser
         run: |
-          ./build-fuzz/fuzz/tachyon_fuzz_header_parser \
+          ./build/fuzz/fuzz/tachyon_fuzz_header_parser \
             fuzz/corpus/header_parser \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression — toctou
         run: |
-          ./build-fuzz/fuzz/tachyon_fuzz_toctou \
+          ./build/fuzz/fuzz/tachyon_fuzz_toctou \
             fuzz/corpus/toctou \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
