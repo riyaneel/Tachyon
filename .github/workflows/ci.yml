@@ -12,123 +12,157 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [ gcc, clang ]
-        build_type: [ Debug, Release ]
+        build_type: [ debug, release ]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install dependencies (GCC)
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies (Common)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install Toolchain (GCC)
         if: matrix.compiler == 'gcc'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-          cmake ninja-build libgtest-dev libbenchmark-dev \
-          gcc-14 g++-14
+          sudo apt-get install -y --no-install-recommends gcc-14 g++-14
 
-      - name: Install dependencies (Clang)
+      - name: Install Toolchain (Clang)
         if: matrix.compiler == 'clang'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build libgtest-dev libbenchmark-dev \
-            clang-18 libstdc++-14-dev
+        run: bash ci/install_llvm.sh 21
 
-      - name: Configure (GCC)
-        if: matrix.compiler == 'gcc'
+      - name: Configure (${{ matrix.compiler }}-${{ matrix.build_type}})
         run: |
-          cmake -S . -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_CXX_COMPILER=g++-14 \
-            -DCMAKE_C_COMPILER=gcc-14
+          cmake --preset ${{ matrix.compiler }}-${{ matrix.build_type}}
 
-      - name: Configure (Clang)
-        if: matrix.compiler == 'clang'
-        run: |
-          cmake -S . -B build \
-          -G Ninja \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_CXX_COMPILER=clang++-18 \
-          -DCMAKE_C_COMPILER=clang-18 \
-          -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined"
-
-      - name: Build
-        run: cmake --build build --parallel
+      - name: Build (${{ matrix.compiler }}-${{ matrix.build_type}})
+        run: cmake --build --preset ${{ matrix.compiler }}-${{ matrix.build_type}}
 
       - name: Test
-        run: ctest --test-dir build/test --output-on-failure --parallel 4
+        run: ctest --test-dir build/${{ matrix.compiler }}-${{ matrix.build_type}}/test --output-on-failure --parallel 4
 
   cpp_asan:
-    name: C++ ASan (clang-18, Debug)
+    name: C++ ASan (Clang 21, Debug)
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build libgtest-dev libbenchmark-dev \
-            clang-18 libstdc++-14-dev
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
 
       - name: Configure
-        run: |
-          cmake -S . -B build-asan \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined" \
-            -DTACHYON_SANITIZER=asan_ubsan
+        run: cmake --preset asan
 
       - name: Build
-        run: cmake --build build-asan --parallel
+        run: cmake --build --preset asan --parallel
 
       - name: Test
         env:
           ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1:print_stacktrace=1"
           UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1:print_summary=1"
-        run: ctest --test-dir build-asan/test --output-on-failure --parallel 1
+        run: ctest --test-dir build/asan/test --output-on-failure --parallel 1
 
-  cpp_tsan:
-    name: C++ TSan (clang-18, Debug)
+  cpp_msan:
+    name: C++ MSan (Clang 21, Debug)
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build libgtest-dev libbenchmark-dev \
-            clang-18 libstdc++-14-dev
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Build Instrumented libc++
+        run: bash ci/build_msan_libcxx.sh 21
 
       - name: Configure
-        run: |
-          cmake -S . -B build-tsan \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L -Wno-builtin-macro-redefined" \
-            -DTACHYON_SANITIZER=tsan
+        run: cmake --preset msan
 
       - name: Build
-        run: cmake --build build-tsan --parallel
+        run: cmake --build --preset msan --parallel
 
       - name: Test
         env:
-          TSAN_OPTIONS: >-
-            suppressions=${{ github.workspace }}/tsan.supp
-            halt_on_error=1
-            second_deadlock_stack=1
-            history_size=5
-        run: ctest --test-dir build-tsan/test --output-on-failure --parallel 1
+          MSAN_OPTIONS: "abort_on_error=1:print_stacktrace=1"
+        run: ctest --test-dir build/msan/test --output-on-failure --parallel 1
+
+  cpp_tsan:
+    name: C++ TSan (Clang 21, Debug)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Configure
+        run: cmake --preset tsan
+
+      - name: Build
+        run: cmake --build --preset tsan --parallel
+
+      - name: Test
+        env:
+          TSAN_OPTIONS: "suppressions=${{ github.workspace }}/tsan.supp halt_on_error=1 second_deadlock_stack=1 history_size=5"
+        run: ctest --test-dir build/tsan/test --output-on-failure --parallel 1
 
   cpp_macos:
     name: C++ macOS (${{ matrix.runner }}, ${{ matrix.build_type }})
