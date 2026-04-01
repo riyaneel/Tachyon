@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/riyaneel/tachyon/bindings/go/tachyon"
-	"github.com/riyaneel/tachyon/examples/go_telemetry_agent/common"
+	"github.com/riyaneel/tachyon/examples/go_producer_go_consumer/common"
 )
 
 func main() {
