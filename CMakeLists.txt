@@ -2,40 +2,19 @@ cmake_minimum_required(VERSION 3.31)
 
 project(Tachyon LANGUAGES CXX)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(TACHYON_SANITIZER "asan_ubsan" CACHE STRING "Sanitizer preset: none | asan_ubsan | tsan")
-set_property(CACHE TACHYON_SANITIZER PROPERTY STRINGS none asan_ubsan tsan)
-
-if (TACHYON_SANITIZER STREQUAL "asan_ubsan")
-	set(TACHYON_DEBUG_FLAGS
-			-O0 -g3 -fsanitize=address,undefined -fno-omit-frame-pointer
-	)
-	set(_SANITIZER_LINK_FLAGS $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-elseif (TACHYON_SANITIZER STREQUAL "tsan")
-	if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		message(WARNING
-				"TACHYON_SANITIZER=tsan: Clang recommended. "
-				"GCC may produce false positives on unannotated futex primitives.")
-	endif ()
-
-	set(TACHYON_DEBUG_FLAGS
-			-O1 -g3 -fsanitize=thread -fno-omit-frame-pointer
-	)
-
-	set(_SANITIZER_LINK_FLAGS $<$<CONFIG:Debug>:-fsanitize=thread>)
-else ()
-	set(TACHYON_DEBUG_FLAGS -O0 -g3 -fno-omit-frame-pointer)
-	set(_SANITIZER_LINK_FLAGS "")
-endif ()
+include(TachyonSanitizers)
 
 set(LINK_OPTIONS
 		$<$<CONFIG:Release>:-flto>
-		${_SANITIZER_LINK_FLAGS}
+		${TACHYON_SAN_LINK_FLAGS}
 )
 
 set(TACHYON_PGO_PHASE "" CACHE STRING "PGO phase: GENERATE or USE (empty = disabled)")
