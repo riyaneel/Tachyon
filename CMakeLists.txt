@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(TachyonCompileOptions)
 include(TachyonSanitizers)
+include("${CMAKE_SOURCE_DIR}/cmake/deps.cmake")
 
 set(LINK_OPTIONS
 		$<$<CONFIG:Release>:-flto>
@@ -87,6 +88,12 @@ if (TACHYON_ENABLE_FUZZING)
 				"TACHYON_ENABLE_FUZZING=ON is incompatible with TACHYON_PGO_PHASE=GENERATE.\n"
 				"PGO instrumentation and libFuzzer instrumentation conflict at link time."
 		)
+	endif ()
+
+	if (TACHYON_SANITIZER STREQUAL "msan")
+		message(FATAL_ERROR
+				"TACHYON_ENABLE_FUZZING=ON is incompatible with TACHYON_SANITIZER=msan.\n"
+				"libFuzzer uses ASan internally; MSan instrumentation conflicts at link time.")
 	endif ()
 
 	message(STATUS "Tachyon: Fuzzing enabled (libFuzzer + ASan)")
