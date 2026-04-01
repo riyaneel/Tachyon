@@ -7,7 +7,7 @@ set(CMAKE_C_COMPILER "${CLANG_C_BIN}" CACHE FILEPATH "C compiler")
 set(CMAKE_CXX_COMPILER "${CLANG_CXX_BIN}" CACHE FILEPATH "C++ compiler")
 
 find_program(LLD_BIN NAMES ld.lld-${LLVM_VERSION} lld DOC "LLD linker (version ${LLVM_VERSION})")
-if (GOLD_BIN)
+if (LLD_BIN)
 	set(CMAKE_EXE_LINKER_FLAGS_INIT "-fuse-ld=lld")
 	set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld")
 	set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld")
