@@ -97,6 +97,8 @@ TACHYON_ABI size_t tachyon_drain_batch(
 TACHYON_ABI tachyon_error_t
 tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, size_t count) TACHYON_NOEXCEPT;
 
+TACHYON_ABI void tachyon_bus_set_polling_mode(tachyon_bus_t *bus, int pure_spin) TACHYON_NOEXCEPT;
+
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;

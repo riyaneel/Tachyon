@@ -432,6 +432,11 @@ tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, con
 	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
+void tachyon_bus_set_polling_mode(tachyon_bus_t *bus, int pure_spin) TACHYON_NOEXCEPT {
+	if (bus) [[likely]]
+		bus->arena.set_polling_mode(pure_spin != 0);
+}
+
 void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (bus) {
 		TasGuard p_lock(bus->producer_lock);
