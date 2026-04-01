@@ -78,6 +78,15 @@
       }
     },
     {
+      "name": "msan",
+      "displayName": "MSan - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "msan"
+      }
+    },
+    {
       "name": "tsan",
       "displayName": "TSan - Clang 21",
       "inherits": "clang-base",
@@ -130,6 +139,11 @@
       "jobs": 0
     },
     {
+      "name": "msan",
+      "configurePreset": "msan",
+      "jobs": 0
+    },
+    {
       "name": "tsan",
       "configurePreset": "tsan",
       "jobs": 0
@@ -166,6 +180,14 @@
       "name": "asan",
       "inherits": "base-test",
       "configurePreset": "asan",
+      "execution": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": " msan",
+      "inherits": "base-test",
+      "configurePreset": " msan",
       "execution": {
         "jobs": 1
       }
