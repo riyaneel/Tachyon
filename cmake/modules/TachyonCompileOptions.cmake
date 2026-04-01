@@ -15,10 +15,6 @@ set(TACHYON_RELEASE_FLAGS
 		-fno-plt
 )
 
-set(TACHYON_DEBUG_FLAGS
-		-O0 -g3 -fno-omit-frame-pointer
-)
-
 if (TACHYON_LTO STREQUAL "fat")
 	list(APPEND TACHYON_RELEASE_FLAGS -flto)
 elseif (TACHYON_LTO STREQUAL "thin")
