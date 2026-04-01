@@ -7,14 +7,8 @@ add_executable(tachyon_tests
 		src/test_shm.cpp
 )
 
-target_compile_options(tachyon_tests PRIVATE
-		${TACHYON_FLAGS}
-		$<$<CONFIG:Release>:${TACHYON_RELEASE_FLAGS}>
-		$<$<CONFIG:Debug>:${TACHYON_DEBUG_FLAGS}>
-)
-
+tachyon_set_compile_options(tachyon_tests)
 target_link_options(tachyon_tests PRIVATE ${LINK_OPTIONS})
-
 target_link_libraries(tachyon_tests
 		PRIVATE
 		tachyon

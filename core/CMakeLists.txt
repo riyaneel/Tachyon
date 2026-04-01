@@ -5,15 +5,9 @@ add_library(tachyon SHARED
 		src/transport_uds.cpp
 )
 
-target_compile_options(tachyon PRIVATE
-		${TACHYON_FLAGS}
-		$<$<CONFIG:Release>:${TACHYON_RELEASE_FLAGS}>
-		$<$<CONFIG:Debug>:${TACHYON_DEBUG_FLAGS}>
-)
-
+tachyon_set_compile_options(tachyon)
 target_link_options(tachyon PRIVATE
 		${LINK_OPTIONS}
-		$<$<CONFIG:Release>:-flto>
 )
 
 set_target_properties(tachyon PROPERTIES
