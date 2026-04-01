@@ -6,6 +6,6 @@
     "patch": 0
   },
   "include": [
-    "cmake/toolchains/CMakePresets.json"
+    "cmake/CMakePresets.json"
   ]
 }
