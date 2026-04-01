@@ -94,7 +94,13 @@ compile_args = [
 ]
 
 if not sys.platform.startswith("darwin"):
-    compile_args += ["-march=native", "-mtune=native"]
+    is_ci = (
+            os.environ.get("CIBUILDWHEEL") == "1" or
+            os.environ.get("GITHUB_ACTIONS") == "true" or
+            os.environ.get("CI") == "true"
+    )
+    if not is_ci:
+        compile_args += ["-march=native", "-mtune=native"]
 
 libraries = ["rt"] if sys.platform.startswith("linux") else []
 
