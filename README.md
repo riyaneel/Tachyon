@@ -296,13 +296,13 @@ For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATIO
 
 ## Requirements
 
-| Component | Minimum                                   |
-|-----------|-------------------------------------------|
-| OS        | Linux 5.10+ (primary), macOS 13+ (tier-2) |
-| Compiler  | GCC 14+ or Clang 17+                      |
-| CMake     | 3.31+                                     |
-| Python    | 3.10+                                     |
-| Rust      | stable (2024 edition)                     |
+| Component | Minimum                                                    |
+|-----------|------------------------------------------------------------|
+| OS        | Linux 5.10+ (primary), macOS 13+ (tier-2)                  |
+| Compiler  | Clang 17+ for basic use, Clang 21+ for preset-based builds |
+| CMake     | 3.31+                                                      |
+| Python    | 3.10+                                                      |
+| Rust      | stable (2024 edition)                                      |
 
 ---
 
