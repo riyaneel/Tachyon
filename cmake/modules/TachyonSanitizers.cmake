@@ -3,6 +3,9 @@ include_guard(GLOBAL)
 set(TACHYON_SANITIZER "asan_ubsan" CACHE STRING "Sanitizer preset: none | asan_ubsan | tsan | msan")
 set_property(CACHE TACHYON_SANITIZER PROPERTY STRINGS none asan_ubsan tsan msan)
 
+set(TACHYON_MSAN_LLVM_VERSION "21" CACHE STRING "LLVM version used for MSan libc++")
+set(TACHYON_MSAN_LIBCXX_DIR "${CMAKE_SOURCE_DIR}/.msan_toolchain/llvm-${TACHYON_MSAN_LLVM_VERSION}")
+
 set(_tachyon_san_valid none asan_ubsan tsan msan)
 
 if (NOT TACHYON_SANITIZER IN_LIST _tachyon_san_valid)
@@ -17,6 +20,13 @@ if (TACHYON_SANITIZER STREQUAL "msan")
 				"[TachyonSanitizers] msan requires Clang.\n"
 				"Current compiler: ${CMAKE_CXX_COMPILER_ID} (${CMAKE_CXX_COMPILER})\n"
 				"Re-run cmake with: -DCMAKE_CXX_COMPILER=clang++")
+	endif ()
+
+	if (NOT EXISTS "${TACHYON_MSAN_LIBCXX_DIR}/include/c++/v1")
+		message(FATAL_ERROR
+				"[TachyonSanitizers] Instrumented libc++ not found at:\n"
+				"  ${TACHYON_MSAN_LIBCXX_DIR}\n"
+				"Please run: bash ci/build_msan_libcxx.sh ${TACHYON_MSAN_LLVM_VERSION}")
 	endif ()
 endif ()
 
@@ -56,9 +66,24 @@ elseif (TACHYON_SANITIZER STREQUAL "msan")
 			-fno-optimize-sibling-calls
 			-fsanitize=memory
 			-fsanitize-memory-track-origins=2
+			-nostdinc++
+			-isystem ${TACHYON_MSAN_LIBCXX_DIR}/include/c++/v1
 	)
+
 	set(TACHYON_SAN_LINK_FLAGS
 			$<$<CONFIG:Debug>:-fsanitize=memory>
+			$<$<CONFIG:Debug>:-nostdlib++>
+	)
+
+	add_compile_options("$<$<CONFIG:Debug>:-fsanitize=memory>")
+	add_compile_options("$<$<CONFIG:Debug>:-nostdinc++>")
+	add_compile_options("$<$<CONFIG:Debug>:-isystem;${TACHYON_MSAN_LIBCXX_DIR}/include/c++/v1>")
+	link_directories("${TACHYON_MSAN_LIBCXX_DIR}/lib")
+	link_libraries(
+			"$<$<CONFIG:Debug>:c++>"
+			"$<$<CONFIG:Debug>:c++abi>"
+			"$<$<CONFIG:Debug>:unwind>"
+			"$<$<CONFIG:Debug>:pthread>"
 	)
 else ()
 	set(TACHYON_DEBUG_FLAGS

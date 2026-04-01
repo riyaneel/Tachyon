@@ -89,7 +89,8 @@
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "TACHYON_SANITIZER": "msan"
+        "TACHYON_SANITIZER": "msan",
+        "TACHYON_MSAN_LIBCXX_DIR":"${sourceDir}/.msan_toolchain/"
       }
     },
     {
