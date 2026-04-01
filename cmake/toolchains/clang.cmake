@@ -1,7 +1,7 @@
 set(LLVM_VERSION "21" CACHE STRING "LLVM version to use")
 
 find_program(CLANG_C_BIN NAMES clang-${LLVM_VERSION} clang REQUIRED DOC "Clang C compiler (version ${LLVM_VERSION})")
-find_program(CLANG_CXX_BIN NAMES clang++-${LLVM_VERSION} clang REQUIRED DOC "Clang C compiler (version ${LLVM_VERSION})")
+find_program(CLANG_CXX_BIN NAMES clang++-${LLVM_VERSION} clang++ REQUIRED DOC "Clang CXX compiler (version ${LLVM_VERSION})")
 
 set(CMAKE_C_COMPILER "${CLANG_C_BIN}" CACHE FILEPATH "C compiler")
 set(CMAKE_CXX_COMPILER "${CLANG_CXX_BIN}" CACHE FILEPATH "C++ compiler")
