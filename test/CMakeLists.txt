@@ -17,7 +17,7 @@ target_link_libraries(tachyon_tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(tachyon_tests)
+gtest_discover_tests(tachyon_tests DISCOVERY_MODE PRE_TEST)
 
 target_include_directories(tachyon_tests
 		PRIVATE

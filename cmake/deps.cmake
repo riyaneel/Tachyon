@@ -18,6 +18,11 @@ set(INSTALL_GTEST OFF CACHE INTERNAL "")
 set(gtest_force_shared_crt ON CACHE INTERNAL "")
 FetchContent_MakeAvailable(googletest)
 
+if (TACHYON_SANITIZER STREQUAL "msan" AND TARGET gtest)
+	target_compile_options(gtest PRIVATE ${TACHYON_DEBUG_FLAGS})
+	target_compile_options(gtest_main PRIVATE ${TACHYON_DEBUG_FLAGS})
+endif ()
+
 if (TARGET gtest)
 	target_compile_options(gtest PRIVATE -w)
 	target_compile_options(gtest_main PRIVATE -w)
