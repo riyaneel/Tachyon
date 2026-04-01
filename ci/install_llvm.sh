@@ -41,6 +41,10 @@ if [[ "${OS_ID}" == "ubuntu" || "${OS_ID}" == "debian" ]]; then
 		fi
 	done
 
+	for tool in clang clang++ clang-format clang-tidy llvm-ar llvm-nm llvm-ranlib llvm-profdata; do
+		sudo update-alternatives --remove-all "${tool}" || true
+	done
+
 	sudo update-alternatives --install /usr/bin/clang clang \
 		/usr/bin/clang-"${LLVM_VERSION}" 100 \
 		--slave /usr/bin/clang++ clang++ /usr/bin/clang++-"${LLVM_VERSION}" \
@@ -51,6 +55,7 @@ if [[ "${OS_ID}" == "ubuntu" || "${OS_ID}" == "debian" ]]; then
 		--slave /usr/bin/llvm-ranlib llvm-ranlib /usr/bin/llvm-ranlib-"${LLVM_VERSION}" \
 		--slave /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-"${LLVM_VERSION}"
 
+	sudo update-alternatives --remove-all lld || true
 	sudo update-alternatives --install /usr/bin/lld lld \
 		/usr/bin/lld-"${LLVM_VERSION}" 100
 
