@@ -1,7 +1,5 @@
 enable_testing()
 
-find_package(GTest REQUIRED)
-
 add_executable(tachyon_tests
 		src/test_arena.cpp
 		src/test_shm.cpp

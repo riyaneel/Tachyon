@@ -1,4 +1,3 @@
-find_package(benchmark REQUIRED)
 find_package(Threads REQUIRED)
 
 add_executable(tachyon_bench_intra src/bench_intra.cpp)
