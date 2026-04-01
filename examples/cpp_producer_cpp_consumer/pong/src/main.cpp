@@ -110,6 +110,9 @@ int main() {
 		return 1;
 	}
 
+	tachyon_bus_set_polling_mode(rx, 1);
+	tachyon_bus_set_polling_mode(tx, 1);
+
 	std::printf("[pong] Handshake complete. Spinning on core %d ...\n\n", PONG_CORE);
 
 	while (reflect_once(rx, tx)) {

@@ -140,6 +140,9 @@ int main() {
 		return 1;
 	}
 
+	tachyon_bus_set_polling_mode(rx, 1);
+	tachyon_bus_set_polling_mode(tx, 1);
+
 	std::printf("[ping] Handshake complete. ping=core%d  pong=core%d\n\n", PING_CORE, PONG_CORE);
 
 	alignas(64) std::byte payload[PAYLOAD]{};
