@@ -59,6 +59,8 @@ No bump required for:
 - Existing signatures: frozen
 - Existing enum numeric values: frozen
 - Additions: allowed without version bump
+- `tachyon_bus_set_polling_mode` added in v0.3.0 — sets `consumer_sleeping` to `CONSUMER_PURE_SPIN (2)`, disabling futex
+  wake checks on the producer flush path. No wire format change.
 - Removal or signature change: requires major version bump
 
 Visibility: `TACHYON_ABI` on all exported symbols. Internals: `-fvisibility=hidden`.
