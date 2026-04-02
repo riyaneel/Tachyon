@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include <tachyon/arena.hpp>
@@ -17,20 +16,20 @@
 
 namespace tachyon::top {
 	struct BusUIData {
-		pid_t					pid;
-		std::string				comm;
-		size_t					capacity;
-		size_t					used_bytes;
-		size_t					head;
-		size_t					tail;
-		double					fill_pct;
-		double					msg_per_sec;
-		double					mb_per_sec;
-		bool					consumer_sleeping;
-		uint64_t				producer_hb_age_us;
-		uint64_t				consumer_hb_age_us;
-		tachyon::core::BusState state;
-		std::array<double, 60>	sparkline;
+		pid_t				   pid;
+		std::string			   comm;
+		size_t				   capacity;
+		size_t				   used_bytes;
+		size_t				   head;
+		size_t				   tail;
+		double				   fill_pct;
+		double				   msg_per_sec;
+		double				   mb_per_sec;
+		bool				   consumer_sleeping;
+		uint64_t			   producer_hb_age_us;
+		uint64_t			   consumer_hb_age_us;
+		core::BusState		   state;
+		std::array<double, 60> sparkline;
 	};
 
 	class UIDataState {
@@ -43,7 +42,7 @@ namespace tachyon::top {
 	public:
 		__always_inline void commit_render_state(std::vector<BusUIData> &new_state) noexcept {
 			std::swap(buffers_[write_idx_], new_state);
-			write_idx_			 = clean_idx_.exchange(write_idx_, std::memory_order_acq_rel);
+			write_idx_ = clean_idx_.exchange(write_idx_, std::memory_order_acq_rel);
 			new_data_.store(true, std::memory_order_release);
 		}
 
@@ -62,7 +61,7 @@ namespace tachyon::top {
 
 	class BusView {
 		BusHandle							  handle_;
-		const tachyon::core::MemoryLayout	 *layout_{nullptr};
+		const core::MemoryLayout			 *layout_{nullptr};
 		size_t								  capacity_{0};
 		BusSnapshot							  prev_{};
 		std::chrono::steady_clock::time_point prev_ts_;
@@ -75,7 +74,7 @@ namespace tachyon::top {
 			: handle_(std::move(handle)), tsc_ticks_per_us_(tsc_ticks_per_us) {
 			void *ptr = mmap(nullptr, handle_.shm_size, PROT_READ, MAP_SHARED, handle_.fd, 0);
 			if (ptr != MAP_FAILED) [[likely]] {
-				layout_	  = static_cast<const tachyon::core::MemoryLayout *>(ptr);
+				layout_	  = static_cast<const core::MemoryLayout *>(ptr);
 				capacity_ = layout_->header.capacity;
 			}
 			prev_ts_ = std::chrono::steady_clock::now();
@@ -83,7 +82,7 @@ namespace tachyon::top {
 
 		~BusView() noexcept {
 			if (layout_ != nullptr) {
-				munmap(const_cast<tachyon::core::MemoryLayout *>(layout_), handle_.shm_size);
+				munmap(const_cast<core::MemoryLayout *>(layout_), handle_.shm_size);
 			}
 		}
 
@@ -125,7 +124,7 @@ namespace tachyon::top {
 				.consumer_sleeping	= false,
 				.producer_hb_age_us = 0,
 				.consumer_hb_age_us = 0,
-				.state				= tachyon::core::BusState::Unknown,
+				.state				= core::BusState::Unknown,
 				.sparkline			= sparkline_
 			};
 
@@ -166,7 +165,7 @@ namespace tachyon::top {
 			data.consumer_sleeping = (c_sleep == 1);
 			data.state			   = b_state;
 
-			const uint64_t now_tsc = tachyon::rdtsc();
+			const uint64_t now_tsc = rdtsc();
 			data.producer_hb_age_us =
 				(now_tsc > p_hb) ? static_cast<uint64_t>(static_cast<double>(now_tsc - p_hb) / tsc_ticks_per_us_) : 0;
 			data.consumer_hb_age_us =

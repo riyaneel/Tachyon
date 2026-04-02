@@ -22,7 +22,7 @@ namespace tachyon::top {
 		std::string comm;
 		ino_t		inode{0};
 
-		BusHandle(pid_t p, int f, size_t s, std::string c, ino_t i)
+		BusHandle(const pid_t p, const int f, const size_t s, std::string c, const ino_t i)
 			: pid(p), fd(f), shm_size(s), comm(std::move(c)), inode(i) {}
 
 		BusHandle() = default;
@@ -134,7 +134,7 @@ namespace tachyon::top {
 					continue;
 				}
 
-				if (static_cast<size_t>(st.st_size) < sizeof(tachyon::core::ArenaHeader)) {
+				if (static_cast<size_t>(st.st_size) < sizeof(core::ArenaHeader)) {
 					close(fd);
 					continue;
 				}
@@ -152,17 +152,17 @@ namespace tachyon::top {
 					continue;
 				}
 
-				void *map_ptr = mmap(nullptr, sizeof(tachyon::core::ArenaHeader), PROT_READ, MAP_SHARED, fd, 0);
+				void *map_ptr = mmap(nullptr, sizeof(core::ArenaHeader), PROT_READ, MAP_SHARED, fd, 0);
 				if (map_ptr == MAP_FAILED) {
 					close(fd);
 					continue;
 				}
 
-				const auto *header	  = static_cast<tachyon::core::ArenaHeader *>(map_ptr);
-				const bool	valid_abi = (header->magic == tachyon::core::TACHYON_MAGIC) &&
-									   (header->version == tachyon::core::TACHYON_VERSION) &&
+				const auto *header	  = static_cast<core::ArenaHeader *>(map_ptr);
+				const bool	valid_abi = (header->magic == core::TACHYON_MAGIC) &&
+									   (header->version == core::TACHYON_VERSION) &&
 									   (header->msg_alignment == TACHYON_MSG_ALIGNMENT);
-				munmap(map_ptr, sizeof(tachyon::core::ArenaHeader));
+				munmap(map_ptr, sizeof(core::ArenaHeader));
 
 				if (!valid_abi) {
 					close(fd);

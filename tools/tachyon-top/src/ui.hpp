@@ -12,8 +12,8 @@
 #include <ftxui/screen/color.hpp>
 
 namespace tachyon::top::ui {
-	[[nodiscard]] constexpr const char *to_string(tachyon::core::BusState state) noexcept {
-		using enum tachyon::core::BusState;
+	[[nodiscard]] constexpr const char *to_string(const core::BusState state) noexcept {
+		using enum core::BusState;
 		switch (state) {
 		case Uninitialized:
 			return "UNINIT";
@@ -91,7 +91,7 @@ namespace tachyon::top::ui {
 		for (size_t i = 0; i < views.size(); ++i) {
 			const auto &v			= views[i];
 			const bool	is_selected = (i == selected_idx);
-			const bool	is_fatal	= (v.state == tachyon::core::BusState::FatalError);
+			const bool	is_fatal	= (v.state == core::BusState::FatalError);
 
 			Element row;
 			if (is_fatal) [[unlikely]] {

@@ -163,20 +163,23 @@ int main(const int argc, char **argv) {
 			screen.Exit();
 			return true;
 		}
+
 		if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
 			if (!views.empty() && selected_idx < views.size() - 1) {
 				selected_idx++;
 			}
 			return true;
 		}
+
 		if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
 			if (selected_idx > 0) {
 				selected_idx--;
 			}
 			return true;
 		}
+
 		if (event == ftxui::Event::Character('r')) {
-			int current = shared_interval_ms.load(std::memory_order_relaxed);
+			const int current = shared_interval_ms.load(std::memory_order_relaxed);
 			if (current == 100)
 				shared_interval_ms.store(500, std::memory_order_relaxed);
 			else if (current == 500)
@@ -185,6 +188,7 @@ int main(const int argc, char **argv) {
 				shared_interval_ms.store(100, std::memory_order_relaxed);
 			return true;
 		}
+
 		return false;
 	});
 
