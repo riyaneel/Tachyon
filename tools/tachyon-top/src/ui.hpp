@@ -127,7 +127,10 @@ namespace tachyon::top::ui {
 	[[nodiscard]] inline ftxui::Element render_detail(const BusUIData &view) {
 		using namespace ftxui;
 
-		auto   c	   = Canvas(60, 40);
+		constexpr int CANVAS_W = 240;
+		constexpr int CANVAS_H = 40;
+		auto		  c		   = Canvas(CANVAS_W, CANVAS_H);
+
 		double max_val = 0.001;
 		for (const double val : view.sparkline) {
 			max_val = std::max(max_val, val);
@@ -135,11 +138,16 @@ namespace tachyon::top::ui {
 
 		for (size_t i = 0; i < 60; ++i) {
 			const double val	   = view.sparkline[i];
-			const int	 y		   = 39 - static_cast<int>((val / max_val) * 39.0);
-			const int	 clamped_y = std::clamp(y, 0, 39);
-			c.DrawPoint(static_cast<int>(i), clamped_y, true);
-			for (int fill_y = clamped_y + 1; fill_y <= 39; ++fill_y) {
-				c.DrawPoint(static_cast<int>(i), fill_y, true);
+			const int	 base_x	   = static_cast<int>(i) * 4;
+			const int	 y		   = (CANVAS_H - 1) - static_cast<int>((val / max_val) * (CANVAS_H - 1));
+			const int	 clamped_y = std::clamp(y, 0, CANVAS_H - 1);
+
+			for (int dx = 0; dx < 4; ++dx) {
+				const int x = base_x + dx;
+				c.DrawPoint(x, clamped_y, true);
+				for (int fill_y = clamped_y + 1; fill_y < CANVAS_H; ++fill_y) {
+					c.DrawPoint(x, fill_y, true);
+				}
 			}
 		}
 
