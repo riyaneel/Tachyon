@@ -167,12 +167,16 @@ namespace tachyon::top {
 			std::vector<ino_t> seen_inodes;
 			seen_inodes.reserve(16);
 
+			const pid_t	   self_pid = getpid();
 			struct dirent *proc_ent;
 			while ((proc_ent = readdir(proc_dir)) != nullptr) {
 				if (proc_ent->d_type != DT_DIR || !is_numeric(proc_ent->d_name)) [[unlikely]]
 					continue;
 
 				const pid_t pid = std::atoi(proc_ent->d_name);
+				if (pid == self_pid) [[unlikely]]
+					continue;
+
 				scan_pid(pid, handles, seen_inodes);
 			}
 
