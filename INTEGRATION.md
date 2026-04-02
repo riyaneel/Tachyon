@@ -167,6 +167,19 @@ let bus = Bus::listen(path, capacity) ?;
 bus.set_numa_node(0) ?;   // MPOL_PREFERRED + MPOL_MF_MOVE
 ```
 
+### Pure-spin mode
+
+If the consumer runs in a dedicated thread that never parks (e.g. a `SCHED_FIFO` reflector or a benchmark), call
+`tachyon_bus_set_polling_mode` immediately after handshake. This sets `consumer_sleeping` to `CONSUMER_PURE_SPIN`, which
+causes the producer to skip the `atomic_thread_fence(seq_cst)` + `consumer_sleeping` load on every `flush_tx`. Do not
+call this if the consumer thread may sleep or yield — the producer will never issue a futex wake, and the consumer will
+spin indefinitely rather than sleeping.
+
+```c++
+tachyon_bus_set_polling_mode(rx, 1); // consumer: I will never sleep
+tachyon_bus_set_polling_mode(tx, 1); // producer: skip wake check
+```
+
 ---
 
 ## Capacity sizing
