@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import types
 from contextlib import contextmanager
-from typing import Any, Iterator, Generator, Optional, Type
+from typing import Iterator, Generator, Optional, Type
 from . import _tachyon
 from .message import Message
 
@@ -57,6 +57,23 @@ class Bus:
         :raise ValueError: If node_id is negative or >= 64.
         """
         self._bus.set_numa_node(node_id=node_id)
+
+    def set_polling_mode(self, pure_spin: int) -> None:
+        """
+        Signals that the consumer will never sleep, skipping the futex wake check
+        on every producer flush.
+
+        When pure_spin=1, the producer omits the atomic_thread_fence(seq_cst) and
+        the consumer_sleeping load on every flush_tx call. Use only when the
+        consumer thread is dedicated and runs at SCHED_FIFO — if the consumer
+        ever parks, the producer will not issue a futex wake and the consumer
+        will spin indefinitely instead of sleeping.
+
+        Call immediately after listen()/connect(), before the first message.
+
+        :param pure_spin: 1 to enable pure-spin mode, 0 to restore hybrid mode.
+        """
+        self._bus.set_polling_mode(pure_spin=pure_spin)
 
     def send(self, data: bytes, type_id: int = 0) -> None:
         """Blocking SPSC write. Copies payload, commits, and flushes."""

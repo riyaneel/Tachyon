@@ -134,3 +134,10 @@ class TachyonBus:
         :raise OSError: mbind() failure.
         """
         ...
+
+    def set_polling_mode(self, pure_spin: int) -> None:
+        """
+        Signals that the consumer will never sleep, skipping the futex wake check
+        on every producer flush. pure_spin=1 enables, 0 restores hybrid mode.
+        """
+        ...

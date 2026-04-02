@@ -81,6 +81,22 @@ class Bus:
         """
         ...
 
+    def set_polling_mode(self, pure_spin: int) -> None:
+        """
+        Signals that the consumer will never sleep, skipping the futex wake check
+        on every producer flush.
+
+        When pure_spin=1, the producer omits the atomic_thread_fence(seq_cst) and
+        the consumer_sleeping load on every flush_tx. Use only when the consumer
+        thread is dedicated and SCHED_FIFO — if it ever parks, the producer will
+        not wake it.
+
+        Call immediately after listen()/connect(), before the first message.
+
+        :param pure_spin: 1 to enable pure-spin mode, 0 to restore hybrid mode.
+        """
+        ...
+
     def send(self, data: bytes, type_id: int = 0) -> None:
         """Blocking SPSC write. Copies payload, commits, and flushes."""
         ...
