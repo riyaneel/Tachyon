@@ -12,6 +12,7 @@ const REPORT_EVERY: u64 = 10_000;
 fn main() {
     println!("[consumer] Connecting to {SOCKET_PATH} ...");
     let bus = Bus::connect(SOCKET_PATH).expect("failed to connect — is the producer running?");
+    bus.set_polling_mode(1);
     println!("[consumer] Connected. Receiving ticks ...\n");
 
     let mut total = 0u64;

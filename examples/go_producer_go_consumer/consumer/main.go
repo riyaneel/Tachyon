@@ -19,6 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Connect error: %v", err)
 	}
+	bus.SetPollingMode(1)
 
 	defer bus.Close()
 

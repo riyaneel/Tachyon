@@ -50,6 +50,7 @@ def main():
 
     with tachyon.Bus.listen(SOCKET_PATH, CAPACITY) as bus:
         raw_bus = bus._bus
+        bus.set_polling_mode(1)
         print("[consumer] Producer connected. Receiving feature vectors ...\n")
 
         # Pre-allocated accumulation buffer — no per-frame allocation.
