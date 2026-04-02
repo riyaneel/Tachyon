@@ -173,7 +173,8 @@ namespace tachyon::top {
 				if (proc_ent->d_type != DT_DIR || !is_numeric(proc_ent->d_name)) [[unlikely]]
 					continue;
 
-				const pid_t pid = std::atoi(proc_ent->d_name);
+				pid_t pid = 0;
+				std::from_chars(proc_ent->d_name, proc_ent->d_name + std::strlen(proc_ent->d_name), pid);
 				if (pid == self_pid) [[unlikely]]
 					continue;
 
