@@ -81,6 +81,7 @@ func BenchmarkSend(b *testing.B) {
 	if srv == nil {
 		b.Fatal("Listen failed")
 	}
+	srv.SetPollingMode(1)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -129,6 +130,7 @@ func BenchmarkRecv(b *testing.B) {
 	if srv == nil {
 		b.Fatal("Listen failed")
 	}
+srv.SetPollingMode(1)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -186,6 +188,7 @@ func BenchmarkDrainBatch(b *testing.B) {
 	if srv == nil {
 		b.Fatal("Listen failed")
 	}
+	srv.SetPollingMode(1)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -266,6 +269,9 @@ func BenchmarkPingPong(b *testing.B) {
 	if abSrv == nil || baSrv == nil {
 		b.Fatal("Listen failed")
 	}
+
+	abSrv.SetPollingMode(1)
+	baSrv.SetPollingMode(1)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup

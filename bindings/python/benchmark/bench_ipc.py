@@ -27,6 +27,7 @@ def wait_for_bus_connect(path: str, retries: int = 100) -> tachyon.Bus:
 def run_latency_server():
     print("[Server] Listening on PING bus...")
     with tachyon.Bus.listen(SOCKET_PING, CAPACITY) as rx_bus:
+        rx_bus.set_polling_mode(1)
         print("[Server] Client connected to PING. Now listening on PONG bus...")
         with tachyon.Bus.listen(SOCKET_PONG, CAPACITY) as tx_bus:
             print("[Server] Both buses initialized. Starting loop.")
@@ -44,6 +45,7 @@ def run_latency_client():
     with tx_bus:
         print("[Client] Connecting to PONG bus...")
         rx_bus = wait_for_bus_connect(SOCKET_PONG)
+        rx_bus.set_polling_mode(1)
 
         with rx_bus:
             print("[Client] Starting Latency Benchmark...")
@@ -65,6 +67,7 @@ def run_latency_client():
 def run_throughput_receiver():
     print("[Receiver] Listening on THROUGHPUT bus...")
     with tachyon.Bus.listen(SOCKET_THROUGHPUT, CAPACITY) as bus:
+        bus.set_polling_mode(1)
         it = iter(bus)
         for _ in range(ITERATIONS):
             next(it)
