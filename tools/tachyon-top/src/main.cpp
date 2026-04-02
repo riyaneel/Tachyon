@@ -99,10 +99,20 @@ int main(const int argc, char **argv) {
 		std::vector<tachyon::top::BusView> active_views;
 		active_views.reserve(16);
 
-		while (running.load(std::memory_order_acquire)) {
-			std::erase_if(active_views, [](const tachyon::top::BusView &v) { return !v.is_alive(); });
+		std::vector<tachyon::top::BusUIData> ui_data;
+		ui_data.reserve(16);
 
+		while (running.load(std::memory_order_acquire)) {
 			auto new_handles = tachyon::top::ProcScanner::scan();
+			std::erase_if(active_views, [&new_handles](const tachyon::top::BusView &v) {
+				for (const auto &h : new_handles) {
+					if (h.inode == v.handle().inode) {
+						return false;
+					}
+				}
+				return true;
+			});
+
 			for (auto &handle : new_handles) {
 				bool exists = false;
 				for (const auto &view : active_views) {
@@ -117,13 +127,12 @@ int main(const int argc, char **argv) {
 				}
 			}
 
-			std::vector<tachyon::top::BusUIData> ui_data;
-			ui_data.reserve(active_views.size());
+			ui_data.clear();
 			for (auto &view : active_views) {
 				ui_data.push_back(view.sample());
 			}
 
-			ui_state.commit_render_state(std::move(ui_data));
+			ui_state.commit_render_state(ui_data);
 			screen.PostEvent(ftxui::Event::Custom);
 			std::this_thread::sleep_for(std::chrono::milliseconds(shared_interval_ms.load(std::memory_order_relaxed)));
 		}

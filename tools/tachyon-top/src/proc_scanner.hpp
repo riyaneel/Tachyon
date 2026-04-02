@@ -121,7 +121,7 @@ namespace tachyon::top {
 					continue;
 
 				std::string_view link_sv(link_buf, static_cast<size_t>(link_len));
-				if (!link_sv.find("memfd:"))
+				if (link_sv.find("memfd:") == std::string_view::npos)
 					continue;
 
 				const int fd = open(path_buf, O_RDONLY | O_CLOEXEC);

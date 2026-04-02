@@ -41,8 +41,8 @@ namespace tachyon::top {
 		std::atomic<bool> new_data_{false};
 
 	public:
-		__always_inline void commit_render_state(std::vector<BusUIData> &&new_state) noexcept {
-			buffers_[write_idx_] = std::move(new_state);
+		__always_inline void commit_render_state(std::vector<BusUIData> &new_state) noexcept {
+			std::swap(buffers_[write_idx_], new_state);
 			write_idx_			 = clean_idx_.exchange(write_idx_, std::memory_order_acq_rel);
 			new_data_.store(true, std::memory_order_release);
 		}
@@ -152,7 +152,7 @@ namespace tachyon::top {
 			data.head = cur_head;
 			data.tail = cur_tail;
 
-			data.used_bytes = std::min(cur_head - cur_tail, capacity_);
+			data.used_bytes = (cur_head >= cur_tail) ? std::min(cur_head - cur_tail, capacity_) : 0;
 
 			if (capacity_ > 0) [[likely]] {
 				data.fill_pct = (static_cast<double>(data.used_bytes) / static_cast<double>(capacity_)) * 100.0;
@@ -179,16 +179,6 @@ namespace tachyon::top {
 			}
 
 			return data;
-		}
-
-		[[nodiscard]] __always_inline bool is_alive() const noexcept {
-			char path_buf[64];
-			std::memcpy(path_buf, "/proc/", 6);
-			auto [ptr, ec] = std::to_chars(path_buf + 6, path_buf + sizeof(path_buf) - 6, handle_.pid);
-			*ptr		   = '\0';
-
-			struct stat st;
-			return stat(path_buf, &st) == 0;
 		}
 
 		[[nodiscard]] const BusHandle &handle() const noexcept {
