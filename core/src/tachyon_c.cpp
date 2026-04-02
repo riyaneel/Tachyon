@@ -27,8 +27,6 @@ struct alignas(64) tachyon_bus {
 	SharedMemory		  shm;
 	Arena				  arena;
 	std::atomic<uint32_t> ref_count{1};
-	alignas(64) std::atomic_flag producer_lock = ATOMIC_FLAG_INIT;
-	alignas(64) std::atomic_flag consumer_lock = ATOMIC_FLAG_INIT;
 
 	tachyon_bus(SharedMemory &&s, Arena &&a) : shm(std::move(s)), arena(std::move(a)) {}
 };
@@ -201,146 +199,57 @@ tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, const int no
 }
 
 void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) TACHYON_NOEXCEPT {
-	if (!bus || max_payload_size == 0)
+	if (!bus || max_payload_size == 0) [[unlikely]]
 		return nullptr;
 
-	while (bus->producer_lock.test_and_set(std::memory_order_acquire)) {
-		tachyon::cpu_relax();
-	}
-
-	std::byte *ptr = bus->arena.acquire_tx(max_payload_size);
-	if (!ptr) {
-		bus->producer_lock.clear(std::memory_order_release);
-		return nullptr;
-	}
-
-	return ptr;
+	return bus->arena.acquire_tx(max_payload_size);
 }
 
 tachyon_error_t
 tachyon_commit_tx(tachyon_bus_t *bus, const size_t actual_payload_size, const uint32_t type_id) TACHYON_NOEXCEPT {
-	if (!bus)
+	if (!bus) [[unlikely]]
 		return TACHYON_ERR_NULL_PTR;
 
-	const bool success = bus->arena.commit_tx(actual_payload_size, type_id);
-	bus->producer_lock.clear(std::memory_order_release);
-
-	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+	return bus->arena.commit_tx(actual_payload_size, type_id) ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
 tachyon_error_t tachyon_rollback_tx(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
-	if (!bus)
+	if (!bus) [[unlikely]]
 		return TACHYON_ERR_NULL_PTR;
 
-	const bool success = bus->arena.rollback_tx();
-	bus->producer_lock.clear(std::memory_order_release);
-
-	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+	return bus->arena.rollback_tx() ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
 const void *tachyon_acquire_rx(tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size) TACHYON_NOEXCEPT {
-	if (!bus || !out_type_id || !out_actual_size)
+	if (!bus || !out_type_id || !out_actual_size) [[unlikely]]
 		return nullptr;
 
-	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
-		tachyon::cpu_relax();
-	}
-
-	const std::byte *ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size);
-	if (!ptr) {
-		bus->consumer_lock.clear(std::memory_order_release);
-		return nullptr;
-	}
-
-	return ptr;
+	return bus->arena.acquire_rx(*out_type_id, *out_actual_size);
 }
 
 const void *tachyon_acquire_rx_spin(
 	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, const uint32_t max_spins
 ) TACHYON_NOEXCEPT {
-	if (!bus || !out_type_id || !out_actual_size)
+	if (!bus || !out_type_id || !out_actual_size) [[unlikely]]
 		return nullptr;
 
-	uint32_t spins = 0;
-	while (true) {
-		while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
-			tachyon::cpu_relax();
-
-		if (const std::byte *ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size)) {
-			return ptr;
-		}
-
-		const auto state = bus->arena.get_state();
-		bus->consumer_lock.clear(std::memory_order_release);
-		if (state == BusState::FatalError)
-			return nullptr;
-
-		if (max_spins != 0 && spins >= max_spins)
-			return nullptr;
-
-		tachyon::cpu_relax();
-		spins++;
-	}
+	return bus->arena.acquire_rx_spin(*out_type_id, *out_actual_size, max_spins);
 }
 
 const void *tachyon_acquire_rx_blocking(
 	tachyon_bus_t *bus, uint32_t *out_type_id, size_t *out_actual_size, const uint32_t spin_threshold
 ) TACHYON_NOEXCEPT {
-	if (!bus || !out_type_id || !out_actual_size)
+	if (!bus || !out_type_id || !out_actual_size) [[unlikely]]
 		return nullptr;
 
-	uint32_t spins = 0;
-	while (true) {
-		while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
-			tachyon::cpu_relax();
-
-		const std::byte *ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size);
-		if (ptr) {
-			return ptr;
-		}
-
-		const auto state = bus->arena.get_state();
-		bus->consumer_lock.clear(std::memory_order_release);
-		if (state == BusState::FatalError)
-			return nullptr;
-
-		if (spins < spin_threshold) {
-			tachyon::cpu_relax();
-			spins++;
-		} else {
-			while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
-				tachyon::cpu_relax();
-
-			// Deliberate lost-wakeup window: bounded by WATCHDOG_TIMEOUT_US (200ms) retry.
-			// Heartbeat-based dead-peer detection intentionally omitted — false positives on
-			// idle producers. Proper detection deferred to Phase 8.3 (TSC watchdog).
-			bus->arena.set_consumer_sleeping(true);
-			ptr = bus->arena.acquire_rx(*out_type_id, *out_actual_size);
-			if (ptr) {
-				bus->arena.set_consumer_sleeping(false);
-				return ptr;
-			}
-
-			bus->consumer_lock.clear(std::memory_order_release);
-
-			const int wait_res = bus->arena.wait_consumer_sleeping();
-			bus->arena.set_consumer_sleeping(false);
-			if (wait_res == -1) // Interrupted
-				return nullptr;
-
-			spins = 0;
-		}
-	}
+	return bus->arena.acquire_rx_blocking(*out_type_id, *out_actual_size, spin_threshold);
 }
 
 tachyon_error_t tachyon_commit_rx(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
-	if (!bus)
+	if (!bus) [[unlikely]]
 		return TACHYON_ERR_NULL_PTR;
 
-	const bool success = bus->arena.commit_rx();
-	bus->consumer_lock.clear(std::memory_order_release);
-
-	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+	return bus->arena.commit_rx() ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
 size_t
@@ -348,62 +257,39 @@ tachyon_acquire_rx_batch(tachyon_bus_t *bus, tachyon_msg_view_t *out_views, cons
 	if (!bus || !out_views || max_msgs == 0) [[unlikely]]
 		return 0;
 
-	while (bus->consumer_lock.test_and_set(std::memory_order_acquire)) {
-		tachyon::cpu_relax();
-	}
-
-	auto		*cxx_views = reinterpret_cast<RxView *>(out_views);
-	const size_t count	   = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
-	if (count == 0) [[likely]] {
-		// DROP LOCK released immediately on empty to prevent consumer starvation
-		bus->consumer_lock.clear(std::memory_order_release);
-	}
-
-	return count;
+	auto *cxx_views = reinterpret_cast<RxView *>(out_views);
+	return bus->arena.acquire_rx_batch(cxx_views, max_msgs);
 }
 
 size_t tachyon_drain_batch(
 	tachyon_bus_t *bus, tachyon_msg_view_t *out_views, const size_t max_msgs, const uint32_t spin_threshold
 ) TACHYON_NOEXCEPT {
-	if (!bus || !out_views || max_msgs == 0)
+	if (!bus || !out_views || max_msgs == 0) [[unlikely]]
 		return 0;
 
 	auto	*cxx_views = reinterpret_cast<RxView *>(out_views);
 	uint32_t spins	   = 0;
 
 	while (true) {
-		while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
-			tachyon::cpu_relax();
-
 		size_t count = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
-		if (count > 0) {
+		if (count > 0) [[likely]] {
 			return count;
 		}
 
-		const auto state = bus->arena.get_state();
-		bus->consumer_lock.clear(std::memory_order_release);
-
-		if (state == BusState::FatalError)
+		if (bus->arena.get_state() == BusState::FatalError) [[unlikely]]
 			return 0;
 
 		if (spins < spin_threshold) {
 			tachyon::cpu_relax();
 			spins++;
 		} else {
-			while (bus->consumer_lock.test_and_set(std::memory_order_acquire))
-				tachyon::cpu_relax();
-
 			// Deliberate lost-wakeup window: bounded by WATCHDOG_TIMEOUT_US (200ms) retry.
-			// Heartbeat-based dead-peer detection intentionally omitted — false positives on
-			// idle producers. Proper detection deferred to Phase 8.3 (TSC watchdog).
 			bus->arena.set_consumer_sleeping(true);
 			count = bus->arena.acquire_rx_batch(cxx_views, max_msgs);
 			if (count > 0) {
 				bus->arena.set_consumer_sleeping(false);
 				return count;
 			}
-
-			bus->consumer_lock.clear(std::memory_order_release);
 
 			const int wait_res = bus->arena.wait_consumer_sleeping();
 			bus->arena.set_consumer_sleeping(false);
@@ -421,15 +307,11 @@ tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, con
 		return TACHYON_ERR_NULL_PTR;
 
 	if (count == 0) [[unlikely]] {
-		bus->consumer_lock.clear(std::memory_order_release);
 		return TACHYON_SUCCESS;
 	}
 
 	const auto *cxx_views = reinterpret_cast<const RxView *>(views);
-	const bool	success	  = bus->arena.commit_rx_batch(cxx_views, count);
-	bus->consumer_lock.clear(std::memory_order_release);
-
-	return success ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+	return bus->arena.commit_rx_batch(cxx_views, count) ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
 void tachyon_bus_set_polling_mode(tachyon_bus_t *bus, int pure_spin) TACHYON_NOEXCEPT {
@@ -438,8 +320,7 @@ void tachyon_bus_set_polling_mode(tachyon_bus_t *bus, int pure_spin) TACHYON_NOE
 }
 
 void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT {
-	if (bus) {
-		TasGuard p_lock(bus->producer_lock);
+	if (bus) [[likely]] {
 		bus->arena.flush_tx();
 	}
 }

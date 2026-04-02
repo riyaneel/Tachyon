@@ -30,9 +30,12 @@ The practical consequence of choosing SPSC is that fan-in (N producers to 1 cons
 buffers and a multiplexing layer in the application. This is not a limitation for the primary use cases (ML inference
 pipeline, trading feed, audio DSP), which are all strictly single-producer.
 
-`tachyon_bus_t` adds a TAS (`atomic_flag`) producer lock and a separate consumer lock at the C API level to prevent
-accidental concurrent calls from different threads on the same bus. This is not multi-producer support — it is a
-bug-catcher. The locks are uncontended on the correct usage path and add ~0 ns to p50 RTT.
+`tachyon_bus_t` previously added a TAS (`atomic_flag`) producer lock and a separate consumer lock at the C API level.
+Both were removed in v0.3.0: the`alignas(64)` false-sharing fix (ADR-008) revealed that the two locks contributed 30–50
+ns of MESI invalidation per round-trip on the hot path, and the SPSC invariant is already enforced by the ring buffer
+itself. The C API now delegates directly to `Arena` with no intermediate locking.`tachyon_bus_set_polling_mode` allows
+the caller to assert that no futex wake is needed, eliminating the remaining `atomic_thread_fence(seq_cst)`branch from
+the producer flush path.
 
 ## Decision
 
@@ -55,12 +58,13 @@ concern: use N buses.
 
 - Fan-in requires N buses. A star topology (one consumer, N producers) needs application-level multiplexing — planned as
   v0.5.0.
-- The TAS producer lock means two threads sharing a `Bus` object will serialize rather than parallelise; this is the
-  correct behaviour but may surprise users who expect lock-free multi-threading at the binding level.
+- Two threads sharing a `Bus` object and calling the same direction concurrently produce a data race — there is no
+  longer a TAS lock to serialize them. This is the correct SPSC contract, but it is no longer enforced at runtime.
 
 **Neutral**
 
-- RPC patterns (bidirectional channel) compose two SPSC buses — one per direction. The latency overhead is one extra
-  ring buffer lookup per round trip. Planned as v0.5.0.
-- MPSC as a first-class primitive remains possible in a future major version without breaking the current wire protocol,
-  since `MessageHeader` has no producer-identity field today.
+- RPC patterns (bidirectional channel) compose two SPSC buses — one per direction. Planned as v0.5.0.
+- MPSC as a first-class primitive remains possible in a future major version.
+- `tachyon_bus_set_polling_mode(bus, 1)` signals that the consumer is in a dedicated spin loop and will never sleep. The
+  producer skips the `seq_cst` fence and the `consumer_sleeping` check entirely, saving one fence + one atomic load per
+  `flush_tx`.
