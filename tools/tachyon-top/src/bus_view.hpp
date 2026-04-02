@@ -34,18 +34,24 @@ namespace tachyon::top {
 	};
 
 	class UIDataState {
-		std::array<std::vector<BusUIData>, 2> buffers_;
-		alignas(64) std::atomic<uint8_t> active_idx_{0};
+		std::array<std::vector<BusUIData>, 3> buffers_;
+		alignas(64) std::atomic<uint8_t> clean_idx_{0};
+		alignas(64) uint8_t write_idx_{1};
+		alignas(64) uint8_t read_idx_{2};
+		std::atomic<bool> new_data_{false};
 
 	public:
 		__always_inline void commit_render_state(std::vector<BusUIData> &&new_state) noexcept {
-			const uint8_t inactive = 1 - active_idx_.load(std::memory_order_relaxed);
-			buffers_[inactive]	   = std::move(new_state);
-			active_idx_.store(inactive, std::memory_order_release);
+			buffers_[write_idx_] = std::move(new_state);
+			write_idx_			 = clean_idx_.exchange(write_idx_, std::memory_order_acq_rel);
+			new_data_.store(true, std::memory_order_release);
 		}
 
-		[[nodiscard]] __always_inline const std::vector<BusUIData> &get_render_state() const noexcept {
-			return buffers_[active_idx_.load(std::memory_order_acquire)];
+		[[nodiscard]] __always_inline const std::vector<BusUIData> &get_render_state() noexcept {
+			if (new_data_.exchange(false, std::memory_order_acquire)) {
+				read_idx_ = clean_idx_.exchange(read_idx_, std::memory_order_acq_rel);
+			}
+			return buffers_[read_idx_];
 		}
 	};
 
@@ -79,10 +85,6 @@ namespace tachyon::top {
 			if (layout_ != nullptr) {
 				munmap(const_cast<tachyon::core::MemoryLayout *>(layout_), handle_.shm_size);
 			}
-
-			if (handle_.fd >= 0) {
-				close(handle_.fd);
-			}
 		}
 
 		BusView(const BusView &) = delete;
@@ -92,7 +94,9 @@ namespace tachyon::top {
 		BusView(BusView &&other) noexcept
 			: handle_(std::move(other.handle_)), layout_(std::exchange(other.layout_, nullptr)),
 			  capacity_(other.capacity_), prev_(other.prev_), prev_ts_(other.prev_ts_), sparkline_(other.sparkline_),
-			  sparkline_idx_(other.sparkline_idx_), tsc_ticks_per_us_(other.tsc_ticks_per_us_) {}
+			  sparkline_idx_(other.sparkline_idx_), tsc_ticks_per_us_(other.tsc_ticks_per_us_) {
+			other.handle_.fd = -1;
+		}
 
 		BusView &operator=(BusView &&other) noexcept {
 			using std::swap;

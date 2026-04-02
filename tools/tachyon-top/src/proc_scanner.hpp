@@ -17,10 +17,41 @@
 namespace tachyon::top {
 	struct BusHandle {
 		pid_t		pid;
-		int			fd;
-		size_t		shm_size;
+		int			fd{-1};
+		size_t		shm_size{0};
 		std::string comm;
-		ino_t		inode;
+		ino_t		inode{0};
+
+		BusHandle(pid_t p, int f, size_t s, std::string c, ino_t i)
+			: pid(p), fd(f), shm_size(s), comm(std::move(c)), inode(i) {}
+
+		BusHandle() = default;
+
+		~BusHandle() {
+			if (fd >= 0)
+				close(fd);
+		}
+
+		BusHandle(const BusHandle &) = delete;
+
+		BusHandle &operator=(const BusHandle &) = delete;
+
+		BusHandle(BusHandle &&other) noexcept
+			: pid(other.pid), fd(std::exchange(other.fd, -1)), shm_size(other.shm_size), comm(std::move(other.comm)),
+			  inode(other.inode) {}
+
+		BusHandle &operator=(BusHandle &&other) noexcept {
+			if (this != &other) {
+				if (fd >= 0)
+					close(fd);
+				pid		 = other.pid;
+				fd		 = std::exchange(other.fd, -1);
+				shm_size = other.shm_size;
+				comm	 = std::move(other.comm);
+				inode	 = other.inode;
+			}
+			return *this;
+		}
 	};
 
 	class ProcScanner {
@@ -69,7 +100,7 @@ namespace tachyon::top {
 			std::memcpy(ptr, "/fd\0", 4);
 
 			DIR *fd_dir = opendir(path_buf);
-			if (!fd_dir) [[unlikely]]
+			if (!fd_dir)
 				return;
 
 			std::memcpy(ptr, "/fd/", 4);
@@ -78,7 +109,7 @@ namespace tachyon::top {
 
 			struct dirent *fd_ent;
 			while ((fd_ent = readdir(fd_dir)) != nullptr) {
-				if (fd_ent->d_type != DT_LNK) [[unlikely]]
+				if (fd_ent->d_type != DT_LNK)
 					continue;
 
 				const size_t d_name_len = std::strlen(fd_ent->d_name);
@@ -86,70 +117,60 @@ namespace tachyon::top {
 
 				char		  link_buf[256];
 				const ssize_t link_len = readlink(path_buf, link_buf, sizeof(link_buf) - 1);
-				if (link_len <= 0) [[unlikely]] {
-					continue;
-				}
-
-				constexpr std::string_view MEMFD_PREFIX = "/memfd:";
-				if (static_cast<size_t>(link_len) < MEMFD_PREFIX.size()) [[likely]]
+				if (link_len <= 0)
 					continue;
 
-				if (std::memcmp(link_buf, MEMFD_PREFIX.data(), MEMFD_PREFIX.size()) != 0) [[likely]]
+				std::string_view link_sv(link_buf, static_cast<size_t>(link_len));
+				if (!link_sv.find("memfd:"))
 					continue;
 
 				const int fd = open(path_buf, O_RDONLY | O_CLOEXEC);
-				if (fd < 0) [[unlikely]]
+				if (fd < 0)
 					continue;
 
 				struct stat st;
-				if (fstat(fd, &st) < 0) [[unlikely]] {
+				if (fstat(fd, &st) < 0) {
 					close(fd);
 					continue;
 				}
 
-				if (static_cast<size_t>(st.st_size) < sizeof(tachyon::core::ArenaHeader)) [[unlikely]] {
+				if (static_cast<size_t>(st.st_size) < sizeof(tachyon::core::ArenaHeader)) {
 					close(fd);
 					continue;
 				}
 
 				bool seen = false;
 				for (const auto seen_ino : seen_inodes) {
-					seen |= (seen_ino == st.st_ino);
+					if (seen_ino == st.st_ino) {
+						seen = true;
+						break;
+					}
 				}
 
-				if (seen) [[unlikely]] {
+				if (seen) {
 					close(fd);
 					continue;
 				}
 
 				void *map_ptr = mmap(nullptr, sizeof(tachyon::core::ArenaHeader), PROT_READ, MAP_SHARED, fd, 0);
-				if (map_ptr == MAP_FAILED) [[unlikely]] {
+				if (map_ptr == MAP_FAILED) {
 					close(fd);
 					continue;
 				}
 
 				const auto *header	  = static_cast<tachyon::core::ArenaHeader *>(map_ptr);
-				const bool	valid_abi = (header->magic == tachyon::core::TACHYON_MAGIC) &
-									   (header->version == tachyon::core::TACHYON_VERSION) &
+				const bool	valid_abi = (header->magic == tachyon::core::TACHYON_MAGIC) &&
+									   (header->version == tachyon::core::TACHYON_VERSION) &&
 									   (header->msg_alignment == TACHYON_MSG_ALIGNMENT);
-
 				munmap(map_ptr, sizeof(tachyon::core::ArenaHeader));
 
-				if (!valid_abi) [[likely]] {
+				if (!valid_abi) {
 					close(fd);
 					continue;
 				}
 
 				seen_inodes.push_back(st.st_ino);
-				handles.push_back(
-					BusHandle{
-						.pid	  = pid,
-						.fd		  = fd,
-						.shm_size = static_cast<size_t>(st.st_size),
-						.comm	  = comm,
-						.inode	  = st.st_ino
-					}
-				);
+				handles.emplace_back(pid, fd, static_cast<size_t>(st.st_size), comm, st.st_ino);
 			}
 
 			closedir(fd_dir);
