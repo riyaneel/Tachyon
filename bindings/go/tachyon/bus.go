@@ -118,3 +118,23 @@ func (b *Bus) SetNumaNode(nodeID int) error {
 	}
 	return nil
 }
+
+// SetPollingMode signals that the consumer will never sleep, skipping the
+// futex wake check on every producer flush.
+//
+// When spinMode is 1, the producer omits the atomic_thread_fence(seq_cst)
+// and the consumer_sleeping load on every Flush call. Use only when the
+// consumer goroutine is dedicated and will never park — if it parks, the
+// producer will not issue a futex wake and the consumer will spin
+// indefinitely instead of sleeping.
+//
+// Call immediately after Listen or Connect, before the first message.
+// spinMode 1 enables pure-spin mode, 0 restores hybrid mode.
+func (b *Bus) SetPollingMode(spinMode int) error {
+	if b.raw == nil {
+		return &TachyonError{Code: int(C.TACHYON_ERR_NULL_PTR), Message: "bus is closed"}
+	}
+
+	C.tachyon_bus_set_polling_mode(b.raw, C.int(spinMode))
+	return nil
+}

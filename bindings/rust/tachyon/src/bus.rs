@@ -75,6 +75,24 @@ impl Bus {
         from_raw(unsafe { tachyon_bus_set_numa_node(self.inner.as_ptr(), node_id) })
     }
 
+    /// Signal that the consumer will never sleep, skipping the futex wake check
+    /// on every producer flush.
+    ///
+    /// When `spin_mode` is `1`, the producer omits the `atomic_thread_fence(seq_cst)`
+    /// and the `consumer_sleeping` load on every `flush` call. Use only when the
+    /// consumer thread is dedicated and will never park — if it parks, the
+    /// producer will not issue a futex wake and the consumer will spin
+    /// indefinitely instead of sleeping.
+    ///
+    /// **Call immediately after `listen()`/`connect()`, before the first message.**
+    ///
+    /// `spin_mode = 1` enables pure-spin mode, `0` restores hybrid mode.
+    pub fn set_polling_mode(&self, spin_mode: i32) {
+        unsafe {
+            tachyon_bus_set_polling_mode(self.inner.as_ptr(), spin_mode);
+        }
+    }
+
     /// Blocking SPSC write. Copies payload, commits, and flushes.
     pub fn send(&self, data: &[u8], type_id: u32) -> Result<(), TachyonError> {
         let guard = self.acquire_tx(data.len())?;
