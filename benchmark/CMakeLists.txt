@@ -2,7 +2,7 @@ find_package(Threads REQUIRED)
 
 add_executable(tachyon_bench_intra src/bench_intra.cpp)
 tachyon_set_compile_options(tachyon_bench_intra)
-target_link_options(tachyon_bench_intra PRIVATE ${LINK_OPTIONS})
+target_link_options(tachyon_bench_intra PRIVATE ${TACHYON_LINK_OPTIONS})
 target_link_libraries(tachyon_bench_intra
 		PRIVATE tachyon benchmark::benchmark Threads::Threads
 )
@@ -12,7 +12,7 @@ target_include_directories(tachyon_bench_intra
 
 add_executable(tachyon_bench_inter src/bench_inter.cpp)
 tachyon_set_compile_options(tachyon_bench_inter)
-target_link_options(tachyon_bench_inter PRIVATE ${LINK_OPTIONS})
+target_link_options(tachyon_bench_inter PRIVATE ${TACHYON_LINK_OPTIONS})
 target_link_libraries(tachyon_bench_inter
 		PRIVATE tachyon Threads::Threads
 )
@@ -29,7 +29,7 @@ if (ZMQ_FOUND)
 	message(STATUS "Tachyon bench: ZeroMQ baseline enabled (${ZMQ_VERSION})")
 	add_executable(tachyon_bench_zmq src/bench_zmq.cpp)
 	tachyon_set_compile_options(tachyon_bench_zmq)
-	target_link_options(tachyon_bench_zmq PRIVATE ${LINK_OPTIONS})
+	target_link_options(tachyon_bench_zmq PRIVATE ${TACHYON_LINK_OPTIONS})
 	target_link_libraries(tachyon_bench_zmq
 			PRIVATE tachyon benchmark::benchmark Threads::Threads ${ZMQ_LIBRARIES}
 	)

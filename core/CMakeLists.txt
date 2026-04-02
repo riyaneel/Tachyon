@@ -7,7 +7,7 @@ add_library(tachyon SHARED
 
 tachyon_set_compile_options(tachyon)
 target_link_options(tachyon PRIVATE
-		${LINK_OPTIONS}
+		${TACHYON_LINK_OPTIONS}
 )
 
 set_target_properties(tachyon PROPERTIES

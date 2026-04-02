@@ -14,7 +14,7 @@ include(TachyonCompileOptions)
 include(TachyonSanitizers)
 include("${CMAKE_SOURCE_DIR}/cmake/deps.cmake")
 
-set(LINK_OPTIONS
+set(TACHYON_LINK_OPTIONS
 		$<$<CONFIG:Release>:-flto>
 		${TACHYON_SAN_LINK_FLAGS}
 )
@@ -26,11 +26,11 @@ if (TACHYON_PGO_PHASE STREQUAL "GENERATE")
 	if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		message(STATUS "Tachyon: PGO phase 1 — GENERATE/Clang (profraw dir: ${TACHYON_PGO_DIR})")
 		list(APPEND TACHYON_RELEASE_FLAGS -fprofile-instr-generate=${TACHYON_PGO_DIR}/default_%p.profraw)
-		list(APPEND LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-instr-generate=${TACHYON_PGO_DIR}/default_%p.profraw>)
+		list(APPEND TACHYON_LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-instr-generate=${TACHYON_PGO_DIR}/default_%p.profraw>)
 	else ()
 		message(STATUS "Tachyon: PGO phase 1 — GENERATE/GCC (gcda dir: ${TACHYON_PGO_DIR})")
 		list(APPEND TACHYON_RELEASE_FLAGS -fprofile-generate=${TACHYON_PGO_DIR})
-		list(APPEND LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-generate=${TACHYON_PGO_DIR}>)
+		list(APPEND TACHYON_LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-generate=${TACHYON_PGO_DIR}>)
 	endif ()
 elseif (TACHYON_PGO_PHASE STREQUAL "USE")
 	if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -44,7 +44,7 @@ elseif (TACHYON_PGO_PHASE STREQUAL "USE")
 		endif ()
 		message(STATUS "Tachyon: PGO phase 2 — USE/Clang (profdata: ${TACHYON_PROFDATA})")
 		list(APPEND TACHYON_RELEASE_FLAGS -fprofile-instr-use=${TACHYON_PROFDATA})
-		list(APPEND LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-instr-use=${TACHYON_PROFDATA}>)
+		list(APPEND TACHYON_LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-instr-use=${TACHYON_PROFDATA}>)
 	else ()
 		if (NOT EXISTS "${TACHYON_PGO_DIR}")
 			message(FATAL_ERROR
@@ -57,7 +57,7 @@ elseif (TACHYON_PGO_PHASE STREQUAL "USE")
 				-fprofile-use=${TACHYON_PGO_DIR}
 				-fprofile-correction
 		)
-		list(APPEND LINK_OPTIONS
+		list(APPEND TACHYON_LINK_OPTIONS
 				$<$<CONFIG:Release>:-fprofile-use=${TACHYON_PGO_DIR}>
 				$<$<CONFIG:Release>:-fprofile-correction>
 		)
