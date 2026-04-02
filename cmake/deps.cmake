@@ -60,7 +60,24 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(dlpack)
 set(TACHYON_DLPACK_INCLUDE_DIR "${dlpack_SOURCE_DIR}/include" CACHE PATH "DLPack include dir")
 
+if (TACHYON_ENABLE_TOP)
+	FetchContent_Declare(
+			ftxui
+			GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI.git
+			GIT_TAG v6.1.9
+			GIT_SHALLOW TRUE
+			GIT_PROGRESS FALSE
+			SYSTEM
+			OVERRIDE_FIND_PACKAGE
+	)
+
+	FetchContent_MakeAvailable(ftxui)
+endif ()
+
 message(STATUS "[deps] GoogleTest  : v1.17.0 (FetchContent)")
 message(STATUS "[deps] Benchmark   : v1.9.5  (FetchContent)")
 message(STATUS "[deps] DLPack      : v1.3    (FetchContent)")
 message(STATUS "[deps] DLPack inc  : ${TACHYON_DLPACK_INCLUDE_DIR}")
+if (TACHYON_ENABLE_TOP)
+	message(STATUS "[deps] FTXUI       : v6.1.9  (FetchContent)")
+endif ()

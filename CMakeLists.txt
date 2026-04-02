@@ -100,4 +100,13 @@ if (TACHYON_ENABLE_FUZZING)
 	add_subdirectory(fuzz)
 endif ()
 
+option(TACHYON_ENABLE_TOP "Build tachyon-top CLI" OFF)
+if (TACHYON_ENABLE_TOP)
+	if (NOT TACHYON_SANITIZER STREQUAL "none" AND NOT TACHYON_SANITIZER STREQUAL "")
+		add_subdirectory(tools/tachyon-top EXCLUDE_FROM_ALL)
+	else ()
+		add_subdirectory(tools/tachyon-top)
+	endif ()
+endif ()
+
 message(STATUS "Tachyon: Build type -> ${CMAKE_BUILD_TYPE}")

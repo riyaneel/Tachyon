@@ -113,6 +113,16 @@
       }
     },
     {
+      "name": "tachyon-top",
+      "displayName": "Tachyon Top CLI",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_SANITIZER": "none",
+        "TACHYON_ENABLE_TOP": "ON"
+      }
+    },
+    {
       "name": "pgo-generate",
       "displayName": "PGO Profile Generation",
       "inherits": "clang-release",
@@ -174,6 +184,14 @@
         "tachyon_fuzz_arena_rx_batch",
         "tachyon_fuzz_header_parser",
         "tachyon_fuzz_toctou"
+      ],
+      "jobs": 0
+    },
+    {
+      "name": "tachyon-top",
+      "configurePreset": "tachyon-top",
+      "targets": [
+        "tachyon_top"
       ],
       "jobs": 0
     }
