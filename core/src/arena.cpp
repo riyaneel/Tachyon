@@ -207,10 +207,10 @@ namespace tachyon::core {
 		}
 
 		const size_t		physical_idx = local_head_ & capacity_mask_;
-		const MessageHeader hdr{
-			static_cast<uint32_t>(actual_size), type_id, static_cast<uint32_t>(tx_reserved_size_), {}
+		const PackedMeta pmeta{
+			static_cast<uint32_t>(actual_size), type_id, static_cast<uint32_t>(tx_reserved_size_)
 		};
-		std::memcpy(&layout_->data_arena()[physical_idx], &hdr, sizeof(MessageHeader));
+		std::memcpy(&layout_->data_arena()[physical_idx], &pmeta, sizeof(PackedMeta));
 
 		local_head_ += tx_reserved_size_;
 		tx_reserved_size_ = 0;
