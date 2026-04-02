@@ -169,8 +169,10 @@ namespace tachyon::top {
 				(now_tsc > c_hb) ? static_cast<uint64_t>(static_cast<double>(now_tsc - c_hb) / tsc_ticks_per_us_) : 0;
 
 			sparkline_[sparkline_idx_ % 60] = data.mb_per_sec;
-			data.sparkline					= sparkline_;
 			sparkline_idx_++;
+			for (size_t i = 0; i < 60; ++i) {
+				data.sparkline[i] = sparkline_[(sparkline_idx_ + i) % 60];
+			}
 
 			return data;
 		}
