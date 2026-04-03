@@ -8,3 +8,12 @@ if (Python3_FOUND)
 			CXX_STANDARD 23
 	)
 endif ()
+
+find_package(Java COMPONENTS Development)
+find_package(JNI)
+
+if (Java_FOUND AND JNI_FOUND)
+	add_subdirectory(java)
+else ()
+	message(STATUS "Java Development or JNI not found - skipping Java bindings")
+endif ()
