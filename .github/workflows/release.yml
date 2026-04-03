@@ -33,7 +33,7 @@ jobs:
           git add CHANGELOG
           git diff --cached --quiet || \
             git commit -m "docs(changelog): update for ${{ github.ref_name }}"
-          git push origin HEAD:main
+          git push origin HEAD:main  
 
   python_sdist:
     name: Build sdist + Publish PyPI
@@ -193,10 +193,35 @@ jobs:
           curl -fsSL --retry 3 --retry-delay 5 \
             "https://sum.golang.org/lookup/${MODULE}@${VERSION}"    || true
 
+  tachyon_top:
+    name: Build tachyon-top CLI
+    needs: [ changelog ]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install LLVM
+        run: bash ci/install_llvm.sh 21
+
+      - name: Configure and Build
+        run: |
+          cmake --preset tachyon-top-ci
+          cmake --build --preset tachyon-top-ci --parallel
+          strip --strip-all build/tachyon-top-ci/tools/tachyon-top/tachyon_top
+          mv build/tachyon-top-ci/tools/tachyon-top/tachyon_top tachyon-top-linux-x86_64
+
+      - name: Upload tachyon-top artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: tachyon-top-linux-x86_64
+          path: tachyon-top-linux-x86_64
+          if-no-files-found: 'error'
+
   github_release:
     name: Create GitHub Release
-    needs: [ python_sdist, rust_publish, go_publish ]
-    if: always() && needs.python_sdist.result == 'success'
+    needs: [ python_sdist, rust_publish, go_publish, tachyon_top ]
+    if: always() && needs.python_sdist.result == 'success' && needs.tachyon_top.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -211,6 +236,12 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: python-sdist
+          path: dist/
+
+      - name: Download tachyon-top binary
+        uses: actions/download-artifact@v8
+        with:
+          name: tachyon-top-linux-x86_64
           path: dist/
 
       - name: Create C++ source tarball
@@ -255,4 +286,5 @@ jobs:
             --title "Tachyon ${TAG}" \
             --notes-file /tmp/release_notes.md \
             ${PRERELEASE_FLAG} \
-            dist/*.tar.gz
+            dist/*.tar.gz \
+            dist/tachyon-top-linux-x86_64
