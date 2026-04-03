@@ -225,6 +225,17 @@ jobs:
       - name: Build
         run: cmake --build --preset tachyon-top --parallel
 
+      - name: Smoke test
+        run: |
+          OUTPUT=$(./build/tachyon-top/tools/tachyon-top/tachyon_top --json)
+          echo "Raw output: $OUTPUT"
+          PARSED=$(echo "$OUTPUT" | jq -c '.')
+          if [ "$PARSED" != "[]" ]; then
+            echo "::error::Smoke test failed! Expected '[]', but got '$PARSED'"
+            exit 1
+          fi
+          echo "Smoke test passed successfully."
+
   python:
     name: Python bindings (Linux)
     runs-on: ubuntu-24.04
