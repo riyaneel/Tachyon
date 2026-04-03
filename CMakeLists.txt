@@ -19,6 +19,8 @@ set(TACHYON_LINK_OPTIONS
 		${TACHYON_SAN_LINK_FLAGS}
 )
 
+option(TACHYON_PORTABLE_BUILD "Disable -march=native for redistributable binaries" OFF)
+
 set(TACHYON_PGO_PHASE "" CACHE STRING "PGO phase: GENERATE or USE (empty = disabled)")
 set(TACHYON_PGO_DIR "${CMAKE_BINARY_DIR}/pgo-data" CACHE PATH "Directory for PGO profile data")
 

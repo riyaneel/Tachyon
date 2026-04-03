@@ -9,11 +9,19 @@ set(TACHYON_FLAGS
 )
 
 set(TACHYON_RELEASE_FLAGS
-		-O3 -march=native -mtune=native
+		-O3
 		-funroll-loops
 		-fno-exceptions -fno-rtti
 		-fno-plt
 )
+
+if (NOT TACHYON_PORTABLE_BUILD)
+	list(APPEND TACHYON_RELEASE_FLAGS "-march=native" "-mtune=native")
+else ()
+	if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+		list(APPEND TACHYON_FLAGS "-march=x86-64-v3")
+	endif ()
+endif ()
 
 if (TACHYON_LTO STREQUAL "fat")
 	list(APPEND TACHYON_RELEASE_FLAGS -flto)
