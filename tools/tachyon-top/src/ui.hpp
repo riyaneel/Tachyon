@@ -97,7 +97,7 @@ namespace tachyon::top::ui {
 			if (is_fatal) [[unlikely]] {
 				row = hbox(
 						  {text(std::format(" {}/{} ", v.comm, v.pid)) | size(WIDTH, EQUAL, 20),
-						   text(" FATAL_ERR ") | size(WIDTH, EQUAL, 10),
+						   text(" FATAL ") | size(WIDTH, EQUAL, 10),
 						   text(" ??? ") | size(WIDTH, EQUAL, 20),
 						   text(" ??? ") | size(WIDTH, EQUAL, 12),
 						   text(" ??? ") | size(WIDTH, EQUAL, 10),

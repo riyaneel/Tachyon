@@ -33,6 +33,11 @@ namespace {
 	void dump_json_and_exit(const double tsc_ticks_per_us) {
 		auto handles = tachyon::top::ProcScanner::scan();
 
+		if (handles.size() == 0) {
+			std::cout << "[]\n";
+			exit(0);
+		}
+
 		std::cout << "[\n";
 		for (size_t i = 0; i < handles.size(); ++i) {
 			tachyon::top::BusView view(std::move(handles[i]), tsc_ticks_per_us);
@@ -51,6 +56,7 @@ namespace {
 			if (i < handles.size() - 1)
 				std::cout << ",\n";
 		}
+
 		std::cout << "\n]\n";
 		exit(0);
 	}

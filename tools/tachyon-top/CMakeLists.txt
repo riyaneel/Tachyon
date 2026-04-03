@@ -14,6 +14,6 @@ target_link_libraries(tachyon_top
 		ftxui::screen
 )
 
-if (CMAKE_SYSTEM_NAME STREQUAL "linux")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	target_link_libraries(tachyon_top PRIVATE atomic)
 endif ()
