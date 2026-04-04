@@ -7,9 +7,9 @@ public final class TxGuard implements AutoCloseable {
 	private MemorySegment slot;
 	private boolean consumed;
 
-	TxGuard(MemorySegment busHandle, MemorySegment rawPointer, long maxSize) {
+	TxGuard(MemorySegment busHandle, MemorySegment safePtr) {
 		this.busHandle = busHandle;
-		this.slot = rawPointer.reinterpret(maxSize);
+		this.slot = safePtr;
 		this.consumed = false;
 	}
 

@@ -9,11 +9,11 @@ public final class RxGuard implements AutoCloseable {
 	private final long actualSize;
 	private boolean consumed;
 
-	RxGuard(MemorySegment busHandle, MemorySegment rawPointer, int typeId, long actualSize) {
+	RxGuard(MemorySegment busHandle, MemorySegment safePtr, int typeId, long actualSize) {
 		this.busHandle = busHandle;
 		this.typeId = typeId;
 		this.actualSize = actualSize;
-		this.data = rawPointer.reinterpret(actualSize).asReadOnly();
+		this.data = safePtr;
 		this.consumed = false;
 	}
 

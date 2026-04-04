@@ -1,6 +1,7 @@
 package io.tachyon;
 
 import java.lang.foreign.Arena;
+import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -10,7 +11,6 @@ import java.util.Spliterators;
 import java.util.function.Consumer;
 
 public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
-
 	private final MemorySegment busHandle;
 	private final Arena arena;
 	private final long count;
@@ -18,13 +18,14 @@ public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
 	private final MemorySegment viewsArray;
 	private boolean consumed;
 
-	RxBatchGuard(MemorySegment busHandle, int maxMsgs, int spinThreshold) {
+	RxBatchGuard(MemorySegment busHandle, Arena busArena, int maxMsgs, int spinThreshold) {
 		this.busHandle = busHandle;
 		this.consumed = false;
 		this.arena = Arena.ofConfined();
 
 		try {
-			this.viewsArray = arena.allocate(MsgViewLayout.sizeBytes * maxMsgs);
+			MemoryLayout arrayLayout = MemoryLayout.sequenceLayout(maxMsgs, MsgViewLayout.layout);
+			this.viewsArray = arena.allocate(arrayLayout);
 			this.count = TachyonABI.drainBatch(busHandle, viewsArray, maxMsgs, spinThreshold);
 
 			if (this.count < 0 || this.count > maxMsgs) {
@@ -40,8 +41,8 @@ public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
 					MemorySegment ptr = (MemorySegment) MsgViewLayout.ptrHandle.get(viewsArray, offset);
 					long actualSize = (long) MsgViewLayout.sizeHandle.get(viewsArray, offset);
 					int typeId = (int) MsgViewLayout.typeHandle.get(viewsArray, offset);
-
-					this.views[i] = new RxMsgView(ptr, typeId, actualSize);
+					MemorySegment safePtr = ptr.reinterpret(actualSize, busArena, null);
+					this.views[i] = new RxMsgView(safePtr, typeId, actualSize);
 				}
 			}
 		} catch (Throwable throwable) {
