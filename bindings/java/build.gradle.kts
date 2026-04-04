@@ -55,7 +55,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             groupId = "io.tachyon"
             artifactId = "tachyon-java"
-            version = "0.3.0"
+            version = "0.2.0"
 
             from(components["java"])
 
@@ -73,7 +73,7 @@ publishing {
                 developers {
                     developer {
                         id.set("riyaneel")
-                        name.set("Riyaneel")
+                        name.set("Riyane El Qoqui")
                     }
                 }
                 scm {
