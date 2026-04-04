@@ -1,18 +1,24 @@
-add_library(tachyon_jni SHARED src/native/tachyon_jni.cpp)
-
-if (TARGET tachyon)
-	target_link_libraries(tachyon_jni PRIVATE tachyon)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+	set(JAVA_NATIVE_ARCH "x86_64")
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+	set(JAVA_NATIVE_ARCH "arm64")
 else ()
-	target_include_directories(tachyon_jni PRIVATE src/native/_core_local/include)
-	target_sources(tachyon_jni PRIVATE
-			src/native/_core_local/src/tachyon_c.cpp
-			src/native/_core_local/src/arena.cpp
-			src/native/_core_local/src/shm.cpp
-			src/native/_core_local/src/transport_uds.cpp
-	)
+	set(JAVA_NATIVE_ARCH ${CMAKE_SYSTEM_PROCESSOR})
 endif ()
 
-target_include_directories(tachyon_jni PRIVATE ${JNI_INCLUDE_DIRS})
+string(TOLOWER ${CMAKE_SYSTEM_NAME} JAVA_NATIVE_OS)
 
-set_target_properties(tachyon_jni PROPERTIES PREFIX "lib")
-tachyon_set_compile_options(tachyon_jni)
+set(JAVA_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/main/resources/native/${JAVA_NATIVE_OS}-${JAVA_NATIVE_ARCH}")
+
+if (TARGET tachyon)
+	add_custom_target(tachyon_java_resources ALL
+			COMMAND ${CMAKE_COMMAND} -E make_directory "${JAVA_RESOURCES_DIR}"
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			$<TARGET_FILE:tachyon>
+			"${JAVA_RESOURCES_DIR}/$<TARGET_FILE_NAME:tachyon>"
+			DEPENDS tachyon
+			COMMENT "Packaging Tachyon FFM native library for ${JAVA_NATIVE_OS}-${JAVA_NATIVE_ARCH}"
+	)
+else ()
+	message(WARNING "Target 'tachyon' not found. Cannot configure Java native resources copy.")
+endif ()
