@@ -10,7 +10,7 @@ public final class RxMsgView {
 	RxMsgView(MemorySegment rawPointer, int typeId, long actualSize) {
 		this.typeId = typeId;
 		this.actualSize = actualSize;
-		this.data = rawPointer.reinterpret(actualSize).asReadOnly();
+		this.data = rawPointer.asReadOnly();
 	}
 
 	public MemorySegment getData() {

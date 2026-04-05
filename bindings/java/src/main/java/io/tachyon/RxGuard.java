@@ -13,7 +13,7 @@ public final class RxGuard implements AutoCloseable {
 		this.busHandle = busHandle;
 		this.typeId = typeId;
 		this.actualSize = actualSize;
-		this.data = safePtr;
+		this.data = safePtr.asReadOnly();
 		this.consumed = false;
 	}
 
