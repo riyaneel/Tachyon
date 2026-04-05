@@ -47,12 +47,21 @@ tasks.withType<Test> {
     jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
 }
 
+tasks.named<JavaCompile>("compileJmhJava") {
+    options.annotationProcessorPath = configurations["jmhAnnotationProcessor"]
+    options.compilerArgs.addAll(listOf(
+        "-Aorg.openjdk.jmh.generators.core.FileSystemDestination=" +
+                layout.buildDirectory.dir("classes/java/jmh").get().asFile.absolutePath
+    ))
+}
+
 tasks.register<JavaExec>("jmh") {
     description = "Run JMH benchmarks"
     group = "benchmark"
     classpath = sourceSets["jmh"].runtimeClasspath
     mainClass.set("org.openjdk.jmh.Main")
     jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+    dependsOn("compileJmhJava")
 }
 
 tasks.withType<Javadoc> {
