@@ -53,7 +53,7 @@ public final class TachyonBus implements AutoCloseable {
 		checkOpen();
 		MemorySegment ptr = TachyonABI.acquireTx(busHandle, maxSize);
 		if (ptr.address() == 0L) {
-			return null;
+			throw new BufferFullException();
 		}
 		MemorySegment safePtr = ptr.reinterpret(maxSize, busArena, null);
 		return new TxGuard(busHandle, safePtr);
