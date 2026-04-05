@@ -38,9 +38,10 @@ public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
 				this.views = new RxMsgView[(int) this.count];
 				for (int i = 0; i < this.count; i++) {
 					long offset = i * MsgViewLayout.sizeBytes;
-					MemorySegment ptr = (MemorySegment) MsgViewLayout.ptrHandle.get(viewsArray, offset);
-					long actualSize = (long) MsgViewLayout.sizeHandle.get(viewsArray, offset);
-					int typeId = (int) MsgViewLayout.typeHandle.get(viewsArray, offset);
+					MemorySegment viewStruct = viewsArray.asSlice(offset, MsgViewLayout.sizeBytes);
+					MemorySegment ptr = (MemorySegment) MsgViewLayout.ptrHandle.get(viewStruct);
+					long actualSize = (long) MsgViewLayout.sizeHandle.get(viewStruct);
+					int typeId = (int) MsgViewLayout.typeHandle.get(viewStruct);
 					MemorySegment safePtr = ptr.reinterpret(actualSize, busArena, null);
 					this.views[i] = new RxMsgView(safePtr, typeId, actualSize);
 				}
