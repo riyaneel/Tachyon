@@ -37,9 +37,13 @@ java {
     withJavadocJar()
 }
 
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("--enable-preview")
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.register<JavaExec>("jmh") {
@@ -47,7 +51,13 @@ tasks.register<JavaExec>("jmh") {
     group = "benchmark"
     classpath = sourceSets["jmh"].runtimeClasspath
     mainClass.set("org.openjdk.jmh.Main")
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+}
+
+tasks.withType<Javadoc> {
+    val stdOptions = options as StandardJavadocDocletOptions
+    stdOptions.addStringOption("-enable-preview", "-quiet")
+    stdOptions.source = "21"
 }
 
 publishing {
