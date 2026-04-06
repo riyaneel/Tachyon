@@ -392,3 +392,85 @@ jobs:
           CGO_ENABLED: "1"
         working-directory: bindings/go
         run: go vet ./tachyon/...
+
+  java:
+    name: Java bindings (Linux)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Vendor C++ core
+        run: bash ci/vendor/java.sh
+
+      - name: Build Native library
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          cmake --preset clang-release
+          cmake --build --preset clang-release --parallel
+          cmake --build --preset clang-release --target tachyon_java_resources
+
+      - name: Gradle Test
+        working-directory: bindings/java
+        run: ./gradlew test --no-daemon
+
+  java_macos:
+    name: Java bindings (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ macos-26, macos-26-intel ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: brew install cmake ninja
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Vendor C++ core
+        run: bash ci/vendor/java.sh
+
+      - name: Build Native library
+        run: |
+          cmake -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/release --parallel
+          cmake --build build/release --target tachyon_java_resources
+
+      - name: Gradle Test
+        working-directory: bindings/java
+        run: ./gradlew test --no-daemon
