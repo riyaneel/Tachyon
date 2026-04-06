@@ -343,7 +343,7 @@ jobs:
           go-version: '1.23'
 
       - name: Vendor C++ core
-        run: bash ci/vendor/go.sh
+        run: bash ci/vendor.sh go
 
       - name: Go Test
         env:
@@ -379,7 +379,7 @@ jobs:
           go-version: '1.23'
 
       - name: Vendor C++ core
-        run: bash ci/vendor/go.sh
+        run: bash ci/vendor.sh go
 
       - name: Go Test
         env:
@@ -426,7 +426,7 @@ jobs:
           cache: 'gradle'
 
       - name: Vendor C++ core
-        run: bash ci/vendor/java.sh
+        run: bash ci/vendor.sh java
 
       - name: Build Native library
         env:
@@ -463,7 +463,7 @@ jobs:
           cache: 'gradle'
 
       - name: Vendor C++ core
-        run: bash ci/vendor/java.sh
+        run: bash ci/vendor.sh java
 
       - name: Build Native library
         run: |

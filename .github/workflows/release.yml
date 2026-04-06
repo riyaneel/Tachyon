@@ -111,7 +111,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends gcc-14 g++-14
 
       - name: Vendor C++ core
-        run: bash ci/vendor/rust.sh
+        run: bash ci/vendor.sh rust
 
       - name: Publish tachyon-sys
         env:
@@ -218,7 +218,7 @@ jobs:
         run: bash ci/install_llvm.sh 21
 
       - name: Vendor C++ core
-        run: bash ci/vendor/java.sh
+        run: bash ci/vendor.sh java
 
       - name: Build Linux FFM
         env:
@@ -260,7 +260,7 @@ jobs:
           cache: 'gradle'
 
       - name: Vendor C++ core
-        run: bash ci/vendor/java.sh
+        run: bash ci/vendor.sh java
 
       - name: Build macOS FFM
         run: |
