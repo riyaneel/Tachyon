@@ -1,4 +1,4 @@
-package io.tachyon;
+package dev.tachyon_ipc;
 
 import java.io.IOException;
 import java.io.InputStream;

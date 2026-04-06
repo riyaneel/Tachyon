@@ -1,4 +1,4 @@
-package io.tachyon;
+package dev.tachyon_ipc;
 
 public class TachyonException extends RuntimeException {
 

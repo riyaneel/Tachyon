@@ -1,4 +1,4 @@
-package io.tachyon;
+package dev.tachyon_ipc;
 
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;

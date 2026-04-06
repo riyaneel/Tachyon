@@ -73,7 +73,7 @@ tasks.withType<Javadoc> {
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
-            groupId = "io.tachyon"
+            groupId = "dev.tachyon-ipc"
             artifactId = "tachyon-java"
             version = "0.2.0"
 

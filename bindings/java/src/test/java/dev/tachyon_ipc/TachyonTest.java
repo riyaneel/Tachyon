@@ -1,4 +1,4 @@
-package io.tachyon;
+package dev.tachyon_ipc;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

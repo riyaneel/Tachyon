@@ -1,4 +1,4 @@
-package io.tachyon;
+package dev.tachyon_ipc;
 
 public final class AbiMismatchException extends TachyonException {
 	public AbiMismatchException() {
