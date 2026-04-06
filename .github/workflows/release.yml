@@ -193,6 +193,132 @@ jobs:
           curl -fsSL --retry 3 --retry-delay 5 \
             "https://sum.golang.org/lookup/${MODULE}@${VERSION}"    || true
 
+  java_native_linux:
+    name: Build Native FFM (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Vendor C++ core
+        run: bash ci/vendor/java.sh
+
+      - name: Build Linux FFM
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          cmake --preset clang-release
+          cmake --build --preset clang-release --target tachyon_java_resources
+
+      - name: Upload Linux Native asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'native-linux-x86_64'
+          path: bindings/java/src/main/resources/native
+
+  java_native_macos:
+    name: Build Native FFM (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - runner: macos-26
+            arch: arm64
+          - runner: macos-26-intel
+            arch: x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: brew install cmake ninja
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Vendor C++ core
+        run: bash ci/vendor/java.sh
+
+      - name: Build macOS FFM
+        run: |
+          cmake -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/release --target tachyon_java_resources
+
+      - name: Upload macOS Native asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-macos-${{ matrix.arch }}
+          path: bindings/java/src/main/resources/native
+
+  java_publish:
+    name: Publish Fat JAR to Maven Central
+    needs: [ java_native_linux, java_native_macos, changelog ]
+    runs-on: ubuntu-24.04
+    if: |
+      !contains(github.ref_name, '-rc') &&
+      !contains(github.ref_name, '-alpha') &&
+      !contains(github.ref_name, '-beta')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Download Native Assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: native-*
+          path: bindings/java/src/main/resources/native
+          merge-multiple: true
+
+      - name: Publish to Central Portal
+        working-directory: bindings/java
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+        run: ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-build-cache --rerun-tasks
+
+      - name: Assemble Fat JAR for GitHub Release
+        working-directory: bindings/java
+        run: ./gradlew jar --no-daemon
+
+      - name: Upload Fat JAR artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'java-fat-jar'
+          path: bindings/java/build/libs/tachyon-java-*.jar
+
   tachyon_top:
     name: Build tachyon-top CLI
     needs: [ changelog ]
@@ -220,8 +346,14 @@ jobs:
 
   github_release:
     name: Create GitHub Release
-    needs: [ python_sdist, rust_publish, go_publish, tachyon_top ]
-    if: always() && needs.python_sdist.result == 'success' && needs.tachyon_top.result == 'success'
+    needs: [ python_sdist, rust_publish, go_publish, java_publish, tachyon_top ]
+    if: |
+      always() &&
+      needs.python_sdist.result == 'success' &&
+      (needs.rust_publish.result == 'success' || needs.rust_publish.result == 'skipped') &&
+      (needs.go_publish.result == 'success'   || needs.go_publish.result == 'skipped')  &&
+      (needs.java_publish.result == 'success' || needs.java_publish.result == 'skipped') &&
+      needs.tachyon_top.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -236,6 +368,13 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: python-sdist
+          path: dist/
+
+      - name: Download Fat JAR
+        if: needs.java_publish.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: java-fat-jar
           path: dist/
 
       - name: Download tachyon-top binary
@@ -286,5 +425,4 @@ jobs:
             --title "Tachyon ${TAG}" \
             --notes-file /tmp/release_notes.md \
             ${PRERELEASE_FLAG} \
-            dist/*.tar.gz \
-            dist/tachyon-top-linux-x86_64
+            dist/*
