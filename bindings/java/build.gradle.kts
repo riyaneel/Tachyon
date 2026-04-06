@@ -1,7 +1,8 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     java
-    `maven-publish`
-    signing
+    id("com.vanniktech.maven.publish") version "0.28.0"
 }
 
 repositories {
@@ -70,42 +71,36 @@ tasks.withType<Javadoc> {
     stdOptions.source = "21"
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            groupId = "dev.tachyon-ipc"
-            artifactId = "tachyon-java"
-            version = "0.2.0"
+mavenPublishing {
+    coordinates("dev.tachyon-ipc", "tachyon-java", project.version.toString())
 
-            from(components["java"])
+    pom {
+        name.set("Tachyon IPC Java Bindings")
+        description.set("Zero-copy SPSC lock-free IPC via Panama FFM")
+        inceptionYear.set("2026")
+        url.set("https://github.com/riyaneel/Tachyon")
 
-            pom {
-                name.set("Tachyon IPC Java Bindings")
-                description.set("Zero-copy SPSC lock-free IPC via Panama FFM")
-                url.set("https://github.com/riyaneel/tachyon")
-
-                licenses {
-                    license {
-                        name.set("The Apache License, Version 2.0")
-                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
-                }
-                developers {
-                    developer {
-                        id.set("riyaneel")
-                        name.set("Riyane El Qoqui")
-                    }
-                }
-                scm {
-                    connection.set("scm:git:git://github.com/riyaneel/tachyon.git")
-                    developerConnection.set("scm:git:ssh://github.com/riyaneel/tachyon.git")
-                    url.set("https://github.com/riyaneel/tachyon")
-                }
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
             }
         }
-    }
-}
 
-signing {
-    sign(publishing.publications["mavenJava"])
+        developers {
+            developer {
+                id.set("riyaneel")
+                name.set("Riyane El Qoqui")
+            }
+        }
+
+        scm {
+            connection.set("scm:git:git://github.com/riyaneel/Tachyon.git")
+            developerConnection.set("scm:git:ssh://github.com/riyaneel/Tachyon.git")
+            url.set("https://github.com/riyaneel/Tachyon")
+        }
+    }
+
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
 }
