@@ -7,6 +7,10 @@ package dev.tachyon_ipc;
  * The calling thread or coroutine is expected to back off (yield/spin) and retry.
  */
 public final class BufferFullException extends TachyonException {
+
+	/**
+	 * Constructs a BufferFullException mapping to TACHYON_ERR_FULL (code 9).
+	 */
 	public BufferFullException() {
 		super(9, "The bus buffer is full. No transaction could be acquired.");
 	}

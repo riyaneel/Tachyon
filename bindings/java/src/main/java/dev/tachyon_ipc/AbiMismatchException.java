@@ -5,6 +5,10 @@ package dev.tachyon_ipc;
  * differs between the client and the bus.
  */
 public final class AbiMismatchException extends TachyonException {
+
+	/**
+	 * Constructs an AbiMismatchException mapping to TACHYON_ERR_PROTOCOL (code 14).
+	 */
 	public AbiMismatchException() {
 		super(14, "ABI version mismatch between client and Tachyon bus.");
 	}

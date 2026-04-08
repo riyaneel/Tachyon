@@ -8,6 +8,10 @@ package dev.tachyon_ipc;
  * closed immediately upon catching this.
  */
 public final class PeerDeadException extends TachyonException {
+
+	/**
+	 * Constructs a PeerDeadException mapping to a fatal bus state.
+	 */
 	public PeerDeadException() {
 		super(-1, "The peer process is dead, or the bus has entered a FATAL_ERROR state.");
 	}
