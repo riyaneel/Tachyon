@@ -38,7 +38,7 @@ public final class TachyonBus implements AutoCloseable {
 	 */
 	public static TachyonBus listen(String path, long capacity) {
 		Objects.requireNonNull(path, "Path cannot be null");
-		if (capacity <= 0) {
+		if (capacity <= 0 || (capacity & (capacity - 1)) != 0) {
 			throw new IllegalArgumentException("Capacity must be positive.");
 		}
 
