@@ -19,6 +19,9 @@ final class MsgViewLayout {
 	private MsgViewLayout() {
 	}
 
+	/**
+	 * The structured memory layout mirroring the native C struct sequence.
+	 */
 	static final StructLayout layout = MemoryLayout.structLayout(
 			ValueLayout.ADDRESS.withName("ptr"),
 			ValueLayout.JAVA_LONG.withName("actual_size"),
@@ -27,8 +30,23 @@ final class MsgViewLayout {
 			MemoryLayout.paddingLayout(4)
 	).withName("tachyon_msg_view_t");
 
+	/**
+	 * Memory accessor for the {@code ptr} field. Maps to the raw payload memory address.
+	 */
 	static final VarHandle ptrHandle = layout.varHandle(PathElement.groupElement("ptr"));
+
+	/**
+	 * Memory accessor for the {@code actual_size} field. Maps to the number of bytes written.
+	 */
 	static final VarHandle sizeHandle = layout.varHandle(PathElement.groupElement("actual_size"));
+
+	/**
+	 * Memory accessor for the {@code type_id} field. Maps to the user-defined protocol identifier.
+	 */
 	static final VarHandle typeHandle = layout.varHandle(PathElement.groupElement("type_id"));
+
+	/**
+	 * The exact byte size of the struct layout, used for pointer arithmetic during batch iteration.
+	 */
 	static final long sizeBytes = layout.byteSize();
 }
