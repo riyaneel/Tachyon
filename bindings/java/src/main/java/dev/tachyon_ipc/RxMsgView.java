@@ -70,8 +70,9 @@ public final class RxMsgView {
 	}
 
 	/**
-	 * Nullifies the internal segment pointer to violently fault any subsequent read attempts.
-	 * * @implSpec Invoked strictly by the parent {@link RxBatchGuard} during the commit phase
+	 * Nullifies the internal segment pointer to fault any subsequent access attempts.
+	 *
+	 * @implSpec Invoked strictly by the parent {@link RxBatchGuard} during the commit phase
 	 * to enforce zero-copy lifetime constraints.
 	 */
 	void invalidate() {

@@ -14,7 +14,7 @@ import java.util.function.Consumer;
  * A high-throughput batch lease that drains multiple contiguous messages in a single FFI crossing.
  *
  * @implSpec Backed by a confined FFM Arena holding the native C-struct array. Committing the batch
- * advances the consumer head for all processed messages simultaneously.
+ * advances the consumer head for all processed messages in a single FFI crossing.
  */
 public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
 
@@ -50,12 +50,13 @@ public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
 
 	/**
 	 * Internal constructor invoked exclusively by the {@link TachyonBus}.
-	 * Allocates the layout and invokes the native ABI to populate the structs.
+	 * Allocates the struct array layout and invokes the native ABI to populate it.
 	 *
 	 * @param busHandle     The native bus pointer.
 	 * @param busArena      The shared arena of the bus used to reinterpret raw pointers.
 	 * @param maxMsgs       The upper limit of messages to extract.
-	 * @param spinThreshold The CPU yield threshold before blocking.
+	 * @param spinThreshold The number of {@code cpu_relax()} spin iterations before falling
+	 *                      back to an OS-level futex wait.
 	 * @throws IllegalStateException If the native ABI returns a count exceeding the requested bounds.
 	 */
 	RxBatchGuard(MemorySegment busHandle, Arena busArena, int maxMsgs, int spinThreshold) {
@@ -115,8 +116,7 @@ public final class RxBatchGuard implements AutoCloseable, Iterable<RxMsgView> {
 	}
 
 	/**
-	 * Submits the entire batch of messages to the native arena, advancing the consumer head
-	 * in a single atomic operation.
+	 * Submits the entire batch to the native arena, advancing the consumer head in a single FFI crossing.
 	 *
 	 * @implSpec Iterates through all instantiated {@link RxMsgView} references and invalidates
 	 * their memory segments to strictly enforce zero-copy lifetime constraints and prevent use-after-free.

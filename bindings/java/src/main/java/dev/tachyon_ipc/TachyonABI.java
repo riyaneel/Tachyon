@@ -82,13 +82,13 @@ final class TachyonABI {
 			FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
 	/**
-	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_bus_set_numa_node(tachyon_bus_t*, int)}
+	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t*, int)}
 	 */
 	private static final MethodHandle MH_SET_NUMA_NODE = downcall("tachyon_bus_set_numa_node",
 			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
 	/**
-	 * Maps to: {@code TACHYON_ABI const void* tachyon_acquire_tx(tachyon_bus_t*, size_t)}
+	 * Maps to: {@code TACHYON_ABI void* tachyon_acquire_tx(tachyon_bus_t*, size_t)}
 	 */
 	private static final MethodHandle MH_ACQUIRE_TX = downcall("tachyon_acquire_tx",
 			FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
@@ -130,7 +130,7 @@ final class TachyonABI {
 			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
 
 	/**
-	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_get_state(tachyon_bus_t*)}
+	 * Maps to: {@code TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t*)}
 	 */
 	private static final MethodHandle MH_GET_STATE = downcall("tachyon_get_state",
 			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
@@ -220,9 +220,11 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Issues a hardware memory barrier to flush pending transactions.
+	 * Notifies sleeping consumers via a futex wake-up signal.
 	 *
 	 * @param handle The native bus pointer.
+	 * @implNote Only has an observable effect when the consumer is in futex-sleep mode.
+	 * In pure-spin mode the consumer never calls futex_wait, so no wake-up is needed.
 	 */
 	static void flush(MemorySegment handle) {
 		try {
@@ -233,7 +235,7 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Instructs the native OS scheduler to bind the process memory to a specific NUMA node.
+	 * Instructs the native OS to bind the shared memory pages to a specific NUMA node.
 	 *
 	 * @param handle The native bus pointer.
 	 * @param nodeId The target NUMA node index.
@@ -247,10 +249,10 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Configures the receiver polling back-off strategy (e.g., pure spin vs wait-sleeping).
+	 * Configures the consumer polling back-off strategy.
 	 *
 	 * @param handle   The native bus pointer.
-	 * @param spinMode The integer mapping to the C++ spin enumeration.
+	 * @param spinMode {@code 0} = futex-sleep; non-zero = pure spin via {@code cpu_relax()}.
 	 */
 	static void setPollingMode(MemorySegment handle, int spinMode) {
 		try {
@@ -265,7 +267,7 @@ final class TachyonABI {
 	 *
 	 * @param handle  The native bus pointer.
 	 * @param maxSize The required contiguous byte capacity.
-	 * @return A bounded memory segment for zero-copy writes.
+	 * @return A bounded memory segment for zero-copy writes, or a zero-address segment if the buffer is full.
 	 */
 	static MemorySegment acquireTx(MemorySegment handle, long maxSize) {
 		try {
@@ -276,11 +278,11 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Publishes a transaction without issuing an explicit memory barrier.
+	 * Publishes a transaction without issuing a futex wake-up signal.
 	 *
 	 * @param handle     The native bus pointer.
 	 * @param actualSize The number of bytes successfully written to the segment.
-	 * @param typeId     The user-defined protocol sequence.
+	 * @param typeId     The user-defined protocol identifier.
 	 */
 	static void commitTxUnflushed(MemorySegment handle, long actualSize, int typeId) {
 		try {
@@ -291,11 +293,11 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Publishes a transaction and strictly forces a memory flush to wake up sleeping consumers.
+	 * Publishes a transaction and notifies sleeping consumers via a futex wake-up signal.
 	 *
 	 * @param handle     The native bus pointer.
 	 * @param actualSize The number of bytes successfully written to the segment.
-	 * @param typeId     The user-defined protocol sequence.
+	 * @param typeId     The user-defined protocol identifier.
 	 */
 	static void commitTx(MemorySegment handle, long actualSize, int typeId) {
 		commitTxUnflushed(handle, actualSize, typeId);
@@ -316,11 +318,13 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Polls the arena for the next available message, falling back to futex blocks.
+	 * Polls the arena for the next available message, spinning then falling back to futex sleep.
 	 *
 	 * @param handle        The native bus pointer.
-	 * @param spinThreshold The number of CPU yields before falling back to system sleep.
-	 * @return An {@link RxResult} containing the mapped memory segment, or null if interrupted.
+	 * @param spinThreshold The number of {@code cpu_relax()} spin iterations before falling
+	 *                      back to an OS-level futex wait.
+	 * @return An {@link RxResult} containing the mapped memory segment,
+	 *         or {@code null} if the futex wait was interrupted by a signal (EINTR).
 	 */
 	static RxResult acquireRxBlocking(MemorySegment handle, int spinThreshold) {
 		try (Arena arena = Arena.ofConfined()) {
@@ -358,13 +362,15 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Acquires multiple contiguous messages directly into an FFM struct array.
+	 * Drains multiple contiguous messages directly into an FFM struct array in a single FFI crossing.
 	 *
 	 * @param handle        The native bus pointer.
 	 * @param viewsSegment  The pre-allocated array of {@code tachyon_msg_view_t}.
 	 * @param maxMsgs       The upper limit of messages to extract in one pass.
-	 * @param spinThreshold The CPU yield threshold before blocking.
-	 * @return The absolute number of valid messages loaded into the struct array.
+	 * @param spinThreshold The number of {@code cpu_relax()} spin iterations before falling
+	 *                      back to an OS-level futex wait.
+	 * @return The number of valid messages loaded into the struct array. Returns {@code 0}
+	 *         if interrupted or if the arena has entered a fatal error state.
 	 */
 	static long drainBatch(MemorySegment handle, MemorySegment viewsSegment, int maxMsgs, int spinThreshold) {
 		try {
@@ -375,7 +381,8 @@ final class TachyonABI {
 	}
 
 	/**
-	 * Acknowledges the processing of an entire message batch, advancing the consumer head in a single FFI crossing.
+	 * Acknowledges the processing of an entire message batch, advancing the consumer head
+	 * in a single FFI crossing.
 	 *
 	 * @param handle       The native bus pointer.
 	 * @param viewsSegment The populated array of {@code tachyon_msg_view_t}.
@@ -393,7 +400,7 @@ final class TachyonABI {
 	 * Reads the internal atomic state of the C++ arena structure.
 	 *
 	 * @param handle The native bus pointer.
-	 * @return The integer value of the BusState enum.
+	 * @return The integer value of the {@code tachyon_state_t} enumeration.
 	 */
 	static int getState(MemorySegment handle) {
 		try {

@@ -30,16 +30,16 @@ public final class TachyonBus implements AutoCloseable {
 	 * Initializes a new shared memory arena and binds it to the specified UNIX Domain Socket path.
 	 *
 	 * @param path     The absolute filesystem path for the UDS handshake socket.
-	 * @param capacity The requested byte capacity of the ring buffer. Must be a power of 2.
+	 * @param capacity The requested byte capacity of the ring buffer. Must be a positive power of 2.
 	 * @return A new active {@link TachyonBus} instance.
-	 * @throws IllegalArgumentException If the capacity is zero or negative.
+	 * @throws IllegalArgumentException If the capacity is zero, negative, or not a power of 2.
 	 * @implSpec The native bus pointer is strictly bound to a shared FFM {@link Arena}
 	 * that dictates the spatial bounds of further memory segments mapped to this bus.
 	 */
 	public static TachyonBus listen(String path, long capacity) {
 		Objects.requireNonNull(path, "Path cannot be null");
 		if (capacity <= 0 || (capacity & (capacity - 1)) != 0) {
-			throw new IllegalArgumentException("Capacity must be positive.");
+			throw new IllegalArgumentException("Capacity must be a positive power of 2.");
 		}
 
 		try (Arena arena = Arena.ofConfined()) {
@@ -66,11 +66,13 @@ public final class TachyonBus implements AutoCloseable {
 	}
 
 	/**
-	 * Configures the hardware polling strategy for the consumer.
+	 * Configures the consumer polling strategy.
 	 *
-	 * @param spinMode The integer mapping to the native spin enumeration (e.g., pure spin vs yield).
-	 * @apiNote Modifies the atomic watchdog behavior inside the native arena to optimize
-	 * either for ultra-low latency (pure spin) or lower CPU power consumption (futex sleep).
+	 * @param spinMode {@code 0} enables futex-based sleep (lower CPU usage);
+	 *                 any non-zero value enables pure spin via {@code cpu_relax()} (lower latency).
+	 * @apiNote Modifies the atomic consumer state inside the native arena. Pure spin
+	 * minimizes wake-up latency at the cost of a full CPU core; futex sleep reduces
+	 * CPU consumption but adds an OS scheduling round-trip on each wake-up.
 	 */
 	public void setPollingMode(int spinMode) {
 		checkOpen();
@@ -81,8 +83,8 @@ public final class TachyonBus implements AutoCloseable {
 	 * Pins the memory policy of the underlying shared memory file to a specific NUMA node.
 	 *
 	 * @param nodeId The target NUMA node index.
-	 * @implSpec Translates to an OS-level mbind/set_mempolicy syscall to prevent cross-die
-	 * cache invalidation penalties and optimize memory locality.
+	 * @implSpec Translates to an OS-level {@code mbind} syscall with {@code MPOL_PREFERRED | MPOL_MF_MOVE}
+	 * to migrate already-allocated pages and prevent cross-die cache invalidation penalties.
 	 */
 	public void setNumaNode(int nodeId) {
 		checkOpen();
@@ -109,10 +111,11 @@ public final class TachyonBus implements AutoCloseable {
 	}
 
 	/**
-	 * Issues a strict hardware memory barrier (release semantics) to wake up sleeping consumers.
+	 * Notifies sleeping consumers by issuing a futex wake-up signal.
 	 *
-	 * @apiNote Should be invoked explicitly after a batch of unflushed transactions to
-	 * ensure memory visibility across cores.
+	 * @apiNote Must be called explicitly after a sequence of unflushed transactions
+	 * ({@link TxGuard#commitUnflushed}) to unblock any consumer waiting in futex sleep.
+	 * Has no effect when the consumer is in pure-spin mode.
 	 */
 	public void flush() {
 		checkOpen();
@@ -120,10 +123,12 @@ public final class TachyonBus implements AutoCloseable {
 	}
 
 	/**
-	 * Polls the arena for the next available message, potentially blocking the caller.
+	 * Polls the arena for the next available message, blocking the caller until one arrives.
 	 *
-	 * @param spinThreshold The number of CPU yields before falling back to an OS-level futex wait.
-	 * @return An {@link RxGuard} representing the read-only projection of the message, or null if interrupted.
+	 * @param spinThreshold The number of {@code cpu_relax()} spin iterations before falling
+	 *                      back to an OS-level futex wait.
+	 * @return An {@link RxGuard} representing the read-only projection of the message,
+	 *         or {@code null} if the blocking call was interrupted by a signal (EINTR).
 	 * @implSpec Deserialization must be performed directly on the returned zero-copy memory segment.
 	 */
 	public RxGuard acquireRx(int spinThreshold) {
@@ -140,10 +145,11 @@ public final class TachyonBus implements AutoCloseable {
 	 * Extracts multiple contiguous messages from the ring buffer in a single FFI crossing.
 	 *
 	 * @param maxMsgs       The upper bound of messages to pull from the consumer head.
-	 * @param spinThreshold The CPU yield threshold before falling back to sleep.
+	 * @param spinThreshold The number of {@code cpu_relax()} spin iterations before falling
+	 *                      back to an OS-level futex wait.
 	 * @return An {@link RxBatchGuard} containing the array of message views.
-	 * @throws IllegalArgumentException If maxMsgs is strictly negative or zero.
-	 * @implSpec Drastically amortizes the cost of JNI/FFM transitions by populating a contiguous
+	 * @throws IllegalArgumentException If maxMsgs is zero or negative.
+	 * @implSpec Drastically amortizes the cost of FFM transitions by populating a contiguous
 	 * C-struct array bounded within a confined memory arena.
 	 */
 	public RxBatchGuard drainBatch(int maxMsgs, int spinThreshold) {
@@ -157,7 +163,7 @@ public final class TachyonBus implements AutoCloseable {
 	/**
 	 * Reads the internal atomic lifecycle state of the native arena.
 	 *
-	 * @return The integer mapping of the BusState native enumeration.
+	 * @return The integer mapping of the {@code tachyon_state_t} native enumeration.
 	 */
 	public int getState() {
 		checkOpen();
@@ -165,10 +171,11 @@ public final class TachyonBus implements AutoCloseable {
 	}
 
 	/**
-	 * Initiates the teardown of the FFM shared arena and signals the native ABI to destroy the bus.
+	 * Initiates the teardown of the native bus and its FFM shared arena.
 	 *
-	 * @implNote Uses an atomic boolean flag to ensure idempotency. The underlying FFM shared memory
-	 * arena is explicitly closed, immediately invalidating all pending guards and segments.
+	 * @implNote Uses an atomic boolean flag to ensure idempotency. The native bus is destroyed
+	 * first via {@code tachyon_bus_destroy}, then the FFM shared arena is closed, immediately
+	 * invalidating all pending guards and memory segments bound to it.
 	 */
 	@Override
 	public void close() {
