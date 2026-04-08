@@ -1,5 +1,9 @@
 package dev.tachyon_ipc
 
+/**
+ * Heap-allocated representation of an IPC message.
+ * Standard data class is avoided to guarantee value-based equality on the underlying JVM byte array.
+ */
 public class Message(
     public val typeId: Int,
     public val data: ByteArray
