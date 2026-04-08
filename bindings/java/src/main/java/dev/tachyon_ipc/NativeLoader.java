@@ -6,6 +6,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
+/**
+ * Dynamically loads the Tachyon native shared library (FFI Bridge).
+ *
+ * @apiNote Internal utility. Automatically detects the host OS and arch
+ * to extract the correct pre-compiled binary from the classpath.
+ * @implNote Deliberate: Uses a double-checked locking mechanism for thread-safe
+ * static initialization. The native binary is extracted to a temporary file before
+ * being loaded via {@link System#load(String)}, falling back to {@link System#loadLibrary(String)}
+ * on failure.
+ */
 final class NativeLoader {
 	private static volatile boolean loaded = false;
 	private static final Object lock = new Object();
@@ -13,6 +23,11 @@ final class NativeLoader {
 	private NativeLoader() {
 	}
 
+	/**
+	 * Ensures the native library is loaded into the JVM context.
+	 * @apiNote Safe to call multiple times concurrently. Only the successful call
+	 * will map the native symbols.
+	 */
 	public static void load() {
 		if (loaded) {
 			return;

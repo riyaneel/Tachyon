@@ -6,6 +6,15 @@ import java.lang.foreign.StructLayout;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
 
+/**
+ * FFM (Foreign Function & Memory) memory layout definition for the native {@code tachyon_msg_view_t} C struct.
+ *
+ * @apiNote Internal utility. Exposes {@link VarHandle} accessors for zero-copy memory read
+ * directly from the shared memory arena.
+ * @implSpec The layout MUST be strictly isomorphic to the C++ ABI definition.
+ * Includes explicit 4-byte padding after the 32-bit {@code type_id} to ensure 64-bit word alignment
+ * on the host architecture.
+ */
 final class MsgViewLayout {
 	private MsgViewLayout() {
 	}
