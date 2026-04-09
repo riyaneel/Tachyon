@@ -46,20 +46,19 @@ public class Bus private constructor(private val inner: TachyonBus) : AutoClosea
     }
 
     /**
-     * Suspending send.
-     * Incurs a memory copy from JVM heap to off-heap.
-     * Yields the coroutine if the TX ring is full.
+     * High-level suspendable send.
+     * Yields the coroutine if the bus is temporarily full.
      */
     public suspend fun send(data: ByteArray, typeId: Int = 0) {
-        val size = data.size.toLong()
         val srcSegment = MemorySegment.ofArray(data)
 
         while (true) {
             try {
-                inner.acquireTx(size).use { guard ->
-                    MemorySegment.copy(srcSegment, 0L, guard.data, 0L, size)
-                    guard.commit(size, typeId)
+                inner.acquireTx(data.size.toLong()).use { tx ->
+                    MemorySegment.copy(srcSegment, 0L, tx.data, 0L, data.size.toLong())
+                    tx.commit(data.size.toLong(), typeId)
                 }
+                yield()
                 break
             } catch (e: BufferFullException) {
                 yield()
@@ -68,11 +67,10 @@ public class Bus private constructor(private val inner: TachyonBus) : AutoClosea
     }
 
     /**
-     * High-level consumption stream.
-     * Incurs JVM heap allocation per message. For zero-copy, use acquireRx or drainBatch.
+     * Converts the C-style blocking receiver into an asynchronous Kotlin Flow.
      */
     public fun receive(
-        spinThreshold: Int = 10_000,
+        spinThreshold: Int = 1000,
         onEmpty: suspend () -> Unit = { yield() }
     ): Flow<Message> = flow {
         while (true) {
