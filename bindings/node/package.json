@@ -1,0 +1,43 @@
+{
+  "name": "@tachyon/core",
+  "version": "0.2.0",
+  "description": "Tachyon IPC bindings for Node.js",
+  "keywords": [
+    "ipc",
+    "shm",
+    "zero-copy",
+    "spsc"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/riyaneel/Tachyon.git"
+  },
+  "license": "Apache-2.0",
+  "author": "riyaneel",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "npm run build:native && npm run build:ts",
+    "build:native": "cmake-js compile",
+    "build:ts": "tsc",
+    "install": "cmake-js compile",
+    "prebuild": "prebuildify --napi --strip",
+    "test": "mocha -r ts-node/register test/**/*.spec.ts"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.7.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.5.2",
+    "cmake-js": "^8.0.0",
+    "mocha": "^11.7.5",
+    "prebuildify": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  }
+}
