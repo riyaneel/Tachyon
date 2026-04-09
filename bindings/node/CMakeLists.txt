@@ -36,7 +36,7 @@ target_include_directories(tachyon_node PRIVATE
 		src/native/_core_local/include
 )
 
-target_compile_definitions(tachyon_node PRIVATE NAPI_VERSION=8.7)
+target_compile_definitions(tachyon_node PRIVATE NAPI_VERSION=8)
 target_link_libraries(tachyon_node PRIVATE ${CMAKE_JS_LIB})
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
