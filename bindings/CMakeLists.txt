@@ -17,3 +17,5 @@ if (Java_FOUND AND JNI_FOUND)
 else ()
 	message(STATUS "Java Development or JNI not found - skipping Java bindings")
 endif ()
+
+add_subdirectory(node)
