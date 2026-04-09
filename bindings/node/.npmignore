@@ -1,0 +1,6 @@
+src/ts/
+tsconfig.json
+benchmark/
+test/
+.mocharc.json
+build/

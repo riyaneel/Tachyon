@@ -17,6 +17,7 @@
 *.out
 *.app
 .vscode/*
+.DS_Store/
 .history/
 *.vsix
 *.ko
@@ -134,8 +135,13 @@ dmypy.json
 .pytype/
 cython_debug/
 Pipfile.lock
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
 .msan_toolchain/
 build*/
+prebuilds/
 benchmark/results/
 bindings/go/tachyon/_core_local/
 bindings/java/src/native/_core_local/
