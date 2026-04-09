@@ -4,3 +4,5 @@ benchmark/
 test/
 .mocharc.json
 build/
+prebuilds/
+CMakeUserPresets.json
