@@ -319,6 +319,52 @@ jobs:
           name: 'java-fat-jar'
           path: bindings/java/build/libs/tachyon-java-*.jar
 
+  kotlin_publish:
+    name: Publish Fat JAR to Maven Central
+    needs: [ java_native_linux, java_native_macos, changelog ]
+    runs-on: ubuntu-24.04
+    if: |
+      !contains(github.ref_name, '-rc') &&
+      !contains(github.ref_name, '-alpha') &&
+      !contains(github.ref_name, '-beta')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Download Native Assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: native-*
+          path: bindings/java/src/main/resources/native
+          merge-multiple: true
+
+      - name: Publish to Central Portal
+        working-directory: bindings/kotlin
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+        run: ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-build-cache --rerun-tasks
+
+      - name: Assemble Fat JAR for GitHub Release
+        working-directory: bindings/kotlin
+        run: ./gradlew jar --no-daemon
+
+      - name: Upload Fat JAR artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'kotlin-fat-jar'
+          path: bindings/kotlin/build/libs/tachyon-kotlin-*.jar
+
   tachyon_top:
     name: Build tachyon-top CLI
     needs: [ changelog ]
@@ -346,13 +392,14 @@ jobs:
 
   github_release:
     name: Create GitHub Release
-    needs: [ python_sdist, rust_publish, go_publish, java_publish, tachyon_top ]
+    needs: [ python_sdist, rust_publish, go_publish, java_publish, kotlin_publish, tachyon_top ]
     if: |
       always() &&
       needs.python_sdist.result == 'success' &&
       (needs.rust_publish.result == 'success' || needs.rust_publish.result == 'skipped') &&
       (needs.go_publish.result == 'success'   || needs.go_publish.result == 'skipped')  &&
       (needs.java_publish.result == 'success' || needs.java_publish.result == 'skipped') &&
+      (needs.kotlin_publish.result == 'success' || needs.kotlin_publish.result == 'skipped') &&
       needs.tachyon_top.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
@@ -370,11 +417,18 @@ jobs:
           name: python-sdist
           path: dist/
 
-      - name: Download Fat JAR
+      - name: Download Java Fat JAR
         if: needs.java_publish.result == 'success'
         uses: actions/download-artifact@v8
         with:
           name: java-fat-jar
+          path: dist/
+
+      - name: Download Kotlin Fat JAR
+        if: needs.kotlin_publish.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: kotlin-fat-jar
           path: dist/
 
       - name: Download tachyon-top binary
