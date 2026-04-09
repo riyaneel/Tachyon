@@ -24,6 +24,7 @@
     "build": "npm run build:native && npm run build:ts",
     "build:native": "cmake-js compile",
     "build:ts": "tsc",
+    "clean": "rm -rf build dist",
     "install": "cmake-js compile",
     "prebuild": "cmake-js compile --runtime node --runtime-version $(node -v | cut -c2-)",
     "test": "mocha -r ts-node/register test/**/*.spec.ts"
