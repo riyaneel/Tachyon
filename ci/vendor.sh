@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
 	echo "Usage: $O <target>"
-	echo "Targets: go | java | rust"
+	echo "Targets: go | java | node | rust"
 	exit 1
 fi
 
@@ -18,6 +18,9 @@ case "${TARGET}" in
 	;;
 "java")
 	DEST="${ROOT_DIR}/bindings/java/src/native/_core_local"
+	;;
+"node")
+	DEST="${ROOT_DIR}/bindings/node/src/native/_core_local"
 	;;
 "rust")
 	DEST="${ROOT_DIR}/bindings/rust/tachyon-sys/vendor/core"

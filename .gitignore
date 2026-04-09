@@ -141,6 +141,7 @@ bindings/go/tachyon/_core_local/
 bindings/java/src/native/_core_local/
 bindings/java/build/
 .gradle/
+bindings/node/src/native/_core_local/
 bindings/python/README.md
 bindings/python/_core_local/
 bindings/python/_dlpack_local/
