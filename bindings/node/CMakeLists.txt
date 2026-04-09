@@ -3,7 +3,7 @@ if(NOT DEFINED CMAKE_JS_VERSION)
 	return()
 endif()
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.31.0)
 project(tachyon_node CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -16,6 +16,8 @@ execute_process(
 		OUTPUT_VARIABLE NODE_ADDON_API_DIR
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+
+string(REPLACE "\"" "" NODE_ADDON_API_DIR "${NODE_ADDON_API_DIR}")
 
 add_library(tachyon_node SHARED
 		src/native/tachyon_node.cpp
