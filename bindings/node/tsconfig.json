@@ -4,8 +4,10 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "lib": [
-      "ES2022"
+      "ES2022",
+      "ESNext.Disposable"
     ],
+    "types": ["@types/node"],
     "outDir": "./dist",
     "rootDir": "./src/ts",
     "declaration": true,
