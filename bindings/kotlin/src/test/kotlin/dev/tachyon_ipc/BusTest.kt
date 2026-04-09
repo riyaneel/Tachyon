@@ -10,7 +10,6 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.UUID
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class BusTest {
     private lateinit var socketPath: String
@@ -25,6 +24,18 @@ class BusTest {
         Files.deleteIfExists(Paths.get(socketPath))
     }
 
+    private suspend fun connectWithRetry(path: String, maxRetries: Int = 50): Bus {
+        var retries = 0
+        while (true) {
+            try {
+                return Bus.connect(path)
+            } catch (e: Exception) {
+                if (++retries >= maxRetries) throw e
+                delay(50)
+            }
+        }
+    }
+
     @Test
     fun `should send and receive a single message via high-level flow`() = runBlocking {
         val capacity = 1024L * 16L // 16 KB
@@ -35,10 +46,8 @@ class BusTest {
             }
         }
 
-        delay(100)
-
         val producerJob = launch(Dispatchers.IO) {
-            Bus.connect(socketPath).use { bus ->
+            connectWithRetry(socketPath).use { bus ->
                 val payload = "Tachyon Flow".encodeToByteArray()
                 bus.send(payload, typeId = 42)
             }
@@ -48,27 +57,28 @@ class BusTest {
         producerJob.join()
 
         assertEquals(42, receivedMessage.typeId)
-        assertEquals("Tachyon Flow", receivedMessage.data.decodeToString())
+        assertEquals("Tachyon Flow", String(receivedMessage.data))
     }
 
     @Test
-    fun `should handle zero-copy batch draining`() = runBlocking {
+    fun `should handle batch receiving`() = runBlocking {
         val capacity = 1024L * 16L
 
         val consumerJob = async(Dispatchers.IO) {
             Bus.listen(socketPath, capacity).use { bus ->
                 val messages = mutableListOf<String>()
                 while (messages.size < 5) {
-                    bus.drainBatch(maxMsgs = 10, spinThreshold = 10_000).use { batch ->
-                        for (i in 0 until batch.count.toInt()) {
-                            val view = batch.get(i)
-                            val bytes = ByteArray(view.actualSize.toInt())
+                    bus.drainBatch(10, 1000).use { batch ->
+                        for (view in batch) {
+                            val actualSize = view.actualSize
+                            val bytes = ByteArray(actualSize.toInt())
                             val dstSegment = MemorySegment.ofArray(bytes)
-                            MemorySegment.copy(view.data, 0L, dstSegment, 0L, view.actualSize)
-                            messages.add(bytes.decodeToString())
+
+                            MemorySegment.copy(view.data, 0L, dstSegment, 0L, actualSize)
+                            val str = String(bytes)
+                            messages.add(str)
                         }
                     }
-
                     if (messages.size < 5)
                         yield()
                 }
@@ -77,10 +87,8 @@ class BusTest {
             }
         }
 
-        delay(100)
-
         val producerJob = launch(Dispatchers.IO) {
-            Bus.connect(socketPath).use { bus ->
+            connectWithRetry(socketPath).use { bus ->
                 for (i in 1..5) {
                     val payload = "Msg $i".encodeToByteArray()
                     val srcSegment = MemorySegment.ofArray(payload)
@@ -114,10 +122,8 @@ class BusTest {
             }
         }
 
-        delay(100)
-
         val connectorJob = launch(Dispatchers.IO) {
-            Bus.connect(socketPath).use { bus ->
+            connectWithRetry(socketPath).use { bus ->
                 bus.setPollingMode(0)
             }
         }
