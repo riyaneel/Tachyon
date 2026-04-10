@@ -1,5 +1,6 @@
-export { RxBatch } from './batch';
-export type { RxMessage } from './batch';
+export {RxBatch} from './batch';
+export type {RxMessage} from './batch';
+export {Bus} from './bus';
 export {
     TachyonError,
     AbiMismatchError,
