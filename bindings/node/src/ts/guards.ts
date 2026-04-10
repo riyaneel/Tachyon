@@ -1,4 +1,4 @@
-import { PeerDeadError } from './error';
+import { PeerDeadError } from './error.js';
 
 // Branded slot types — nominal subtypes of Buffer.
 // Brand symbols are not accessible outside this module, so only

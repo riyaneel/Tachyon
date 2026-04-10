@@ -1,11 +1,13 @@
-import path from 'node:path';
+import { createRequire } from 'node:module';
 import { isMainThread } from 'node:worker_threads';
 
-import type { BatchController, RxMessage } from './batch';
-import { RxBatch } from './batch';
-import { AbiMismatchError, ErrorCode, PeerDeadError, isTachyonError } from './error';
-import type { RxController, RxSlot, TxController } from './guards';
-import { RxGuard, TxGuard } from './guards';
+import type { BatchController, RxMessage } from './batch.js';
+import { RxBatch } from './batch.js';
+import { AbiMismatchError, ErrorCode, PeerDeadError, isTachyonError } from './error.js';
+import type { RxController, RxSlot, TxController } from './guards.js';
+import { RxGuard, TxGuard } from './guards.js';
+
+const _require = createRequire(import.meta.url);
 
 // Raw shape of a native instance returned by TachyonBusNode.listen / .connect.
 interface NativeBinding {
@@ -47,14 +49,13 @@ interface NativeModule {
 
 function loadNative(): NativeModule {
 	const candidates = [
-		path.join(__dirname, '../build/Release/tachyon_node.node'),
-		path.join(__dirname, '../build/Debug/tachyon_node.node'),
+		new URL('../../build/Release/tachyon_node.node', import.meta.url).pathname,
+		new URL('../../build/Debug/tachyon_node.node', import.meta.url).pathname,
 	];
 
 	for (const p of candidates) {
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-require-imports
-			return require(p) as NativeModule;
+			return _require(p) as NativeModule;
 		} catch {
 			// try next candidate
 		}
