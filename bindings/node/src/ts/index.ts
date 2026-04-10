@@ -1,6 +1,6 @@
-export { RxBatch } from './batch.js';
-export type { RxMessage } from './batch.js';
-export { Bus } from './bus.js';
+export { RxBatch } from './batch.ts';
+export type { RxMessage } from './batch.ts';
+export { Bus } from './bus.ts';
 export {
 	TachyonError,
 	AbiMismatchError,
@@ -10,7 +10,7 @@ export {
 	isFull,
 	isTachyonError,
 	isPeerDead,
-} from './error.js';
-export type { ErrorCode as ErrorCodeType } from './error.js';
-export { TxGuard, RxGuard } from './guards.js';
-export type { TxSlot, RxSlot } from './guards.js';
+} from './error.ts';
+export type { ErrorCode as ErrorCodeType } from './error.ts';
+export { TxGuard, RxGuard } from './guards.ts';
+export type { TxSlot, RxSlot } from './guards.ts';

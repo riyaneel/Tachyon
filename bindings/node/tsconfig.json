@@ -22,8 +22,9 @@
 		"skipLibCheck": true,
 		"useDefineForClassFields": true,
 		"experimentalDecorators": false,
-		"emitDecoratorMetadata": false
+		"emitDecoratorMetadata": false,
+		"rewriteRelativeImportExtensions": true
 	},
-	"include": ["src/ts/**/*", "test/**/*"],
+	"include": ["src/ts/**/*"],
 	"exclude": ["node_modules", "dist", "build", "prebuilds"]
 }

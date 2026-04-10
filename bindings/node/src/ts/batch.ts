@@ -1,5 +1,5 @@
-import type { RxSlot } from './guards.js';
-import { PeerDeadError } from './error.js';
+import type { RxSlot } from './guards.ts';
+import { PeerDeadError } from './error.ts';
 
 /** @internal */
 export interface BatchController {

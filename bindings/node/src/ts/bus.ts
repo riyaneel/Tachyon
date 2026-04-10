@@ -1,11 +1,11 @@
 import { createRequire } from 'node:module';
 import { isMainThread } from 'node:worker_threads';
 
-import type { BatchController, RxMessage } from './batch.js';
-import { RxBatch } from './batch.js';
-import { AbiMismatchError, ErrorCode, PeerDeadError, isTachyonError } from './error.js';
-import type { RxController, RxSlot, TxController } from './guards.js';
-import { RxGuard, TxGuard } from './guards.js';
+import type { BatchController, RxMessage } from './batch.ts';
+import { RxBatch } from './batch.ts';
+import { AbiMismatchError, ErrorCode, PeerDeadError, isTachyonError } from './error.ts';
+import type { RxController, RxSlot, TxController } from './guards.ts';
+import { RxGuard, TxGuard } from './guards.ts';
 
 const _require = createRequire(import.meta.url);
 
