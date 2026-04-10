@@ -1,10 +1,11 @@
 import path from 'node:path';
 import { isMainThread } from 'node:worker_threads';
 
-import { RxBatch, type BatchController, type RxMessage } from './batch';
+import type { BatchController, RxMessage } from './batch';
+import { RxBatch } from './batch';
 import { AbiMismatchError, ErrorCode, PeerDeadError, isTachyonError } from './error';
-import { TxGuard, RxGuard, type TxController, type RxController } from './guards';
-import type { RxSlot } from './guards';
+import type { RxController, RxSlot, TxController } from './guards';
+import { RxGuard, TxGuard } from './guards';
 
 // Raw shape of a native instance returned by TachyonBusNode.listen / .connect.
 interface NativeBinding {
@@ -39,8 +40,8 @@ interface NativeBinding {
 
 interface NativeModule {
 	TachyonBusNode: {
-		listen(path: string, capacity: number): NativeBinding;
-		connect(path: string): NativeBinding;
+		listen(socketPath: string, capacity: number): NativeBinding;
+		connect(socketPath: string): NativeBinding;
 	};
 }
 
@@ -49,6 +50,7 @@ function loadNative(): NativeModule {
 		path.join(__dirname, '../build/Release/tachyon_node.node'),
 		path.join(__dirname, '../build/Debug/tachyon_node.node'),
 	];
+
 	for (const p of candidates) {
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -110,7 +112,7 @@ export class Bus implements Disposable {
 	 * @param socketPath Socket path
 	 * @param capacity Must be a strictly positive power of two.
 	 */
-	static listen(socketPath: string, capacity: number): Bus {
+	public static listen(socketPath: string, capacity: number): Bus {
 		warnMainThread('listen');
 		return new Bus(native.TachyonBusNode.listen(socketPath, capacity));
 	}
@@ -120,7 +122,7 @@ export class Bus implements Disposable {
 	 *
 	 * @throws {AbiMismatchError} If producer and consumer were compiled with incompatible versions.
 	 */
-	static connect(socketPath: string): Bus {
+	public static connect(socketPath: string): Bus {
 		warnMainThread('connect');
 		try {
 			return new Bus(native.TachyonBusNode.connect(socketPath));
@@ -135,7 +137,7 @@ export class Bus implements Disposable {
 	 * and consumer_sleeping check on every flush. Use only on a dedicated SCHED_FIFO thread.
 	 * Call immediately after listen/connect, before the first message.
 	 */
-	setPollingMode(spinMode: 0 | 1): void {
+	public setPollingMode(spinMode: 0 | 1): void {
 		this.#assertOpen();
 		this.#handle.setPollingMode(spinMode);
 	}
@@ -144,19 +146,19 @@ export class Bus implements Disposable {
 	 * Binds the SHM pages to a specific NUMA node (MPOL_PREFERRED + MPOL_MF_MOVE).
 	 * No-op on non-Linux platforms. Call immediately after listen/connect.
 	 */
-	setNumaNode(nodeId: number): void {
+	public setNumaNode(nodeId: number): void {
 		this.#assertOpen();
 		this.#handle.setNumaNode(nodeId);
 	}
 
 	/** Publishes all pending unflushed TX messages to the consumer. */
-	flush(): void {
+	public flush(): void {
 		this.#assertOpen();
 		this.#handle.flush();
 	}
 
 	/** Copies `data` into the ring buffer, commits, and flushes. */
-	send(data: Buffer | Uint8Array, typeId = 0): void {
+	public send(data: Buffer | Uint8Array, typeId = 0): void {
 		this.#assertOpen();
 		this.#handle.send(data, typeId);
 	}
@@ -167,7 +169,7 @@ export class Bus implements Disposable {
 	 *
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	recv(spinThreshold = 10_000): { data: Buffer; typeId: number } {
+	public recv(spinThreshold = 10_000): { data: Buffer; typeId: number } {
 		this.#assertOpen();
 		for (;;) {
 			if (this.#handle.getState() === 4) throw new PeerDeadError();
@@ -185,7 +187,7 @@ export class Bus implements Disposable {
 	 *
 	 * @throws {TachyonError} code `ERR_TACHYON_FULL` if the ring buffer is full.
 	 */
-	acquireTx(maxSize: number): TxGuard {
+	public acquireTx(maxSize: number): TxGuard {
 		this.#assertOpen();
 		const buf = this.#handle.acquireTx(maxSize);
 		const ctrl: TxController = {
@@ -204,12 +206,11 @@ export class Bus implements Disposable {
 
 	/**
 	 * Blocks until a message is available and returns a zero-copy read lease.
-	 * Retries transparently on EINTR. Returns `null` only on EINTR when the
-	 * spin threshold is exhausted and no futex wake arrives.
+	 * Returns `null` on EINTR — caller decides whether to retry.
 	 *
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	acquireRx(spinThreshold = 10_000): RxGuard | null {
+	public acquireRx(spinThreshold = 10_000): RxGuard | null {
 		this.#assertOpen();
 		if (this.#handle.getState() === 4) throw new PeerDeadError();
 		const result = this.#handle.acquireRxBlocking(spinThreshold);
@@ -229,7 +230,7 @@ export class Bus implements Disposable {
 	 *
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	drainBatch(maxMsgs: number, spinThreshold = 10_000): RxBatch {
+	public drainBatch(maxMsgs: number, spinThreshold = 10_000): RxBatch {
 		this.#assertOpen();
 		if (this.#handle.getState() === 4) throw new PeerDeadError();
 		const raw = this.#handle.drainBatch(maxMsgs, spinThreshold);
@@ -248,14 +249,14 @@ export class Bus implements Disposable {
 	}
 
 	/** Closes the bus and unmaps shared memory. Safe to call multiple times. */
-	close(): void {
+	public close(): void {
 		if (this.#closed) return;
 		this.#closed = true;
 		this.#handle.close();
 	}
 
 	/** Called automatically by the `using` keyword. */
-	[Symbol.dispose](): void {
+	public [Symbol.dispose](): void {
 		this.close();
 	}
 

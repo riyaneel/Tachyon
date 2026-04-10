@@ -28,7 +28,7 @@ export class TachyonError extends Error {
 	/** Native C-API error code, set as a `.code` property by N-API. */
 	public readonly code: ErrorCode;
 
-	constructor(message: string, code: ErrorCode) {
+	public constructor(message: string, code: ErrorCode) {
 		super(message);
 		this.name = 'TachyonError';
 		this.code = code;
@@ -42,7 +42,7 @@ export class TachyonError extends Error {
  * and consumer were compiled with differing Tachyon versions or TACHYON_MSG_ALIGNMENT values.
  */
 export class AbiMismatchError extends TachyonError {
-	constructor() {
+	public constructor() {
 		super(
 			'ABI mismatch: incompatible Tachyon versions or TACHYON_MSG_ALIGNMENT. ' +
 				'Rebuild producer and consumer from the same tag.',
@@ -64,7 +64,7 @@ export class AbiMismatchError extends TachyonError {
  * thrown directly by the native binding — there is no corresponding tachyon_error_t.
  */
 export class PeerDeadError extends TachyonError {
-	constructor() {
+	public constructor() {
 		super(
 			'Bus entered FATAL_ERROR state: corrupted message header detected. ' + 'Close this bus immediately.',
 			ErrorCode.Unknown,

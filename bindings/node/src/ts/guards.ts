@@ -1,20 +1,16 @@
 import { PeerDeadError } from './error';
 
-// Branded slot type — nominal subtype of Buffer.
-// The brand symbol is not accessible outside this module, so only
-// TxGuard produces this type.
-declare const _txSlot: unique symbol;
-
-// Branded slot type — nominal subtype of Buffer.
-// The brand symbol is not accessible outside this module, so only
-// RxGuard produces this type.
-declare const _rxSlot: unique symbol;
+// Branded slot types — nominal subtypes of Buffer.
+// Brand symbols are not accessible outside this module, so only
+// TxGuard and RxGuard can produce these types.
+declare const txSlotBrand: unique symbol;
+declare const rxSlotBrand: unique symbol;
 
 /** Zero-copy write window into the ring buffer. Valid only until commit or rollback. */
-export type TxSlot = Buffer & { readonly [_txSlot]: true };
+export type TxSlot = Buffer & { readonly [txSlotBrand]: true };
 
 /** Zero-copy read window into the ring buffer. Valid only until commit. */
-export type RxSlot = Buffer & { readonly [_rxSlot]: true };
+export type RxSlot = Buffer & { readonly [rxSlotBrand]: true };
 
 /** @internal */
 export interface TxController {
@@ -52,7 +48,7 @@ export class TxGuard {
 	#done = false;
 
 	/** @internal */
-	constructor(ctrl: TxController, buffer: Buffer) {
+	public constructor(ctrl: TxController, buffer: Buffer) {
 		this.#ctrl = ctrl;
 		this.#buffer = buffer as TxSlot;
 	}
@@ -64,9 +60,12 @@ export class TxGuard {
 	 *
 	 * @throws {Error} If the slot has already been finalized.
 	 */
-	bytes(): TxSlot {
-		this.#assertOpen();
-		return this.#buffer!;
+	public bytes(): TxSlot {
+		if (this.#done || this.#buffer === null) {
+			throw new Error('TxGuard: slot has already been committed or rolled back.');
+		}
+
+		return this.#buffer;
 	}
 
 	/**
@@ -75,7 +74,7 @@ export class TxGuard {
 	 *
 	 * @throws {Error} If the slot has already been finalized.
 	 */
-	commit(actualSize: number, typeId: number): void {
+	public commit(actualSize: number, typeId: number): void {
 		this.#assertOpen();
 		this.#invalidate();
 		this.#ctrl.commitTx(actualSize, typeId);
@@ -86,21 +85,21 @@ export class TxGuard {
 	 *
 	 * @throws {Error} If the slot has already been finalized.
 	 */
-	commitUnflushed(actualSize: number, typeId: number): void {
+	public commitUnflushed(actualSize: number, typeId: number): void {
 		this.#assertOpen();
 		this.#invalidate();
 		this.#ctrl.commitTxUnflushed(actualSize, typeId);
 	}
 
 	/** Cancels the transaction without publishing. No-op if already finalized. */
-	rollback(): void {
+	public rollback(): void {
 		if (this.#done) return;
 		this.#invalidate();
 		this.#ctrl.rollbackTx();
 	}
 
 	/** Called automatically by the `using` keyword. Rolls back if not already committed. */
-	[Symbol.dispose](): void {
+	public [Symbol.dispose](): void {
 		this.rollback();
 	}
 
@@ -140,7 +139,7 @@ export class RxGuard {
 	public readonly actualSize: number;
 
 	/** @internal */
-	constructor(ctrl: RxController, buffer: Buffer, typeId: number, actualSize: number) {
+	public constructor(ctrl: RxController, buffer: Buffer, typeId: number, actualSize: number) {
 		this.#ctrl = ctrl;
 		this.#buffer = buffer as RxSlot;
 		this.typeId = typeId;
@@ -154,21 +153,25 @@ export class RxGuard {
 	 * @throws {Error} If the slot has already been committed.
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	data(): RxSlot {
-		this.#assertOpen();
+	public data(): RxSlot {
+		if (this.#done || this.#buffer === null) {
+			throw new Error('RxGuard: slot has already been committed.');
+		}
+
 		if (this.#ctrl.getState() === 4 /* TACHYON_STATE_FATAL_ERROR */) throw new PeerDeadError();
-		return this.#buffer!;
+
+		return this.#buffer;
 	}
 
 	/** Releases the slot and advances the consumer head. No-op if already committed. */
-	commit(): void {
+	public commit(): void {
 		if (this.#done) return;
 		this.#invalidate();
 		this.#ctrl.commitRx();
 	}
 
 	/** Called automatically by the `using` keyword. Commits if not already released. */
-	[Symbol.dispose](): void {
+	public [Symbol.dispose](): void {
 		this.commit();
 	}
 

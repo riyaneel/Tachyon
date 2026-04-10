@@ -38,13 +38,13 @@ export class RxBatch {
 	#done = false;
 
 	/** @internal */
-	constructor(ctrl: BatchController, messages: RxMessage[]) {
+	public constructor(ctrl: BatchController, messages: RxMessage[]) {
 		this.#ctrl = ctrl;
 		this.#messages = messages;
 	}
 
 	/** Number of messages in this batch. */
-	get length(): number {
+	public get length(): number {
 		return this.#messages.length;
 	}
 
@@ -55,12 +55,18 @@ export class RxBatch {
 	 * @throws {Error} If the batch has already been committed.
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	at(i: number): RxMessage {
+	public at(i: number): RxMessage {
 		this.#assertOpen();
 		if (this.#ctrl.getState() === 4 /* TACHYON_STATE_FATAL_ERROR */) throw new PeerDeadError();
-		if (i < 0 || i >= this.#messages.length)
+
+		if (i < 0 || i >= this.#messages.length) {
 			throw new RangeError(`RxBatch: index ${i} out of range [0, ${this.#messages.length}).`);
-		return this.#messages[i]!;
+		}
+
+		// Bounds already validated — explicit undefined check satisfies noUncheckedIndexedAccess.
+		const msg = this.#messages[i];
+		if (msg === undefined) throw new RangeError('RxBatch: internal index error.');
+		return msg;
 	}
 
 	/**
@@ -68,19 +74,23 @@ export class RxBatch {
 	 *
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	[Symbol.iterator](): Iterator<RxMessage> {
+	public [Symbol.iterator](): Iterator<RxMessage> {
 		let i = 0;
 		return {
 			next: (): IteratorResult<RxMessage> => {
-				if (this.#done || i >= this.#messages.length) return { value: undefined, done: true };
+				if (this.#done || i >= this.#messages.length) {
+					return { value: undefined as unknown as RxMessage, done: true };
+				}
 				if (this.#ctrl.getState() === 4) throw new PeerDeadError();
-				return { value: this.#messages[i++]!, done: false };
+				const msg = this.#messages[i++];
+				if (msg === undefined) return { value: undefined as unknown as RxMessage, done: true };
+				return { value: msg, done: false };
 			},
 		};
 	}
 
 	/** Advances the consumer head and detaches all slot ArrayBuffers. No-op if already committed. */
-	commit(): void {
+	public commit(): void {
 		if (this.#done) return;
 		this.#done = true;
 		this.#messages = [];
@@ -88,7 +98,7 @@ export class RxBatch {
 	}
 
 	/** Called automatically by the `using` keyword. Commits if not already released. */
-	[Symbol.dispose](): void {
+	public [Symbol.dispose](): void {
 		this.commit();
 	}
 
