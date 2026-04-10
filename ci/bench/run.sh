@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-BUILD_DIR="${1:-$(pwd)/cmake-build-release}"
+BUILD_DIR="${1:-$(pwd)/build/clang-release}"
 OUTPUT_DIR="${2:-$(pwd)/benchmark/results}"
 PING_CORE="${PING_CORE:-8}"
 PONG_CORE="${PONG_CORE:-9}"
