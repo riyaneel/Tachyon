@@ -25,7 +25,9 @@
     "build:native": "cmake-js compile",
     "build:ts": "tsc",
     "clean": "rm -rf build dist",
+    "format": "prettier --write src/ts test/",
     "install": "cmake-js compile",
+    "lint": "eslint src/ts",
     "prebuild": "cmake-js compile --runtime node --runtime-version $(node -v | cut -c2-)",
     "test": "mocha -r ts-node/register test/**/*.spec.ts"
   },
@@ -36,8 +38,11 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.5.2",
     "cmake-js": "^8.0.0",
+    "eslint": "^10.2.0",
     "mocha": "^11.7.5",
+    "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1"
   }
 }
