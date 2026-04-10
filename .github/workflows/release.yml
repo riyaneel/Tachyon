@@ -365,6 +365,101 @@ jobs:
           name: 'kotlin-fat-jar'
           path: bindings/kotlin/build/libs/tachyon-kotlin-*.jar
 
+  nodejs_prebuilt:
+    name: Node.js Prebuilt (${{ matrix.platform }}-={{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x64
+            platform: linux
+          - os: ubuntu-24.04
+            arch: arm64
+            platform: linux
+          - os: macos-26-intel
+            arch: x64
+            platform: darwin
+          - os: macos-26
+            arch: arm64
+            platform: darwin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup QEMU (Linux ARM)
+        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v4
+
+      - name: Vendor C++ core
+        run: bash ci/vendor.sh node
+
+      - name: Install dependencies
+        working-directory: bindings/node
+        run: npm install
+
+      - name: Build Prebuilt
+        working-directory: bindings/node
+        run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
+
+      - name: Create Tarball Asset
+        run: |
+          mkdir -p dist
+          tar -czf "dist/tachyon-node-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C bindings/node/prebuilds .
+
+      - name: Upload Prebuilt Artifact (NPM publish)
+        uses: actions/upload-artifact@v7
+        with:
+          name: node-prebuild-${{ matrix.platform }}-${{ matrix.arch }}
+          path: bindings/node/prebuilds/
+
+      - name: Upload Tarball Asset (GH Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: node-tarball-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/*.tar.gz
+
+  nodejs_publish:
+    name: Publish Node.js to NPM
+    needs: [ nodejs_prebuilt, changelog ]
+    runs-on: ubuntu-24.04
+    if: |
+      !contains(github.ref_name, '-rc') &&
+      !contains(github.ref_name, '-alpha') &&
+      !contains(github.ref_name, '-beta')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all prebuilts
+        uses: actions/download-artifact@v8
+        with:
+          path: bindings/node/prebuilds
+          pattern: node-prebuild-*
+          merge-multiple: 'true'
+
+      - name: Build TypeScript
+        working-directory: bindings/node
+        run: npm install && npm run build:ts
+
+      - name: Publish to NPM
+        working-directory: bindings/node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
   tachyon_top:
     name: Build tachyon-top CLI
     needs: [ changelog ]
@@ -392,7 +487,7 @@ jobs:
 
   github_release:
     name: Create GitHub Release
-    needs: [ python_sdist, rust_publish, go_publish, java_publish, kotlin_publish, tachyon_top ]
+    needs: [ python_sdist, rust_publish, go_publish, java_publish, kotlin_publish, nodejs_publish, tachyon_top ]
     if: |
       always() &&
       needs.python_sdist.result == 'success' &&
@@ -400,6 +495,7 @@ jobs:
       (needs.go_publish.result == 'success'   || needs.go_publish.result == 'skipped')  &&
       (needs.java_publish.result == 'success' || needs.java_publish.result == 'skipped') &&
       (needs.kotlin_publish.result == 'success' || needs.kotlin_publish.result == 'skipped') &&
+      (needs.nodejs_publish.result == 'success' || needs.nodejs_publish.result == 'skipped') &&
       needs.tachyon_top.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
@@ -430,6 +526,13 @@ jobs:
         with:
           name: kotlin-fat-jar
           path: dist/
+
+      - name: Download Node Tarballs
+        uses: actions/download-artifact@v8
+        with:
+          path: dist/
+          pattern: node-tarball-*
+          merge-multiple: 'true'
 
       - name: Download tachyon-top binary
         uses: actions/download-artifact@v8
