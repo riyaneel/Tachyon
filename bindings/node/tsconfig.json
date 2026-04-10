@@ -24,6 +24,6 @@
 		"experimentalDecorators": false,
 		"emitDecoratorMetadata": false
 	},
-	"include": ["src/ts/**/*"],
+	"include": ["src/ts/**/*", "test/**/*"],
 	"exclude": ["node_modules", "dist", "build", "prebuilds"]
 }
