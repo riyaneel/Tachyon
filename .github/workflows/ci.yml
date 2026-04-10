@@ -602,7 +602,7 @@ jobs:
 
       - name: Format check
         working-directory: bindings/node
-        run: npm run check
+        run: npm run format:check
 
       - name: Lint check
         working-directory: bindings/node
@@ -648,7 +648,7 @@ jobs:
 
       - name: Format check
         working-directory: bindings/node
-        run: npm run check
+        run: npm run format:check
 
       - name: Lint check
         working-directory: bindings/node
