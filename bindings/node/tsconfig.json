@@ -1,40 +1,29 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "lib": [
-      "ES2022",
-      "ESNext.Disposable"
-    ],
-    "types": ["@types/node"],
-    "outDir": "./dist",
-    "rootDir": "./src/ts",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "useDefineForClassFields": true,
-    "experimentalDecorators": false,
-    "emitDecoratorMetadata": false
-  },
-  "include": [
-    "src/ts/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    "prebuilds",
-    "test"
-  ]
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"lib": ["ES2022", "ESNext.Disposable"],
+		"types": ["@types/node"],
+		"outDir": "./dist",
+		"rootDir": "./src/ts",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"strict": true,
+		"exactOptionalPropertyTypes": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"skipLibCheck": true,
+		"useDefineForClassFields": true,
+		"experimentalDecorators": false,
+		"emitDecoratorMetadata": false
+	},
+	"include": ["src/ts/**/*"],
+	"exclude": ["node_modules", "dist", "build", "prebuilds"]
 }
