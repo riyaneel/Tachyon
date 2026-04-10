@@ -1,7 +1,7 @@
-if(NOT DEFINED CMAKE_JS_VERSION)
+if (NOT DEFINED CMAKE_JS_VERSION)
 	message(STATUS "Tachyon: Node.js bindings skipped (must be built via cmake-js/npm)")
 	return()
-endif()
+endif ()
 
 cmake_minimum_required(VERSION 3.31.0)
 project(tachyon_node CXX)
@@ -41,6 +41,6 @@ target_include_directories(tachyon_node PRIVATE
 target_compile_definitions(tachyon_node PRIVATE NAPI_VERSION=8)
 target_link_libraries(tachyon_node PRIVATE ${CMAKE_JS_LIB})
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	target_link_libraries(tachyon_node PRIVATE rt pthread)
-endif()
+endif ()

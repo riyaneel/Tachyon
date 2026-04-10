@@ -76,12 +76,11 @@ static const char *tachyon_error_message(const tachyon_error_t err) noexcept {
 	}
 }
 
-// Sets a pending JS exception with a .code property, then unwinds via sentinel.
-[[noreturn]] static void throw_tachyon_error(Napi::Env env, const tachyon_error_t err) {
+// Sets a pending JS exception with a .code property.
+static void set_tachyon_error(Napi::Env env, const tachyon_error_t err) noexcept {
 	const Napi::Error error = Napi::Error::New(env, tachyon_error_message(err));
 	error.Value().Set("code", Napi::String::New(env, tachyon_error_code_str(err)));
 	error.ThrowAsJavaScriptException();
-	throw Napi::Error::New(env, "");
 }
 
 // Prevents V8/Node from calling free() on SHM-backed memory.
@@ -144,6 +143,15 @@ private:
 		return data->ctor.New({});
 	}
 
+	// Returns false and sets a pending JS exception if bus_ is null.
+	// Caller must return env.Undefined() immediately when this returns false.
+	bool assert_open(Napi::Env env) const noexcept {
+		if (bus_ != nullptr)
+			return true;
+		Napi::Error::New(env, "TachyonBus is closed or not initialized.").ThrowAsJavaScriptException();
+		return false;
+	}
+
 	static Napi::Value Listen(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
 
@@ -161,7 +169,8 @@ private:
 		tachyon_bus_t		 *bus = nullptr;
 		const tachyon_error_t err = tachyon_bus_listen(path.c_str(), capacity, &bus);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		node->bus_ = bus;
@@ -184,7 +193,8 @@ private:
 		tachyon_bus_t		 *bus = nullptr;
 		const tachyon_error_t err = tachyon_bus_connect(path.c_str(), &bus);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		node->bus_ = bus;
@@ -202,7 +212,8 @@ private:
 
 	Napi::Value Send(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 1 || (!info[0].IsBuffer() && !info[0].IsTypedArray())) {
 			Napi::TypeError::New(env, "send(data: Buffer | Uint8Array, typeId?: number)").ThrowAsJavaScriptException();
@@ -227,14 +238,16 @@ private:
 
 		void *slot = tachyon_acquire_tx(bus_, size);
 		if (slot == nullptr) {
-			throw_tachyon_error(env, TACHYON_ERR_FULL);
+			set_tachyon_error(env, TACHYON_ERR_FULL);
+			return env.Undefined();
 		}
 
 		std::memcpy(slot, src, size);
 
 		const tachyon_error_t err = tachyon_commit_tx(bus_, size, type_id);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		tachyon_flush(bus_);
@@ -243,7 +256,8 @@ private:
 
 	Napi::Value AcquireTx(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 1 || !info[0].IsNumber()) {
 			Napi::TypeError::New(env, "acquireTx(maxSize: number)").ThrowAsJavaScriptException();
@@ -254,7 +268,8 @@ private:
 
 		void *slot = tachyon_acquire_tx(bus_, max_size);
 		if (slot == nullptr) {
-			throw_tachyon_error(env, TACHYON_ERR_FULL);
+			set_tachyon_error(env, TACHYON_ERR_FULL);
+			return env.Undefined();
 		}
 
 		return Napi::Buffer<uint8_t>::New(env, static_cast<uint8_t *>(slot), max_size, noop_finalizer);
@@ -262,7 +277,8 @@ private:
 
 	Napi::Value CommitTx(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
 			Napi::TypeError::New(env, "commitTx(actualSize: number, typeId: number)").ThrowAsJavaScriptException();
@@ -274,7 +290,8 @@ private:
 
 		const tachyon_error_t err = tachyon_commit_tx(bus_, actual_size, type_id);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		tachyon_flush(bus_);
@@ -283,7 +300,8 @@ private:
 
 	Napi::Value CommitTxUnflushed(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 2 || !info[0].IsNumber() || !info[1].IsNumber()) {
 			Napi::TypeError::New(env, "commitTxUnflushed(actualSize: number, typeId: number)")
@@ -296,35 +314,41 @@ private:
 
 		const tachyon_error_t err = tachyon_commit_tx(bus_, actual_size, type_id);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		return env.Undefined();
 	}
 
 	Napi::Value RollbackTx(const Napi::CallbackInfo &info) {
-		const Napi::Env env = info.Env();
-		assert_open(env);
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
 
 		const tachyon_error_t err = tachyon_rollback_tx(bus_);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		return env.Undefined();
 	}
 
 	Napi::Value Flush(const Napi::CallbackInfo &info) {
-		assert_open(info.Env());
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
 		tachyon_flush(bus_);
-		return info.Env().Undefined();
+		return env.Undefined();
 	}
 
 	// Returns { data: Buffer, typeId: number, actualSize: number } or null on EINTR.
 	// Buffer is zero-copy, backed directly by SHM with a noop finalizer.
 	Napi::Value AcquireRxBlocking(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		const uint32_t spin_threshold =
 			(info.Length() >= 1 && info[0].IsNumber()) ? info[0].As<Napi::Number>().Uint32Value() : 10000u;
@@ -333,9 +357,8 @@ private:
 		size_t		actual_size = 0;
 		const void *ptr			= tachyon_acquire_rx_blocking(bus_, &type_id, &actual_size, spin_threshold);
 
-		if (ptr == nullptr) {
+		if (ptr == nullptr)
 			return env.Null();
-		}
 
 		Napi::Object result = Napi::Object::New(env);
 		result.Set(
@@ -351,12 +374,14 @@ private:
 	}
 
 	Napi::Value CommitRx(const Napi::CallbackInfo &info) {
-		const Napi::Env env = info.Env();
-		assert_open(env);
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
 
 		const tachyon_error_t err = tachyon_commit_rx(bus_);
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		return env.Undefined();
@@ -367,7 +392,8 @@ private:
 	// reference is stored in batch_arraybuffers_ and detached by CommitBatch.
 	Napi::Value DrainBatch(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 1 || !info[0].IsNumber()) {
 			Napi::TypeError::New(env, "drainBatch(maxMsgs: number, spinThreshold?: number)")
@@ -412,12 +438,12 @@ private:
 	// previous DrainBatch. Any cached JS reference will immediately throw
 	// TypeError — explicit fail-fast, no SHM writes, no MESI bouncing.
 	Napi::Value CommitBatch(const Napi::CallbackInfo &info) {
-		const Napi::Env env = info.Env();
-		assert_open(env);
-
-		if (batch_views_.empty()) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
 			return env.Undefined();
-		}
+
+		if (batch_views_.empty())
+			return env.Undefined();
 
 		const tachyon_error_t err = tachyon_commit_rx_batch(bus_, batch_views_.data(), batch_views_.size());
 		batch_views_.clear();
@@ -429,7 +455,8 @@ private:
 		batch_arraybuffers_.clear();
 
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		return env.Undefined();
@@ -437,7 +464,8 @@ private:
 
 	Napi::Value SetPollingMode(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 1 || !info[0].IsNumber()) {
 			Napi::TypeError::New(env, "setPollingMode(spinMode: 0 | 1)").ThrowAsJavaScriptException();
@@ -450,7 +478,8 @@ private:
 
 	Napi::Value SetNumaNode(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
-		assert_open(env);
+		if (!assert_open(env))
+			return env.Undefined();
 
 		if (info.Length() < 1 || !info[0].IsNumber()) {
 			Napi::TypeError::New(env, "setNumaNode(nodeId: number)").ThrowAsJavaScriptException();
@@ -459,22 +488,19 @@ private:
 
 		const tachyon_error_t err = tachyon_bus_set_numa_node(bus_, info[0].As<Napi::Number>().Int32Value());
 		if (err != TACHYON_SUCCESS) {
-			throw_tachyon_error(env, err);
+			set_tachyon_error(env, err);
+			return env.Undefined();
 		}
 
 		return env.Undefined();
 	}
 
 	Napi::Value GetState(const Napi::CallbackInfo &info) {
-		assert_open(info.Env());
-		return Napi::Number::New(info.Env(), static_cast<int>(tachyon_get_state(bus_)));
-	}
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
 
-	void assert_open(Napi::Env env) const {
-		if (bus_ == nullptr) {
-			Napi::Error::New(env, "TachyonBus is closed or not initialized.").ThrowAsJavaScriptException();
-			throw Napi::Error::New(env, "");
-		}
+		return Napi::Number::New(env, static_cast<int>(tachyon_get_state(bus_)));
 	}
 };
 
