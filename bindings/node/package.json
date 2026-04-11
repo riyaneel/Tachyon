@@ -1,6 +1,6 @@
 {
 	"name": "@tachyon-ipc/core",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Tachyon IPC bindings for Node.js",
 	"keywords": [
 		"ipc",

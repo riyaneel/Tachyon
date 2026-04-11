@@ -39,7 +39,7 @@ shared with the Java binding — zero additional overhead.
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("dev.tachyon-ipc:tachyon-kotlin:0.2.0")
+    implementation("dev.tachyon-ipc:tachyon-kotlin:0.3.0")
 }
 ```
 
