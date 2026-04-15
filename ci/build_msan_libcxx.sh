@@ -65,4 +65,4 @@ cmake "${CMAKE_GENERATOR}" -S runtimes -B build \
 echo "[msan] Compiling and installing..."
 ${BUILD_TOOL} -C build install
 
-echo "[msan] ── libc++ MSan successfully installed locally in ${INSTALL_DIR}"
+echo "[msan] libc++ MSan successfully installed locally in ${INSTALL_DIR}"

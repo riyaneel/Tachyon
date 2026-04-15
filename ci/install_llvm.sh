@@ -24,7 +24,7 @@ if [[ "${OS_ID}" == "ubuntu" || "${OS_ID}" == "debian" ]]; then
 	SCRIPT="$(mktemp --suffix=.sh)"
 	trap 'rm -f "${SCRIPT}"' EXIT
 
-	wget -qO "${SCRIPT}" https://apt.llvm.org/llvm.sh
+	wget -q --show-progress -O "${SCRIPT}" https://apt.llvm.org/llvm.sh
 	chmod +x "${SCRIPT}"
 	sudo bash "${SCRIPT}" "${LLVM_VERSION}" all
 
@@ -57,7 +57,9 @@ if [[ "${OS_ID}" == "ubuntu" || "${OS_ID}" == "debian" ]]; then
 
 	sudo update-alternatives --remove-all lld || true
 	sudo update-alternatives --install /usr/bin/lld lld \
-		/usr/bin/lld-"${LLVM_VERSION}" 100
+		/usr/bin/lld-"${LLVM_VERSION}" 100 \
+		--slave /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-"${LLVM_VERSION}" \
+		--slave /usr/bin/wasm-ld wasm-ld /usr/bin/wasm-ld-"${LLVM_VERSION}"
 
 	echo "[llvm] LLVM ${LLVM_VERSION} installed (APT)"
 elif [[ "${OS_ID}" == "fedora" ]]; then
@@ -82,9 +84,13 @@ elif [[ "${OS_ID}" == "fedora" ]]; then
 	done
 
 	if [[ -z "${CLANG_BIN:-}" ]]; then
-		echo "[llvm] Error: no clang-${LLVM_VERSION} binary found after installation" >&2
+		echo "[llvm] Error: no clang binary found after installation" >&2
 		exit 1
 	fi
+
+	sudo ln -sf "/usr/bin/${CLANG_BIN}" /usr/bin/clang
+	sudo ln -sf "/usr/bin/$(basename "${CLANG_BIN}" | sed 's/clang/clang++/') " /usr/bin/clang++
+	sudo ln -sf /usr/bin/lld /usr/bin/ld.lld || true
 
 	echo "[llvm] LLVM ${LLVM_VERSION} installed (DNF): binary: ${CLANG_BIN}"
 else
@@ -94,7 +100,7 @@ else
 fi
 
 echo ""
-echo "[llvm] ── Installed Versions"
-clang-"${LLVM_VERSION}" --version
-echo "lld  : $(lld-"${LLVM_VERSION}" --version 2>&1 | head -1)"
-echo "ar   : $(llvm-ar-"${LLVM_VERSION}" --version 2>&1 | head -1)"
+echo "[llvm] Installed Versions"
+clang --version | head -1
+echo "lld  : $(ld.lld --version 2>&1 | head -1)"
+echo "ar   : $(llvm-ar --version 2>&1 | head -1 || echo 'N/A')"
