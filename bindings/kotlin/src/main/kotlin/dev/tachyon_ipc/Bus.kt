@@ -58,7 +58,6 @@ public class Bus private constructor(private val inner: TachyonBus) : AutoClosea
                     MemorySegment.copy(srcSegment, 0L, tx.data, 0L, data.size.toLong())
                     tx.commit(data.size.toLong(), typeId)
                 }
-                yield()
                 break
             } catch (e: BufferFullException) {
                 yield()
