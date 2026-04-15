@@ -41,7 +41,7 @@ namespace tachyon::core {
 		std::string path(name);
 
 #if defined(__linux__)
-		const int fd = ::memfd_create(path.c_str(), MFD_ALLOW_SEALING);
+		const int fd = ::memfd_create(path.c_str(), MFD_ALLOW_SEALING | MFD_CLOEXEC);
 		if (fd == -1) [[unlikely]]
 			return std::unexpected(ShmError::OpenFailed);
 #elif defined(__APPLE__) // #if defined(__linux__)
