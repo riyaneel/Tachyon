@@ -66,7 +66,7 @@ static void try_set_sched_fifo() noexcept {
 	struct sched_param sp{};
 	sp.sched_priority = SCHED_PRIO;
 	if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0) {
-		std::fprintf(stderr, "[bench] WARNING: SCHED_FIFO failed — run with sudo\n");
+		std::fprintf(stderr, "[bench] WARNING: SCHED_FIFO failed - run with sudo\n");
 	}
 }
 
@@ -205,7 +205,7 @@ static void run_ping(const size_t iterations, const int core_id, const std::stri
 	const double mean	= sum / static_cast<double>(iterations);
 	const double oneway = pct(latencies, 0.50) / 2.0;
 
-	std::printf("\n[ Inter-process RTT — %zu iterations, payload=%zu bytes ]\n", iterations, PAYLOAD);
+	std::printf("\n[ Inter-process RTT - %zu iterations, payload=%zu bytes ]\n", iterations, PAYLOAD);
 	std::printf("Min:        %8.1f ns\n", static_cast<double>(latencies.front()));
 	std::printf("p50:        %8.1f ns  (one-way %.1f ns)\n", pct(latencies, 0.50), oneway);
 	std::printf("p90:        %8.1f ns\n", pct(latencies, 0.90));
@@ -283,7 +283,7 @@ int main(const int argc, char **argv) {
 	} else {
 		std::fprintf(
 			stderr,
-			"[inter] WARNING: TACHYON_PING_CORE/TACHYON_PONG_CORE not set — "
+			"[inter] WARNING: TACHYON_PING_CORE/TACHYON_PONG_CORE not set - "
 			"results will be unreliable\n"
 		);
 	}

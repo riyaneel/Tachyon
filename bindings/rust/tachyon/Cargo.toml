@@ -2,7 +2,7 @@
 name = "tachyon-ipc"
 version = "0.3.0"
 edition = "2024"
-description = "Bare-metal lock-free IPC — SPSC ring buffer over POSIX shared memory"
+description = "Bare-metal lock-free IPC, SPSC ring buffer over POSIX shared memory"
 license = "Apache-2.0"
 repository = "https://github.com/riyaneel/tachyon"
 readme = "README.md"

@@ -179,7 +179,7 @@ tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, const int no
 	const unsigned long maxNode	 = static_cast<unsigned long>(node_id) + 2UL;
 
 	// MPOL_PREFERRED: allocate on the requested node when possible.
-	// Falls back to other nodes rather than failing hard — production-safe.
+	// Falls back to other nodes rather than failing hard (production-safe).
 	// MPOL_MF_MOVE: migrate pages already allocated by mmap(MAP_POPULATE).
 	// Without this flag, pages allocated before this call would remain on
 	// their original node, defeating the purpose entirely.
