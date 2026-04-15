@@ -20,11 +20,11 @@ dominant in the slot budget.
 cmake -S . -B cmake-build-release -DCMAKE_BUILD_TYPE=Release
 cmake --build cmake-build-release --parallel
 
-# ZeroMQ baseline — install libzmq, CMake detects it via PkgConfig
+# ZeroMQ baseline - install libzmq, CMake detects it via PkgConfig
 sudo apt-get install libzmq3-dev
 cmake -S . -B cmake-build-release -DCMAKE_BUILD_TYPE=Release && cmake --build cmake-build-release --parallel
 
-# PGO — two-phase, Clang or GCC
+# PGO - two-phase, Clang or GCC
 bash ci/bench/pgo.sh [build_dir] [parallelism]
 ```
 
@@ -41,7 +41,7 @@ PING_CORE=8 PONG_CORE=9 bash ci/bench/run.sh
 ```
 
 `ci/bench/run.sh` sets the CPU frequency governor to `performance` on the requested cores and restores it on exit via
-`trap`. It pins both processes with`taskset -c` and applies `chrt -f 99` (SCHED_FIFO) if available — `sudo` or
+`trap`. It pins both processes with`taskset -c` and applies `chrt -f 99` (SCHED_FIFO) if available, `sudo` or
 `CAP_SYS_NICE` required. Results are written as timestamped JSON files under`benchmark/results/` and a p50 summary table
 is printed on stdout.
 
@@ -67,7 +67,7 @@ python3 ci/bench/compare.py \
 ```
 
 The comparator reads `p50_ns` … `p99.99_ns` counters from both `bench_intra` (Google Benchmark `state.counters`) and
-`bench_inter` (hand-written JSON matching the same schema). Both formats are supported without configuration.
+`bench_inter` (handwritten JSON matching the same schema). Both formats are supported without configuration.
 
 ---
 
@@ -86,11 +86,11 @@ The comparator reads `p50_ns` … `p99.99_ns` counters from both `bench_intra` (
 | p99.9      |    216     |    254     |       13 097       |     61×      |
 | p99.99     |    926     |    953     |       17 390       |     19×      |
 
-The intra/inter gap at p50 is +27 ns (+25%). This is the cost of the process boundary — the second SHM arena is mapped
+The intra/inter gap at p50 is +27 ns (+25%). This is the cost of the process boundary, the second SHM arena is mapped
 via `SCM_RIGHTS`, and the hot path after handshake is identical in both cases: the same lock-free ring with no kernel
 involvement.
 
-ZeroMQ `inproc://` is a shared-memory transport within the same process — its strongest possible configuration. The 63×
+ZeroMQ `inproc://` is a shared-memory transport within the same process, its strongest possible configuration. The 63×
 gap at p50 reflects ZMQ's message framing, reference counting, and HWM bookkeeping. At p99.99 the gap narrows to 19×
 because Tachyon's scheduler jitter floor (~1 µs) dominates both tails on an untuned kernel.
 
@@ -104,7 +104,7 @@ because Tachyon's scheduler jitter floor (~1 µs) dominates both tails on an unt
 | p99        |    138     |                 |
 | p99.99     |    350     |                 |
 
-PGO reduces p50 by 18% (107 → 88 ns). The gain comes from branch misprediction elimination in the ring buffer hot path —
+PGO reduces p50 by 18% (107 → 88 ns). The gain comes from branch misprediction elimination in the ring buffer hot path,
 specifically the`acquire_tx` capacity check and the `commit_tx` batch-flush threshold branch. Clang's
 `fprofile-instr-generate` path typically yields slightly tighter tail latency than GCC due to more aggressive inlining
 under feedback.
@@ -120,15 +120,15 @@ full ping-pong cycle:
 
 - `acquire_tx` → `commit_tx` → `flush_tx` on the client thread,
 - `acquire_rx_spin` → `commit_rx` → `acquire_tx` → `commit_tx` → `flush_tx` on the server thread pinned to
-  `TACHYON_SERVER_CORE`. Three repetitions, median reported. 10 000 warmup iterations run in `SetUp()` before
+  `TACHYON_SERVER_CORE`. Three repetitions, median reported. 10,000 warmup iterations run in `SetUp()` before
   measurement begins.
 
 Raw per-iteration latencies are sorted and attached as `state.counters["p50_ns"]` … `state.counters["p99.99_ns"]`.
 
 ### Inter-process
 
-Custom HDR loop — `high_resolution_clock` around the full RTT, 1M samples collected then sorted in-process. Output is
-hand-written JSON matching the Google Benchmark aggregate schema, so `compare.py` ingests both formats without
+Custom HDR loop, `high_resolution_clock` around the full RTT, 1M samples collected then sorted in-process. Output is
+handwritten JSON matching the Google Benchmark aggregate schema, so `compare.py` ingests both formats without
 branching. The two processes communicate over two independent SHM arenas established via `fork()` + two sequential UDS
 handshakes.
 
@@ -141,7 +141,7 @@ Same Google Benchmark fixture as intra, `ZMQ_PAIR` over `inproc://`, HWM set to 
 
 `std::chrono::high_resolution_clock` is used for all benchmark binaries.
 `examples/cpp_producer_cpp_consumer/` uses `__rdtsc()` calibrated against`CLOCK_MONOTONIC` over 10 ms for sub-nanosecond
-resolution — the benchmark binaries use `high_resolution_clock` for portability across x86_64 and ARM64.
+resolution. The benchmark binaries use `high_resolution_clock` for portability across x86_64 and ARM64.
 
 ### Isolation
 
@@ -149,7 +149,7 @@ Without kernel `isolcpus`, p99.99 reflects scheduler preemption jitter (~1–5 �
 tail measurements:
 
 ```bash
-# Kernel command line — requires reboot
+# Kernel command line - requires reboot
 isolcpus=8,9 nohz_full=8,9 rcu_nocbs=8,9
 
 # Per-run
