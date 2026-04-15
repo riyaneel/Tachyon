@@ -388,6 +388,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install LLVM 21 (Linux)
+        if: matrix.platform == 'linux'
+        run: bash ci/install_llvm.sh 21
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -406,6 +410,9 @@ jobs:
 
       - name: Build Prebuilt
         working-directory: bindings/node
+        env:
+          CC: ${{ matrix.platform == 'linux' && 'clang-21' || 'clang' }}
+          CXX: ${{ matrix.platform == 'linux' && 'clang++-21' || 'clang++' }}
         run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
 
       - name: Create Tarball Asset
