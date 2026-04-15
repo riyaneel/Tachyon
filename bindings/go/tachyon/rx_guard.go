@@ -18,7 +18,7 @@ import (
 // The slot is invalid after Commit.
 //
 // The finalizer calls Commit if the guard is collected without being
-// committed — safety net only, not the nominal path.
+// committed, safety net only, not the nominal path.
 //
 // Data() returns a slice directly into shared memory. Do not retain
 // references to it after Commit.

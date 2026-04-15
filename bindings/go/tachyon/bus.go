@@ -18,7 +18,7 @@ import (
 // goroutine at a time per direction (one producer, one consumer).
 //
 // Always call Close when done, or rely on the finalizer as a safety net.
-// The finalizer is not a substitute for explicit Close — it fires
+// The finalizer is not a substitute for explicit Close, it fires
 // non-deterministically and may delay SHM release.
 type Bus struct {
 	raw *C.tachyon_bus_t
@@ -124,7 +124,7 @@ func (b *Bus) SetNumaNode(nodeID int) error {
 //
 // When spinMode is 1, the producer omits the atomic_thread_fence(seq_cst)
 // and the consumer_sleeping load on every Flush call. Use only when the
-// consumer goroutine is dedicated and will never park — if it parks, the
+// consumer goroutine is dedicated and will never park, if it parks, the
 // producer will not issue a futex wake and the consumer will spin
 // indefinitely instead of sleeping.
 //

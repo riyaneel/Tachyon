@@ -1,9 +1,9 @@
-# tachyon — Go bindings
+# Tachyon Go bindings
 
 [![CI](https://github.com/riyaneel/tachyon/actions/workflows/ci.yml/badge.svg)](https://github.com/riyaneel/tachyon/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/riyaneel/tachyon/bindings/go.svg)](https://pkg.go.dev/github.com/riyaneel/tachyon/bindings/go)
 
-Go bindings for [Tachyon](https://github.com/riyaneel/tachyon) — bare-metal lock-free IPC. SPSC ring buffer over POSIX
+Go bindings for [Tachyon](https://github.com/riyaneel/tachyon), a bare-metal lock-free IPC. SPSC ring buffer over POSIX
 shared memory with sub-100 ns p50 RTT.
 
 The C++ core is compiled at build time via CGO. No shared library is required at runtime.
@@ -47,10 +47,10 @@ CXX=g++-14 CC=gcc-14 go build ./...
 
 ## Quickstart
 
-The consumer must start first — it owns the UNIX socket and the SHM arena.
+The consumer must start first, it owns the UNIX socket and the SHM arena.
 
 ```go
-// consumer — start first
+// consumer - start first
 bus, err := tachyon.Listen("/tmp/demo.sock", 1<<16)
 if err != nil { log.Fatal(err) }
 defer bus.Close()
@@ -61,7 +61,7 @@ fmt.Printf("received %q type_id=%d\n", data, typeID)
 ```
 
 ```go
-// producer — start after the consumer
+// producer - start after the consumer
 bus, err := tachyon.Connect("/tmp/demo.sock")
 if err != nil { log.Fatal(err) }
 defer bus.Close()
@@ -81,7 +81,7 @@ batch RX, sequence validation, and a sentinel shutdown signal.
 `Listen(socketPath, capacity)` creates a new SHM arena and binds a UNIX socket. It blocks until exactly one producer
 calls `Connect`. The socket is discarded after the handshake; all subsequent I/O runs through shared memory.
 
-`Connect(socketPath)` attaches to an existing arena. It returns immediately after the handshake — it does not wait for
+`Connect(socketPath)` attaches to an existing arena. It returns immediately after the handshake, it does not wait for
 the consumer to call `Listen`. Use a retry loop if the consumer may not be ready.
 
 `Bus.Close()` unmaps the shared memory and releases all resources. Safe to call multiple times.
@@ -104,10 +104,10 @@ an application-defined discriminator read back via `RxGuard.TypeID()`.
 `Bus.AcquireTx(maxSize)` acquires a TX slot and returns a `*TxGuard`. Write into the slot via `TxGuard.Bytes()`, then
 call one of:
 
-- `TxGuard.Commit(actualSize, typeID)` — publish and flush. Use for single-message sends.
-- `TxGuard.CommitUnflushed(actualSize, typeID)` — publish without flushing. Use when batch-sending; call `Bus.Flush()`
+- `TxGuard.Commit(actualSize, typeID)`: publish and flush. Use for single-message sends.
+- `TxGuard.CommitUnflushed(actualSize, typeID)`: publish without flushing. Use when batch-sending; call `Bus.Flush()`
   after the last message.
-- `TxGuard.Rollback()` — cancel without publishing. The slot is returned to the producer.
+- `TxGuard.Rollback()`: cancel without publishing. The slot is returned to the producer.
 
 Every `AcquireTx` must be followed by exactly one `Commit`, `CommitUnflushed`, or `Rollback`. Failing to do so holds the
 producer lock indefinitely.
@@ -122,7 +122,7 @@ Every `AcquireRx` must be followed by exactly one `Commit`.
 ### Batch RX
 
 `Bus.DrainBatch(maxMsgs, spinThreshold)` blocks until at least one message is available, then drains up to `maxMsgs` in
-a single CGO crossing. Each CGO call costs ~50–100 ns regardless of how many messages are drained — batching 64 messages
+a single CGO crossing. Each CGO call costs ~50–100 ns regardless of how many messages are drained. Batching 64 messages
 reduces per-message overhead by 64×.
 
 `Bus.TryDrainBatch(maxMsgs)` is the non-blocking variant. It returns `(nil, nil)` immediately if no messages are
@@ -145,9 +145,9 @@ multiple times (no-op after the first).
 `TachyonError` carries a numeric `Code` and a human-readable `Message`. Use the sentinel functions for structured
 inspection rather than comparing `Code` values directly:
 
-- `IsABIMismatch(err)` — producer and consumer compiled with incompatible versions.
-- `IsInterrupted(err)` — signal interrupted a blocking call (internally retried in most cases).
-- `IsFull(err)` — ring buffer full (relevant only when calling the C API directly).
+- `IsABIMismatch(err)`: producer and consumer compiled with incompatible versions.
+- `IsInterrupted(err)`: signal interrupted a blocking call (internally retried in most cases).
+- `IsFull(err)`: ring buffer full (relevant only when calling the C API directly).
 
 ## Zero-copy lifetime
 
@@ -174,13 +174,13 @@ batch.Commit()
 // msg.Data() is invalid here.
 ```
 
-If a guard or batch is collected by the GC without an explicit `Commit` or `Rollback`, the finalizer calls it
-automatically. This is a safety net — the nominal path is always an explicit call.
+If the GC collects a guard or batch without an explicit `Commit` or `Rollback`, the finalizer calls it automatically.
+This is a safety net, the nominal path is always an explicit call.
 
 ## Batch pattern
 
 ```go
-// Batch TX — one flush after all messages.
+// Batch TX - one flush after all messages.
 for _, p := range payloads {
     g, _ := bus.AcquireTx(len(p))
     copy(g.Bytes(), p)
@@ -190,7 +190,7 @@ bus.Flush()
 ```
 
 ```go
-// Batch RX — one CGO crossing for up to 64 messages.
+// Batch RX - one CGO crossing for up to 64 messages.
 batch, err := bus.DrainBatch(64, 10_000)
 if err != nil { return err }
 for msg := range batch.Iter() {
@@ -213,8 +213,8 @@ if err != nil {
 
 ## Thread safety
 
-`Bus` is safe to pass between goroutines. Each direction (TX or RX) must be used by **at most one goroutine at a time**
-— Tachyon is SPSC, not MPSC.
+`Bus` is safe to pass between goroutines. Each direction (TX or RX) must be used by **at most one goroutine at a time**.
+Tachyon is SPSC, not MPSC.
 
 A goroutine that blocks inside a Tachyon call parks its OS thread for the duration of the call. N goroutines blocking on
 N different buses results in N OS threads. This is expected and bounded; account for it in capacity planning.
@@ -235,7 +235,7 @@ if err := bus.SetNumaNode(0); err != nil {
 }
 ```
 
-`SetNumaNode` uses `MPOL_PREFERRED + MPOL_MF_MOVE` — it prefers the requested node but falls back rather than failing
+`SetNumaNode` uses `MPOL_PREFERRED + MPOL_MF_MOVE`, it prefers the requested node but falls back rather than failing
 hard. It is a no-op on macOS.
 
 ## Limitations
@@ -256,5 +256,5 @@ CGO_CXXFLAGS="-std=c++23 -O3 -fno-exceptions -fno-rtti" go build ./...
 multiplexer.
 
 **No peer crash detection.** If the producer crashes, the consumer blocks indefinitely waiting for the next message. Use
-an external mechanism — `pidfd`, `SIGCHLD`, or a dedicated health-check bus — if dead-peer detection is required. See [
+an external mechanism, `pidfd`, `SIGCHLD`, or a dedicated health-check busn if dead-peer detection is required. See [
 `INTEGRATION.md`](../../INTEGRATION.md) for supervision patterns.

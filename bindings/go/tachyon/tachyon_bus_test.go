@@ -330,7 +330,7 @@ func TestDrainBatchIter(t *testing.T) {
 
 func TestSetNumaNode(t *testing.T) {
 	if runtime.GOOS == "darwin" {
-		t.Skip("SetNumaNode is a no-op on Darwin — skipping")
+		t.Skip("SetNumaNode is a no-op on Darwin: skipping")
 	}
 
 	path := sockPath(t)

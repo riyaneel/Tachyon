@@ -18,7 +18,7 @@ import (
 // to cancel. The slot is invalid after either call.
 //
 // The finalizer calls Rollback if the guard is collected without being
-// committed — this is a safety net, not the nominal path. Always call
+// committed, this is a safety net, not the nominal path. Always call
 // Commit or Rollback explicitly.
 //
 // Bytes() returns a slice directly into shared memory. Do not retain
@@ -70,7 +70,7 @@ func (g *TxGuard) Bytes() []byte {
 // Commit publishes actualSize bytes with the given typeID and flushes.
 // actualSize must be <= maxSize.
 //
-// Use CommitUnflushed when batch-sending multiple messages — call
+// Use CommitUnflushed when batch-sending multiple messages, call
 // bus.Flush() after the last message.
 func (g *TxGuard) Commit(actualSize int, typeID uint32) error {
 	if g.committed {
@@ -120,7 +120,7 @@ func (g *TxGuard) Rollback() error {
 	return nil
 }
 
-// rollback is the finalizer — called by the GC if the guard is never
+// rollback is the finalizer, called by the GC if the guard is never
 // committed or rolled back explicitly.
 func (g *TxGuard) rollback() {
 	if !g.committed && g.bus != nil && g.bus.raw != nil {

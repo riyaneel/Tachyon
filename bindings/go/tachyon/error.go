@@ -56,7 +56,7 @@ func fromErrorT(code C.tachyon_error_t) error {
 		return &TachyonError{
 			Code: int(code),
 			Message: "ABI mismatch: producer and consumer were compiled with incompatible " +
-				"Tachyon versions or TACHYON_MSG_ALIGNMENT values — rebuild both sides from the same version",
+				"Tachyon versions or TACHYON_MSG_ALIGNMENT values: rebuild both sides from the same version",
 		}
 	default:
 		return &TachyonError{Code: int(code), Message: fmt.Sprintf("unknown error code %d", int(code))}

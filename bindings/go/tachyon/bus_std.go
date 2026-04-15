@@ -49,7 +49,7 @@ func (b *Bus) Send(data []byte, typeID uint32) error {
 //
 // spinThreshold controls the spin-before-sleep threshold. 10000 is a reasonable default for most workloads.
 //
-// The caller owns the returned slice — safe to use after Recv returns.
+// The caller owns the returned slice, safe to use after Recv returns.
 func (b *Bus) Recv(spinThreshold uint32) ([]byte, uint32, error) {
 	if b.raw == nil {
 		return nil, 0, &TachyonError{Code: int(C.TACHYON_ERR_NULL_PTR), Message: "bus is closed"}

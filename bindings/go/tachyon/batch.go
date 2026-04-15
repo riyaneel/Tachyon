@@ -43,7 +43,7 @@ func (m *RxMsg) Size() int {
 // in a single CGO crossing.
 //
 // Iterate via At(i), Len(), or the range-over-func Iter().
-// Call Commit when done — this releases all slots atomically.
+// Call Commit when done, this releases all slots atomically.
 //
 // All RxMsg.Data() slices are invalid after Commit.
 // The finalizer calls Commit if the batch is collected without being committed.
@@ -78,7 +78,7 @@ func newRxBatch(bus *Bus, views []C.tachyon_msg_view_t, n int) *RxBatch {
 
 // TryDrainBatch is the non-blocking variant of DrainBatch.
 // Returns nil, nil immediately if no messages are available.
-// Never sleeps — suitable for polling loops.
+// Never sleeps, suitable for polling loops.
 //
 // If messages are available, returns an RxBatch that must be committed.
 func (b *Bus) TryDrainBatch(maxMsgs int) (*RxBatch, error) {
@@ -157,7 +157,7 @@ func (b *RxBatch) At(i int) *RxMsg {
 //	    process(msg.Data())
 //	}
 //
-// Do not call Commit inside the loop — all Data() slices become invalid
+// Do not call Commit inside the loop, all Data() slices become invalid
 // immediately after Commit.
 func (b *RxBatch) Iter() iter.Seq[*RxMsg] {
 	return func(yield func(*RxMsg) bool) {
