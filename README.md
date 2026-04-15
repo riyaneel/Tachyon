@@ -4,6 +4,9 @@
 [![PyPI](https://img.shields.io/pypi/v/tachyon-ipc)](https://pypi.org/project/tachyon-ipc/)
 [![Crates.io](https://img.shields.io/crates/v/tachyon-ipc)](https://crates.io/crates/tachyon-ipc)
 [![Go Reference](https://pkg.go.dev/badge/github.com/riyaneel/tachyon/bindings/go.svg)](https://pkg.go.dev/github.com/riyaneel/tachyon/bindings/go)
+[![Maven Central (Java)](https://img.shields.io/maven-central/v/dev.tachyon-ipc/tachyon-java)](https://central.sonatype.com/artifact/dev.tachyon-ipc/tachyon-java)
+[![Maven Central (Kotlin)](https://img.shields.io/maven-central/v/dev.tachyon-ipc/tachyon-kotlin)](https://central.sonatype.com/artifact/dev.tachyon-ipc/tachyon-kotlin)
+[![npm](https://img.shields.io/npm/v/@tachyon-ipc/core)](https://www.npmjs.com/package/@tachyon-ipc/core)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 Tachyon is a bare-metal, lock-free IPC primitive. Strictly-bounded SPSC ring buffer over POSIX shared memory, with
@@ -35,21 +38,6 @@ zero-copy bindings for Python, Rust, and C++.
 
 ## Install
 
-**Python**: compiles the C++ core at install time, requires GCC 14+ or Clang 17+:
-
-```bash
-pip install tachyon-ipc
-```
-
-> **Note:** the PyPI package is `tachyon-ipc`, not `tachyon` (which is an unrelated quantum simulator). Always install
-> with `pip install tachyon-ipc`.
-
-**Rust:**
-
-```bash
-cargo add tachyon-ipc
-```
-
 **C++ (CMake FetchContent):**
 
 ```cmake
@@ -66,6 +54,44 @@ if (NOT tachyon_POPULATED)
 endif ()
 
 target_link_libraries(my_app PRIVATE tachyon)
+```
+
+**Python**: compiles the C++ core at install time, requires GCC 14+ or Clang 17+:
+
+```bash
+pip install tachyon-ipc
+```
+
+> **Note:** the PyPI package is `tachyon-ipc`, not `tachyon` (which is an unrelated quantum simulator). Always install
+> with `pip install tachyon-ipc`.
+
+**Rust:**
+
+```bash
+cargo add tachyon-ipc
+```
+
+**Java (Maven):**
+
+```xml
+
+<dependency>
+    <groupId>dev.tachyon-ipc</groupId>
+    <artifactId>tachyon-java</artifactId>
+    <version>0.3.0</version>
+</dependency>
+```
+
+**Kotlin (Gradle):**
+
+```kotlin
+implementation("dev.tachyon-ipc:tachyon-kotlin:0.3.0")
+```
+
+**Node.js:**
+
+```bash
+npm install @tachyon-ipc/core
 ```
 
 ---
