@@ -99,6 +99,7 @@ namespace tachyon::core {
 
 		::close(client_sock);
 		::close(sock);
+		::unlink(addr.sun_path);
 
 		return {};
 	}
