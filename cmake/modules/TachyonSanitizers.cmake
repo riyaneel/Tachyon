@@ -33,7 +33,7 @@ endif ()
 if (TACHYON_SANITIZER STREQUAL "tsan")
 	if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		message(WARNING
-				"[TachyonSanitizers] tsan: Clang recommended — "
+				"[TachyonSanitizers] tsan: Clang recommended - "
 				"GCC may produce false positives on unannotated futex primitives.")
 	endif ()
 endif ()

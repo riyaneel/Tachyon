@@ -29,4 +29,4 @@ endif ()
 
 set(TACHYON_LTO "fat" CACHE STRING "LTO mode: fat | thin | off")
 
-message(STATUS "[toolchain/clang] Clang ${LLVM_VERSION} — LTO=${TACHYON_LTO}")
+message(STATUS "[toolchain/clang] Clang ${LLVM_VERSION} - LTO=${TACHYON_LTO}")

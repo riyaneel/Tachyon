@@ -26,4 +26,4 @@ endif ()
 
 set(TACHYON_LTO "fat" CACHE STRING "LTO mode: fat | thin | off")
 
-message(STATUS "[toolchain/gcc] GCC ${GCC_VERSION} — LTO=${TACHYON_LTO}")
+message(STATUS "[toolchain/gcc] GCC ${GCC_VERSION} - LTO=${TACHYON_LTO}")

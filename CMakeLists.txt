@@ -26,11 +26,11 @@ set(TACHYON_PGO_DIR "${CMAKE_BINARY_DIR}/pgo-data" CACHE PATH "Directory for PGO
 
 if (TACHYON_PGO_PHASE STREQUAL "GENERATE")
 	if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		message(STATUS "Tachyon: PGO phase 1 — GENERATE/Clang (profraw dir: ${TACHYON_PGO_DIR})")
+		message(STATUS "Tachyon: PGO phase 1 - GENERATE/Clang (profraw dir: ${TACHYON_PGO_DIR})")
 		list(APPEND TACHYON_RELEASE_FLAGS -fprofile-instr-generate=${TACHYON_PGO_DIR}/default_%p.profraw)
 		list(APPEND TACHYON_LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-instr-generate=${TACHYON_PGO_DIR}/default_%p.profraw>)
 	else ()
-		message(STATUS "Tachyon: PGO phase 1 — GENERATE/GCC (gcda dir: ${TACHYON_PGO_DIR})")
+		message(STATUS "Tachyon: PGO phase 1 - GENERATE/GCC (gcda dir: ${TACHYON_PGO_DIR})")
 		list(APPEND TACHYON_RELEASE_FLAGS -fprofile-generate=${TACHYON_PGO_DIR})
 		list(APPEND TACHYON_LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-generate=${TACHYON_PGO_DIR}>)
 	endif ()
@@ -44,7 +44,7 @@ elseif (TACHYON_PGO_PHASE STREQUAL "USE")
 					"  llvm-profdata merge -output=${TACHYON_PROFDATA} ${TACHYON_PGO_DIR}/*.profraw"
 			)
 		endif ()
-		message(STATUS "Tachyon: PGO phase 2 — USE/Clang (profdata: ${TACHYON_PROFDATA})")
+		message(STATUS "Tachyon: PGO phase 2 - USE/Clang (profdata: ${TACHYON_PROFDATA})")
 		list(APPEND TACHYON_RELEASE_FLAGS -fprofile-instr-use=${TACHYON_PROFDATA})
 		list(APPEND TACHYON_LINK_OPTIONS $<$<CONFIG:Release>:-fprofile-instr-use=${TACHYON_PROFDATA}>)
 	else ()
@@ -54,7 +54,7 @@ elseif (TACHYON_PGO_PHASE STREQUAL "USE")
 					"Run phase GENERATE first, then execute the benchmark."
 			)
 		endif ()
-		message(STATUS "Tachyon: PGO phase 2 — USE/GCC (gcda dir: ${TACHYON_PGO_DIR})")
+		message(STATUS "Tachyon: PGO phase 2 - USE/GCC (gcda dir: ${TACHYON_PGO_DIR})")
 		list(APPEND TACHYON_RELEASE_FLAGS
 				-fprofile-use=${TACHYON_PGO_DIR}
 				-fprofile-correction

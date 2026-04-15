@@ -26,7 +26,7 @@ target_include_directories(tachyon_fuzz_core
 
 set_target_properties(tachyon_fuzz_core PROPERTIES EXCLUDE_FROM_ALL ON)
 
-# Helper macro — each fuzz target links tachyon_fuzz_core + rt (Linux)
+# Helper macro: each fuzz target links tachyon_fuzz_core + rt (Linux)
 macro(tachyon_fuzz_target TARGET_NAME SOURCE_FILE)
 	add_executable(${TARGET_NAME} ${SOURCE_FILE})
 
