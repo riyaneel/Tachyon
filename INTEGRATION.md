@@ -2,30 +2,26 @@
 
 ## Socket lifecycle
 
-The UDS socket is a **one-shot bootstrap mechanism**, not a persistent connection.
-`tachyon_bus_listen()` creates the socket file, waits for exactly one `accept()`,
-sends the `memfd` file descriptor via `SCM_RIGHTS`, then closes both the client and
-listening socket descriptors. The socket **file** is not unlinked at this point — it
-is removed at the start of the next `tachyon_bus_listen()` call on the same path
-(before `bind`). After `tachyon_bus_connect()` returns, nobody is listening on the
-socket file; the entire IPC path runs through shared memory.
+The UDS socket is a **one-shot bootstrap mechanism**, not a persistent connection. `tachyon_bus_listen()` creates the
+socket file, waits for exactly one `accept()`, sends the `memfd` file descriptor via `SCM_RIGHTS`, then closes both the
+client and listening socket descriptors. The socket **file** is not unlinked at this point, it is removed at the start
+of the next `tachyon_bus_listen()` call on the same path (before `bind`). After `tachyon_bus_connect()` returns, nobody
+is listening on the socket file; the entire IPC path runs through shared memory.
 
 Consequences:
 
-- The socket path can be reused immediately after the consumer calls `Bus.listen()`
-  again — `listen()` unlinks the stale file before `bind`, with no TIME_WAIT or
-  linger state.
-- A second `connect()` to the same path after the handshake will get
-  `ECONNREFUSED` — the file exists but no process is listening.
+- The socket path can be reused immediately after the consumer calls `Bus.listen()` again, `listen()` unlinks the stale
+  file before `bind`, with no TIME_WAIT or linger state.
+- A second `connect()` to the same path after the handshake will get `ECONNREFUSED`, the file exists but no process is
+  listening.
 - Deleting the socket file manually has no effect on an established bus.
-- On crash, the socket file survives. Clean it up before restarting the listener
-  on a **different** path: `rm -f /tmp/your.sock` or `os.unlink()`. If you reuse
-  the same path, the next `listen()` removes it automatically.
+- During a crash, the socket file survives. Clean it up before restarting the listener on a **different** path:
+  `rm -f /tmp/your.sock` or `os.unlink()`. If you reuse the same path, the next `listen()` removes it automatically.
 
 ### Relisten pattern
 
 To accept a new producer after the previous one disconnects, destroy the existing bus and call `listen()` again on the
-same path. Each `listen()` call creates a new SHM arena — ring buffer state does not persist across sessions.
+same path. Each `listen()` call creates a new SHM arena, ring buffer state does not persist across sessions.
 
 Python:
 
@@ -68,7 +64,7 @@ for (;;) {
         if (ptr == nullptr) {
             // nullptr has two causes EINTR (signal) or FatalError.
             if (tachyon_get_state(bus) == TACHYON_STATE_FATAL_ERROR) break;
-            continue; // EINTR — retry
+            continue; // EINTR - retry
         }
         process(ptr, sz);
         tachyon_commit_rx(bus);
@@ -87,37 +83,36 @@ for (;;) {
 `PeerDeadError` (Python) / `TachyonError::PeerDead` (Rust) / `TACHYON_STATE_FATAL_ERROR` (C++) is raised when the bus
 transitions to `FatalError`.
 
-**The only conditions that trigger `FatalError`:** a corrupted message header is
-detected in `acquire_rx()` — specifically when any of the following holds:
+**The only conditions that trigger `FatalError`:** a corrupted message header is detected in `acquire_rx()`,
+specifically when any of the following holds:
 
 - `reserved_size < sizeof(MessageHeader)` (64 bytes)
 - `reserved_size > capacity`
 - `reserved_size` is not a multiple of `TACHYON_MSG_ALIGNMENT` (64)
 - `size > reserved_size - sizeof(MessageHeader)`
 
-This indicates the ring buffer has been written with an incompatible layout or
-corrupted externally.
+This indicates the ring buffer has been written with an incompatible layout or corrupted externally.
 
 The 200 ms futex timeout is a **wait bound**, not a dead-peer detector. When the consumer sleeps waiting for a message
-and the futex times out, it resets its spin counter and retries — it does not transition to `FatalError`. An idle
+and the futex times out, it resets its spin counter and retries, it does not transition to `FatalError`. An idle
 producer is not a dead producer.
 
 Conditions that trigger `PeerDeadError`:
 
-- The ring buffer contains a message header with invalid `reserved_size` or `size` fields — typically caused by a
+- The ring buffer contains a message header with invalid `reserved_size` or `size` fields, typically caused by a
   producer compiled with a different `TACHYON_MSG_ALIGNMENT` value that bypassed the handshake check, or by external
   memory corruption.
 
 Conditions that do **not** trigger `PeerDeadError`:
 
-- Producer process crashed — the consumer blocks indefinitely waiting for the next message. Use an external supervisor
+- Producer process crashed: the consumer blocks indefinitely waiting for the next message. Use an external supervisor
   or OS-level process monitoring to detect this.
-- Producer is slow, idle, or temporarily suspended — the consumer sleeps via futex and wakes on the next message
+- Producer is slow, idle, or temporarily suspended: the consumer sleeps via futex and wakes on the next message
   regardless of elapsed time.
-- Producer has not written anything for several seconds — the 200 ms timeout is a spin bound, not a liveness deadline.
+- Producer has not written anything for several seconds: the 200 ms timeout is a spin bound, not a liveness deadline.
 
 **Important:** Tachyon does not detect producer crashes. If dead-peer detection is required, use an external heartbeat
-mechanism (e.g. a dedicated health-check bus, a shared atomic counter incremented by the producer, or OS process
+mechanism (e.g., a dedicated health check bus, a shared atomic counter incremented by the producer, or OS process
 monitoring via `pidfd` or `SIGCHLD`).
 
 ### Restart pattern
@@ -148,7 +143,7 @@ manager (systemd, supervisord, custom watchdog).
 
 The consumer owns the socket. It calls `listen()` in a loop. The producer connects, sends, and exits (or crashes). The
 consumer detects the dead peer, destroys the bus, and calls `listen()` again. The socket is recreated on each `listen()`
-call — the producer does not need to do anything special.
+call, the producer does not need to do anything special.
 
 ### NUMA binding
 
@@ -157,7 +152,7 @@ If producer and consumer are on different NUMA nodes, all ring buffer accesses c
 
 ```python
 with tachyon.Bus.listen(path, capacity) as bus:
-    bus.set_numa_node(0)  # pin to node 0 — call before first message
+    bus.set_numa_node(0)  # pin to node 0 - call before first message
     for msg in bus:
         ...
 ```
@@ -172,7 +167,7 @@ bus.set_numa_node(0) ?;   // MPOL_PREFERRED + MPOL_MF_MOVE
 If the consumer runs in a dedicated thread that never parks (e.g. a `SCHED_FIFO` reflector or a benchmark), call
 `tachyon_bus_set_polling_mode` immediately after handshake. This sets `consumer_sleeping` to `CONSUMER_PURE_SPIN`, which
 causes the producer to skip the `atomic_thread_fence(seq_cst)` + `consumer_sleeping` load on every `flush_tx`. Do not
-call this if the consumer thread may sleep or yield — the producer will never issue a futex wake, and the consumer will
+call this if the consumer thread may sleep or yield, the producer will never issue a futex wake, and the consumer will
 spin indefinitely rather than sleeping.
 
 ```c++
@@ -190,7 +185,7 @@ preemption).
 ### Formula
 
 ```
-CAPACITY ≥ max_burst_messages × aligned_message_size
+CAPACITY >= max_burst_messages * aligned_message_size
 ```
 
 Where `aligned_message_size` is:
@@ -215,17 +210,17 @@ Round up to the next power of two and add a 2× safety margin for bursty produce
 ### Practical defaults
 
 ```python
-# Market data — low latency, small payload
+# Market data - low latency, small payload
 CAPACITY = 1 << 20  # 1 MB
 
-# ML inference — larger payload, Python consumer pause during matmul
+# ML inference - larger payload, Python consumer pause during matmul
 CAPACITY = 1 << 23  # 8 MB
 
-# Audio / video pipeline — large frames, real-time consumer
+# Audio / video pipeline - large frames, real-time consumer
 CAPACITY = 1 << 22  # 4 MB
 ```
 
-If the producer returns `TachyonError` / `TACHYON_ERR_FULL`, the buffer is too small for the burst rate — increase
+If the producer returns `TachyonError` / `TACHYON_ERR_FULL`, the buffer is too small for the burst rate, increase
 capacity or reduce burst size. The anti-overwrite shield never drops messages silently; the producer blocks or returns
 an error instead.
 
@@ -233,4 +228,4 @@ an error instead.
 
 Tachyon uses `memfd_create` + `mmap(MAP_POPULATE)`, which allocates physical pages at `listen()` time.
 `CAPACITY = 1 << 23` (8 MB) costs 8 MB of RAM in the producer process and 8 MB in the consumer process (two `mmap`
-mappings of the same `memfd`). The physical pages are shared — total RAM cost is 8 MB, not 16.
+mappings of the same `memfd`). The physical pages are shared, total RAM cost is 8 MB, not 16.

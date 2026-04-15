@@ -6,9 +6,9 @@
 
 Sent once over UDS via `SCM_RIGHTS`. Socket discarded after exchange.
 
-```c
+```c++
 struct TachyonHandshake {
-    uint32_t magic;         /* 0x54414348 — "TACH" */
+    uint32_t magic;         /* 0x54414348 ("TACH") */
     uint32_t version;       /* currently 0x02 */
     uint32_t capacity;      /* ring size in bytes, power of two */
     uint32_t shm_size;      /* sizeof(MemoryLayout) + capacity */
@@ -59,7 +59,7 @@ No bump required for:
 - Existing signatures: frozen
 - Existing enum numeric values: frozen
 - Additions: allowed without version bump
-- `tachyon_bus_set_polling_mode` added in v0.3.0 — sets `consumer_sleeping` to `CONSUMER_PURE_SPIN (2)`, disabling futex
+- `tachyon_bus_set_polling_mode` added in v0.3.0, sets `consumer_sleeping` to `CONSUMER_PURE_SPIN (2)`, disabling futex
   wake checks on the producer flush path. No wire format change.
 - Removal or signature change: requires major version bump
 
