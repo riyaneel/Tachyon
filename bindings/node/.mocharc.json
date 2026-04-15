@@ -1,6 +1,6 @@
 {
 	"extension": ["ts"],
-	"import": ["tsx"],
+	"import": ["tsx/esm"],
 	"spec": "test/**/*.spec.ts",
 	"timeout": 10000
 }
