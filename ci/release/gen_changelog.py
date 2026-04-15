@@ -76,7 +76,7 @@ def parse_commits(subjects: list[str]) -> dict[str, list[str]]:
 
 def render_section(tag: str, sections: dict[str, list[str]]) -> str:
     today = date.today().isoformat()
-    lines = [f"## [{tag}] — {today}", ""]
+    lines = [f"## [{tag}] | {today}", ""]
 
     all_types = SECTION_ORDER + [t for t in sections if t not in SECTION_ORDER]
 
@@ -128,7 +128,7 @@ def main() -> None:
 
     subjects = get_commits(prev_tag, tag)
     if not subjects:
-        print("No commits found — nothing to write.")
+        print("No commits found: nothing to write.")
         return
 
     sections = parse_commits(subjects)
