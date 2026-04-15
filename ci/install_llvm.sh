@@ -5,7 +5,7 @@ set -euo pipefail
 LLVM_VERSION="${1:-21}"
 
 if [[ ! -f /etc/os-release ]]; then
-	echo "[llvm] Error: /etc/os-release not found — unable to detect OS" >&2
+	echo "[llvm] Error: /etc/os-release not found: unable to detect OS" >&2
 	exit 1
 fi
 
@@ -13,7 +13,7 @@ fi
 OS_ID="${ID}"
 
 if [[ "${OS_ID}" == "ubuntu" || "${OS_ID}" == "debian" ]]; then
-	echo "[llvm] Ubuntu/Debian detected — installing LLVM ${LLVM_VERSION} via apt.llvm.org"
+	echo "[llvm] Ubuntu/Debian detected: installing LLVM ${LLVM_VERSION} via apt.llvm.org"
 
 	if ! command -v lsb_release &>/dev/null; then
 		echo "[llvm] lsb-release missing. Installing prerequisites..."
@@ -61,7 +61,7 @@ if [[ "${OS_ID}" == "ubuntu" || "${OS_ID}" == "debian" ]]; then
 
 	echo "[llvm] LLVM ${LLVM_VERSION} installed (APT)"
 elif [[ "${OS_ID}" == "fedora" ]]; then
-	echo "[llvm] Fedora detected — installing LLVM ${LLVM_VERSION} via DNF"
+	echo "[llvm] Fedora detected: installing LLVM ${LLVM_VERSION} via DNF"
 
 	sudo dnf install -y \
 		"clang${LLVM_VERSION}" \
@@ -86,7 +86,7 @@ elif [[ "${OS_ID}" == "fedora" ]]; then
 		exit 1
 	fi
 
-	echo "[llvm] LLVM ${LLVM_VERSION} installed (DNF) — binary: ${CLANG_BIN}"
+	echo "[llvm] LLVM ${LLVM_VERSION} installed (DNF): binary: ${CLANG_BIN}"
 else
 	echo "[llvm] Error: unsupported OS: ${OS_ID}" >&2
 	echo "[llvm] Supported: ubuntu, debian, fedora" >&2

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-	echo "Usage: $O <target>"
+	echo "Usage: $0 <target>"
 	echo "Targets: go | java | node | rust"
 	exit 1
 fi

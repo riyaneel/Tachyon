@@ -21,7 +21,7 @@ err() {
 
 command -v taskset >/dev/null 2>&1 || err "taskset not found (install util-linux)"
 command -v chrt >/dev/null 2>&1 || err "chrt not found (install util-linux)"
-command -v python3 >/dev/null 2>&1 || warn "python3 not found — comparison table disabled"
+command -v python3 >/dev/null 2>&1 || warn "python3 not found: comparison table disabled"
 
 BENCH_INTRA="${BUILD_DIR}/benchmark/tachyon_bench_intra"
 BENCH_INTER="${BUILD_DIR}/benchmark/tachyon_bench_inter"
@@ -36,7 +36,7 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 MAX_CORE=$(($(nproc) - 1))
 if [[ "${PING_CORE}" -gt "${MAX_CORE}" || "${PONG_CORE}" -gt "${MAX_CORE}" ]]; then
 	warn "Requested cores ${PING_CORE},${PONG_CORE} exceed available (max=${MAX_CORE})"
-	warn "Running unpinned — results will show higher jitter"
+	warn "Running unpinned: results will show higher jitter"
 	TASKSET_INTRA=""
 	TASKSET_INTER=""
 else
@@ -47,7 +47,7 @@ fi
 
 CHRT_CMD="chrt -f ${SCHED_PRIO:-99}"
 if ! chrt -f 1 true 2>/dev/null; then
-	warn "SCHED_FIFO unavailable — run with sudo for best results"
+	warn "SCHED_FIFO unavailable: run with sudo for best results"
 	CHRT_CMD=""
 fi
 
@@ -122,7 +122,7 @@ if [[ -x "${BENCH_ZMQ}" ]]; then
 	log "ZMQ JSON: ${ZMQ_JSON}"
 	echo
 else
-	warn "tachyon_bench_zmq not found — ZeroMQ baseline skipped"
+	warn "tachyon_bench_zmq not found: ZeroMQ baseline skipped"
 	warn "Install libzmq3-dev and rebuild to enable"
 	echo
 fi
