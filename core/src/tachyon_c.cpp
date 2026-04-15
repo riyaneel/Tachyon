@@ -3,10 +3,8 @@
 
 #if defined(__linux__)
 #include <sys/syscall.h>
-#include <unistd.h>
 
-// Inline the constants to avoid requiring linux/mempolicy.h in all environments.
-// These values are stable ABI since Linux 2.6.7.
+// Inline the constants to avoid requiring linux/mempolicy.h in all envs.
 #ifndef MPOL_PREFERRED
 #define MPOL_PREFERRED 1
 #endif // #ifndef MPOL_PREFERRED
@@ -30,21 +28,6 @@ struct alignas(64) tachyon_bus {
 
 	tachyon_bus(SharedMemory &&s, Arena &&a) : shm(std::move(s)), arena(std::move(a)) {}
 };
-
-namespace {
-	struct TasGuard {
-		std::atomic_flag &flag_;
-
-		explicit TasGuard(std::atomic_flag &flag) TACHYON_NOEXCEPT : flag_(flag) {
-			while (flag_.test_and_set(std::memory_order_acquire))
-				tachyon::cpu_relax();
-		}
-
-		~TasGuard() {
-			flag_.clear(std::memory_order_release);
-		}
-	};
-} // namespace
 
 static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
 	switch (error) {
@@ -199,7 +182,7 @@ tachyon_error_t tachyon_bus_set_numa_node(const tachyon_bus_t *bus, const int no
 }
 
 void *tachyon_acquire_tx(tachyon_bus_t *bus, const size_t max_payload_size) TACHYON_NOEXCEPT {
-	if (!bus || max_payload_size == 0) [[unlikely]]
+	if (!bus) [[unlikely]]
 		return nullptr;
 
 	return bus->arena.acquire_tx(max_payload_size);
@@ -314,7 +297,7 @@ tachyon_commit_rx_batch(tachyon_bus_t *bus, const tachyon_msg_view_t *views, con
 	return bus->arena.commit_rx_batch(cxx_views, count) ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
 }
 
-void tachyon_bus_set_polling_mode(tachyon_bus_t *bus, int pure_spin) TACHYON_NOEXCEPT {
+void tachyon_bus_set_polling_mode(const tachyon_bus_t *bus, const int pure_spin) TACHYON_NOEXCEPT {
 	if (bus) [[likely]]
 		bus->arena.set_polling_mode(pure_spin != 0);
 }
