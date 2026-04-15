@@ -1,10 +1,10 @@
-# tachyon — Java bindings
+# Tachyon Java bindings
 
-Java bindings for [Tachyon](https://github.com/riyaneel/tachyon) — bare-metal lock-free IPC. SPSC ring buffer over
+Java bindings for [Tachyon](https://github.com/riyaneel/tachyon), a bare-metal lock-free IPC. SPSC ring buffer over
 POSIX shared memory with sub-100 ns p50 RTT.
 
 The C core is accessed via **Java 21 Panama FFM** (`java.lang.foreign`). No JNI, no JNA. The native shared library is
-extracted from the classpath at startup by `NativeLoader` and linked via `System.load` — no manual installation step
+extracted from the classpath at startup by `NativeLoader` and linked via `System.load`, no manual installation step
 required.
 
 ---
@@ -55,10 +55,10 @@ java --enable-native-access=ALL-UNNAMED -jar app.jar
 
 ## Quickstart
 
-The consumer must start first — it owns the UNIX socket and the SHM arena.
+The consumer must start first, it owns the UNIX socket and the SHM arena.
 
 ```java
-// consumer — start first, on a dedicated thread
+// consumer - start first, on a dedicated thread
 try (var bus = TachyonBus.listen("/tmp/demo.sock", 1 << 16)) {
     try (var rx = bus.acquireRx(10_000)) {
         if (rx != null) {
@@ -104,9 +104,9 @@ producer calls `connect`. The socket is discarded after the handshake; all subse
 `bus.acquireTx(maxSize)` acquires an exclusive TX slot and returns a `TxGuard`. Write into the slot via
 `TxGuard.getData()`, which returns a `MemorySegment` pointing directly into shared memory. Finalize with one of:
 
-- `tx.commit(actualSize, typeId)` — publish and flush.
-- `tx.commitUnflushed(actualSize, typeId)` — publish without flushing. Call `bus.flush()` after the last message.
-- `tx.rollback()` — cancel without publishing.
+- `tx.commit(actualSize, typeId)`: publish and flush.
+- `tx.commitUnflushed(actualSize, typeId)`: publish without flushing. Call `bus.flush()` after the last message.
+- `tx.rollback()`: cancel without publishing.
 
 `TxGuard` implements `AutoCloseable`. Exiting a `try-with-resources` block without an explicit commit triggers automatic
 rollback, preventing indefinite producer lock starvation.
@@ -128,7 +128,7 @@ commit, advancing the consumer head.
 
 ```java
 try (var rx = bus.acquireRx(10_000)) {
-    if (rx == null) return; // EINTR — retry
+    if (rx == null) return; // EINTR - retry
     byte[] copy = rx.getData().toArray(ValueLayout.JAVA_BYTE);
     process(copy, rx.getTypeId());
 } // auto-commits on exit
@@ -149,7 +149,7 @@ try (var batch = bus.drainBatch(64, 10_000)) {
     for (var msg : batch) {
         process(msg.getData(), msg.getTypeId());
     }
-} // auto-commits on exit — all RxMsgView segments are invalidated
+} // auto-commits on exit, all RxMsgView segments are invalidated
 ```
 
 ## Zero-copy pattern
@@ -157,7 +157,7 @@ try (var batch = bus.drainBatch(64, 10_000)) {
 `TxGuard.getData()` and `RxGuard.getData()` return `MemorySegment` objects pointing **directly into shared memory**.
 They are valid only until the corresponding `commit()`, `commitUnflushed()`, or `rollback()` call.
 
-After `RxBatchGuard.commit()`, every `RxMsgView` is explicitly invalidated — `getData()` throws
+After `RxBatchGuard.commit()`, every `RxMsgView` is explicitly invalidated and `getData()` throws
 `IllegalStateException`. This is enforced at the Java level before any native memory access.
 
 The Panama FFM segments are backed by a confined `Arena` scoped to the guard lifetime. Any out-of-scope access throws
@@ -175,7 +175,7 @@ try (var rx = bus.acquireRx(10_000)) {
 ## Batch pattern
 
 ```java
-// Batch TX — one flush for N messages.
+// Batch TX - one flush for N messages.
 for (byte[] payload : payloads) {
     try (var tx = bus.acquireTx(payload.length)) {
         MemorySegment.copy(MemorySegment.ofArray(payload), 0L, tx.getData(), 0L, payload.length);
@@ -186,7 +186,7 @@ bus.flush();
 ```
 
 ```java
-// Batch RX — one FFM crossing for up to 64 messages.
+// Batch RX - one FFM crossing for up to 64 messages.
 try (var batch = bus.drainBatch(64, 10_000)) {
     for (var msg : batch) {
         process(msg.getData(), msg.getTypeId());
@@ -204,7 +204,7 @@ try {
 } catch (AbiMismatchException e) {
     throw new IllegalStateException("Rebuild producer and consumer from the same Tachyon tag.", e);
 } catch (BufferFullException e) {
-    // Ring buffer full — back off and retry.
+    // Ring buffer full - back off and retry.
 } catch (TachyonException e) {
     log.error("IPC error [{}]: {}", e.getCode(), e.getMessage());
 }
@@ -212,19 +212,19 @@ try {
 
 | Exception              | Code | Trigger                                                      |
 |------------------------|------|--------------------------------------------------------------|
-| `AbiMismatchException` | 14   | Handshake rejected — `TACHYON_MSG_ALIGNMENT` mismatch        |
+| `AbiMismatchException` | 14   | Handshake rejected, `TACHYON_MSG_ALIGNMENT` mismatch         |
 | `BufferFullException`  | 9    | Ring buffer full; treat as a back-off signal on the TX path  |
 | `PeerDeadException`    | -1   | Bus entered `TACHYON_STATE_FATAL_ERROR`; close immediately   |
-| `TachyonException`     | —    | Base class for all native errors; carries the raw error code |
+| `TachyonException`     | -    | Base class for all native errors; carries the raw error code |
 
 ## Thread safety
 
-`TachyonBus` is not thread-safe. Each direction (TX or RX) must be used by **at most one thread at a time** — Tachyon
+`TachyonBus` is not thread-safe. Each direction (TX or RX) must be used by **at most one thread at a time**. Tachyon
 is SPSC, not MPSC.
 
 Blocking calls (`listen`, `acquireRx`, `drainBatch`) park the calling thread for their duration. Run them on a dedicated
 `Thread.ofPlatform()`. Do not call blocking Tachyon methods on a virtual thread that holds a monitor
-(`synchronized`) — the carrier thread will pin for the full duration of the blocking call.
+(`synchronized`), the carrier thread will pin for the full duration of the blocking call.
 
 ## NUMA binding
 

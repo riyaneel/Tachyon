@@ -1,8 +1,7 @@
 # tachyon-ipc
 
-Rust bindings for [Tachyon](https://github.com/riyaneel/Tachyon) — a bare-metal,
-lock-free IPC primitive. SPSC ring buffer over POSIX shared memory with sub-100ns
-p50 RTT.
+Rust bindings for [Tachyon](https://github.com/riyaneel/Tachyon), a bare-metal, lock-free IPC primitive. SPSC ring
+buffer over POSIX shared memory with sub-100ns p50 RTT.
 
 ## Install
 
@@ -40,7 +39,7 @@ Requires GCC 14+ or Clang 17+ at build time (the C++ core is compiled via `cc`).
     let batch = bus.drain_batch(1024, 10_000).unwrap();
     for msg in &batch {
         println!("type_id={} size={}", msg.type_id(), msg.actual_size());
-        // msg.data() is a zero-copy slice — lifetime tied to batch
+        // msg.data() is a zero-copy slice - lifetime tied to batch
     }
     batch.commit().unwrap();
 
@@ -48,7 +47,7 @@ Requires GCC 14+ or Clang 17+ at build time (the C++ core is compiled via `cc`).
 
 | Type               | Description                                             |
 |--------------------|---------------------------------------------------------|
-| `Bus`              | SPSC IPC bus. `Send` but not `Sync` — one per thread.   |
+| `Bus`              | SPSC IPC bus. `Send` but not `Sync`, one per thread.    |
 | `TxGuard<'_>`      | TX slot. Write then `commit()` or `commit_unflushed()`. |
 | `RxGuard<'_>`      | RX slot. Read via `data()` then `commit()`.             |
 | `RxBatchGuard<'_>` | Batch of RX slots. Iterate then `commit()`.             |

@@ -1,11 +1,11 @@
-# tachyon — Kotlin bindings
+# Tachyon Kotlin bindings
 
-Kotlin bindings for [Tachyon](https://github.com/riyaneel/tachyon) — bare-metal lock-free IPC. SPSC ring buffer over
+Kotlin bindings for [Tachyon](https://github.com/riyaneel/tachyon), a bare-metal lock-free IPC. SPSC ring buffer over
 POSIX shared memory with sub-100 ns p50 RTT.
 
 Built on top of the Java Panama FFM layer. `Bus` wraps `TachyonBus` with idiomatic Kotlin surface: suspendable `send`,
 a `Flow<Message>` receiver, and `use {}` blocks for resource safety. The underlying FFM `MethodHandle` dispatch layer is
-shared with the Java binding — zero additional overhead.
+shared with the Java binding, zero additional overhead.
 
 ---
 
@@ -51,10 +51,10 @@ org.gradle.jvmargs=--enable-native-access=ALL-UNNAMED
 
 ## Quickstart
 
-The consumer must start first — it owns the UNIX socket and the SHM arena.
+The consumer must start first, it owns the UNIX socket and the SHM arena.
 
 ```kotlin
-// consumer — on a dedicated coroutine dispatcher backed by a platform thread
+// consumer - on a dedicated coroutine dispatcher backed by a platform thread
 Bus.listen("/tmp/demo.sock", 1L shl 16).use { bus ->
     bus.receive().collect { msg ->
         println("received ${msg.size} bytes, type_id=${msg.typeId}")
@@ -88,8 +88,8 @@ Bus.connect("/tmp/demo.sock").use { bus ->
 ### Suspendable send
 
 `bus.send(data: ByteArray, typeId: Int = 0)` is a suspending function. It copies `data` into the ring buffer,
-commits, and flushes. If the ring is temporarily full (`BufferFullException`), it calls `yield()` and retries —
-it never blocks a carrier thread.
+commits, and flushes. If the ring is temporarily full (`BufferFullException`), it calls `yield()` and retries, it never
+blocks a carrier thread.
 
 ```kotlin
 coroutineScope {
@@ -104,8 +104,7 @@ coroutineScope {
 ### Flow receiver
 
 `bus.receive(spinThreshold, onEmpty)` converts the blocking C receiver into a cold `Flow<Message>`. It runs on
-`Dispatchers.IO` and is cancellable. Each emitted `Message` holds a heap-owned `ByteArray` — safe to retain
-indefinitely.
+`Dispatchers.IO` and is cancellable. Each emitted `Message` holds a heap-owned `ByteArray`, safe to retain indefinitely.
 
 ```kotlin
 Bus.listen("/tmp/demo.sock", 1L shl 16).use { bus ->
@@ -129,9 +128,9 @@ bus.receive(onEmpty = { delay(1) }).collect { … }
 `bus.acquireTx(maxSize: Long): TxGuard` acquires an exclusive TX slot. Write into the slot via `TxGuard.getData()`,
 which returns a `MemorySegment` pointing directly into shared memory. Finalize with one of:
 
-- `tx.commit(actualSize, typeId)` — publish and flush.
-- `tx.commitUnflushed(actualSize, typeId)` — publish without flushing; call `bus.flush()` after the batch.
-- `tx.rollback()` — cancel without publishing.
+- `tx.commit(actualSize, typeId)`: publish and flush.
+- `tx.commitUnflushed(actualSize, typeId)`: publish without flushing; call `bus.flush()` after the batch.
+- `tx.rollback()`: cancel without publishing.
 
 `TxGuard` implements `AutoCloseable`. Exiting a `use {}` block without an explicit commit triggers automatic rollback.
 
@@ -183,13 +182,13 @@ bus.acquireRx(10_000)?.use { rx ->
 } // rx.data is invalid after this point
 ```
 
-After `RxBatchGuard.commit()`, every `RxMsgView` is explicitly invalidated by the Java layer — `getData()` throws
+After `RxBatchGuard.commit()`, every `RxMsgView` is explicitly invalidated by the Java layer and `getData()` throws
 `IllegalStateException` before any native access.
 
 ## Batch pattern
 
 ```kotlin
-// Batch TX — one flush for N messages.
+// Batch TX - one flush for N messages.
 payloads.forEach { payload ->
     bus.acquireTx(payload.size.toLong()).use { tx ->
         MemorySegment.copy(MemorySegment.ofArray(payload), 0L, tx.data, 0L, payload.size.toLong())
@@ -200,7 +199,7 @@ bus.flush()
 ```
 
 ```kotlin
-// Batch RX — one FFM crossing for up to 64 messages.
+// Batch RX - one FFM crossing for up to 64 messages.
 bus.drainBatch(64, 10_000).use { batch ->
     for (msg in batch) {
         process(msg.data, msg.typeId)
@@ -228,7 +227,7 @@ launch(tachyonDispatcher) {
 }
 ```
 
-Do not collect `bus.receive()` on `Dispatchers.Default` — a parked OS thread starves other coroutines sharing the
+Do not collect `bus.receive()` on `Dispatchers.Default`, a parked OS thread starves other coroutines sharing the
 same carrier.
 
 ## Error handling
@@ -241,7 +240,7 @@ try {
 } catch (e: AbiMismatchException) {
     error("Rebuild producer and consumer from the same Tachyon tag.")
 } catch (e: BufferFullException) {
-    // Ring buffer full — bus.send() handles this automatically via yield() + retry.
+    // Ring buffer full - bus.send() handles this automatically via yield() + retry.
 } catch (e: TachyonException) {
     logger.error("IPC error [{}]: {}", e.code, e.message)
 }
@@ -249,14 +248,14 @@ try {
 
 | Exception              | Trigger                                                    |
 |------------------------|------------------------------------------------------------|
-| `AbiMismatchException` | Handshake rejected — `TACHYON_MSG_ALIGNMENT` mismatch      |
+| `AbiMismatchException` | Handshake rejected - `TACHYON_MSG_ALIGNMENT` mismatch      |
 | `BufferFullException`  | Ring buffer full; `bus.send` handles this automatically    |
 | `PeerDeadException`    | Bus entered `TACHYON_STATE_FATAL_ERROR`; close immediately |
 | `TachyonException`     | Base class for all native errors                           |
 
 ## Thread safety
 
-`Bus` is not thread-safe. Each direction (TX or RX) must be used by **at most one thread at a time** — Tachyon is SPSC,
+`Bus` is not thread-safe. Each direction (TX or RX) must be used by **at most one thread at a time**. Tachyon is SPSC,
 not MPSC.
 
 Kotlin coroutines scheduled on a single-threaded dispatcher are safe. Do not share a `Bus` instance across multiple
