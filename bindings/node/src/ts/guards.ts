@@ -154,18 +154,18 @@ export class RxGuard {
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
 	public data(): RxSlot {
-		if (this.#done || this.#buffer === null) {
-			throw new Error('RxGuard: slot has already been committed.');
-		}
-
+		this.#assertOpen();
 		if (this.#ctrl.getState() === 4 /* TACHYON_STATE_FATAL_ERROR */) throw new PeerDeadError();
-
-		return this.#buffer;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		return this.#buffer!;
 	}
 
-	/** Releases the slot and advances the consumer head. No-op if already committed. */
+	/** Releases the slot and advances the consumer head.
+	 *
+	 * @throws {Error} If the slot has already been committed.
+	 */
 	public commit(): void {
-		if (this.#done) return;
+		this.#assertOpen();
 		this.#invalidate();
 		this.#ctrl.commitRx();
 	}
