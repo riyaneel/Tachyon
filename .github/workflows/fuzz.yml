@@ -37,7 +37,7 @@ jobs:
           cmake --preset fuzz
           cmake --build --preset fuzz
 
-      - name: Regression — arena_rx
+      - name: Regression - arena_rx
         run: |
           mkdir -p fuzz/corpus/crashes
           ./build/fuzz/fuzz/tachyon_fuzz_arena_rx \
@@ -45,21 +45,21 @@ jobs:
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
-      - name: Regression — arena_rx_batch
+      - name: Regression - arena_rx_batch
         run: |
           ./build/fuzz/fuzz/tachyon_fuzz_arena_rx_batch \
             fuzz/corpus/arena_rx_batch \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
-      - name: Regression — header_parser
+      - name: Regression - header_parser
         run: |
           ./build/fuzz/fuzz/tachyon_fuzz_header_parser \
             fuzz/corpus/header_parser \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
-      - name: Regression — toctou
+      - name: Regression - toctou
         run: |
           ./build/fuzz/fuzz/tachyon_fuzz_toctou \
             fuzz/corpus/toctou \

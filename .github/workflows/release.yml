@@ -175,7 +175,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           if git rev-parse "${GO_TAG}" >/dev/null 2>&1; then
-            echo "Tag ${GO_TAG} already exists — skipping."
+            echo "Tag ${GO_TAG} already exists - skipping."
           else
             git tag "${GO_TAG}"
             git push origin "${GO_TAG}"
