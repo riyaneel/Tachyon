@@ -65,7 +65,7 @@ class Bus:
 
         When pure_spin=1, the producer omits the atomic_thread_fence(seq_cst) and
         the consumer_sleeping load on every flush_tx call. Use only when the
-        consumer thread is dedicated and runs at SCHED_FIFO — if the consumer
+        consumer thread is dedicated and runs at SCHED_FIFO, if the consumer
         ever parks, the producer will not issue a futex wake and the consumer
         will spin indefinitely instead of sleeping.
 

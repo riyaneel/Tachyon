@@ -88,7 +88,7 @@ class Bus:
 
         When pure_spin=1, the producer omits the atomic_thread_fence(seq_cst) and
         the consumer_sleeping load on every flush_tx. Use only when the consumer
-        thread is dedicated and SCHED_FIFO — if it ever parks, the producer will
+        thread is dedicated and SCHED_FIFO, if it ever parks, the producer will
         not wake it.
 
         Call immediately after listen()/connect(), before the first message.
