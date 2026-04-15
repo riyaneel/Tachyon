@@ -89,7 +89,7 @@ elif [[ "${OS_ID}" == "fedora" ]]; then
 	fi
 
 	sudo ln -sf "/usr/bin/${CLANG_BIN}" /usr/bin/clang
-	sudo ln -sf "/usr/bin/$(basename "${CLANG_BIN}" | sed 's/clang/clang++/') " /usr/bin/clang++
+	sudo ln -sf "/usr/bin/$(basename "${CLANG_BIN}" | sed 's/clang/clang++/')" /usr/bin/clang++
 	sudo ln -sf /usr/bin/lld /usr/bin/ld.lld || true
 
 	echo "[llvm] LLVM ${LLVM_VERSION} installed (DNF): binary: ${CLANG_BIN}"
