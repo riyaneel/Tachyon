@@ -4,19 +4,19 @@
 
 The UDS socket is a **one-shot bootstrap mechanism**, not a persistent connection. `tachyon_bus_listen()` creates the
 socket file, waits for exactly one `accept()`, sends the `memfd` file descriptor via `SCM_RIGHTS`, then closes both the
-client and listening socket descriptors. The socket **file** is not unlinked at this point, it is removed at the start
-of the next `tachyon_bus_listen()` call on the same path (before `bind`). After `tachyon_bus_connect()` returns, nobody
-is listening on the socket file; the entire IPC path runs through shared memory.
+client and listening socket descriptors, and **immediately unlinks the socket file**. After `tachyon_bus_connect()`
+returns, nobody is listening on the socket path and the file no longer exists; the entire IPC path runs through shared
+memory.
 
 Consequences:
 
-- The socket path can be reused immediately after the consumer calls `Bus.listen()` again, `listen()` unlinks the stale
-  file before `bind`, with no TIME_WAIT or linger state.
-- A second `connect()` to the same path after the handshake will get `ECONNREFUSED`, the file exists but no process is
-  listening.
+- The socket path is free immediately after the handshake completes. A second `listen()` on the same path can `bind`
+  without any prior `unlink`, there is nothing to clean up.
+- A second `connect()` to the same path after the handshake will get `ENOENT`, the file has already been removed.
 - Deleting the socket file manually has no effect on an established bus.
-- During a crash, the socket file survives. Clean it up before restarting the listener on a **different** path:
-  `rm -f /tmp/your.sock` or `os.unlink()`. If you reuse the same path, the next `listen()` removes it automatically.
+- During a crash **before** the handshake completes (i.e., between `bind` and `sendmsg`), the socket file survives.
+  Clean it up before restarting the listener on the same path: `rm -f /tmp/your.sock` or `os.unlink()`. If the crash
+  occurs **after** the handshake, the file is already gone.
 
 ### Relisten pattern
 
