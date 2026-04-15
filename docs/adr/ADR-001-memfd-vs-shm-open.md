@@ -1,4 +1,4 @@
-# ADR-001 — `memfd_create` vs `shm_open`
+# ADR-001: `memfd_create` vs `shm_open`
 
 ---
 

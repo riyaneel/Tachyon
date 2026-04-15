@@ -1,4 +1,4 @@
-# ADR-006 — No-serialization contract
+# ADR-006: No-serialization contract
 
 ---
 
@@ -13,7 +13,7 @@ IPC libraries typically provide a serialization layer: Protocol Buffers, Message
 custom framing protocol. The serialization layer handles type safety, schema evolution, and cross-language compatibility
 at the cost of an encode/decode step on every message.
 
-Tachyon's primary use cases — ML inference pipelines, trading data feeds, audio/video inter-process — share a common
+Tachyon's primary use cases (ML inference pipelines, trading data feeds, audio/video inter-process) share a common
 property: both ends are controlled by the same operator, compiled from the same source, and exchange data at RAM speed
 where any per-message allocation or copy is measurable overhead. In these cases, imposing a serialization layer inside
 the IPC primitive would be a mistake because:
@@ -24,10 +24,10 @@ the IPC primitive would be a mistake because:
 2. **Zero-copy is only possible with raw bytes.** DLPack, Python `memoryview`, and Rust slice borrows all expose the SHM
    payload pointer directly to the consumer. Any serialization layer that writes into a staging buffer breaks zero-copy.
 3. **Schema evolution is an application concern at Tachyon's layer.** A versioned `type_id` discriminant (`uint32_t`) is
-   sufficient for the transport to route messages; the application decides what each `type_id` means and how to evolve
+   enough for the transport to route messages; the application decides what each `type_id` means and how to evolve
    it.
 
-The alternative — providing an optional serialization plugin system — would add complexity to the hot path (vtable
+The alternative, providing an optional serialization plugin system, it would add complexity to the hot path (vtable
 dispatch, conditional branching) and to the binding API surface (a new generic parameter or codec registration call in
 every language). The cost/benefit does not justify it at Tachyon's abstraction level.
 

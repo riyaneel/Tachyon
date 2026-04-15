@@ -1,4 +1,4 @@
-# ADR-003 — Futex vs eventfd for consumer sleep
+# ADR-003: Futex vs eventfd for consumer sleep
 
 ---
 
@@ -14,21 +14,21 @@ must sleep and be woken by the producer on the next `flush_tx`. Two kernel primi
 
 - **`eventfd`** creates a file descriptor wrapping a 64-bit counter. The consumer calls `read(fd, ...)` to block; the
   producer calls `write(fd, 1)` to wake it. This requires two syscalls per wake cycle (one `write` from the producer,
-  one `read` from the consumer), and the `eventfd` fd must be created at bus initialisation time and passed to the
+  one `read` from the consumer), and the `eventfd` fd must be created at bus initialization time and passed to the
   consumer through some channel (embedded in the SHM region or via a second `SCM_RIGHTS` transfer). `poll`/`epoll`
   integration comes for free.
 
-- **`futex`** (Linux) / **`__ulock`** (macOS) operates directly on a 32-bit word in memory — specifically
+- **`futex`** (Linux) / **`__ulock`** (macOS) operates directly on a 32-bit word in memory, specifically
   `SPSCIndices::consumer_sleeping`, an `atomic<uint32_t>` already in the shared memory region. `FUTEX_WAIT` atomically
   checks that the word still equals the expected value before sleeping, closing the lost-wakeup window. `FUTEX_WAKE`
   costs one syscall from the producer with no fd to track. The timeout parameter (`WATCHDOG_TIMEOUT_US = 200 ms`) is
   passed directly; no timer fd is needed. The futex address is the `consumer_sleeping` atomic itself, so no extra data
   structure is required.
 
-The lost-wakeup race — consumer observes empty, producer writes and calls WAKE before consumer calls WAIT — is handled
-by the double-check pattern in `acquire_rx_blocking`: consumer stores `consumer_sleeping = 1`, issues a `seq_cst` fence,
-re-reads the head, and only calls `FUTEX_WAIT` if the queue is still empty. If the producer wrote between the store and
-the fence, the re-read catches it without sleeping.
+The lost-wakeup race (consumer observes empty), producer writes and calls WAKE before the consumer calls WAIT. It is
+handled by the double-check pattern in `acquire_rx_blocking`: consumer stores `consumer_sleeping = 1`, issues a
+`seq_cst` fence, re-reads the head, and only calls `FUTEX_WAIT` if the queue is still empty. If the producer wrote
+between the store and the fence, the re-read catches it without sleeping.
 
 ThreadSanitizer cannot follow the producer→consumer happens-before through `SYS_futex` directly (it is an opaque
 syscall). TSan annotations `__tsan_acquire` / `__tsan_release` are placed around the `platform_wait` / `platform_wake`

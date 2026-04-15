@@ -1,4 +1,4 @@
-# ADR-004 — `TACHYON_MSG_ALIGNMENT = 64`
+# ADR-004: `TACHYON_MSG_ALIGNMENT = 64`
 
 ---
 
@@ -21,13 +21,13 @@ the next header after it must be aligned so that:
 
 The alignment value must be a compile-time constant and a power of two. Candidates:
 
-- **32 bytes** — satisfies AVX2 alignment, but `sizeof(MessageHeader)` is at least 12 bytes (`size` + `type_id` +
+- **32 bytes**: satisfies AVX2 alignment, but `sizeof(MessageHeader)` is at least 12 bytes (`size` + `type_id` +
   `reserved_size`, each 4 bytes). Padding to 32 bytes leaves 20 bytes of waste, and two headers can share a 64-byte
   cache line, creating producer/consumer false sharing on adjacent messages.
-- **64 bytes** — matches the cache line width on all x86-64 and ARM64 microarchitectures in production use. Each header
+- **64 bytes**: matches the cache line width on all x86-64 and ARM64 microarchitectures in production use. Each header
   occupies exactly one cache line. `sizeof(MessageHeader)` is exactly 64 bytes (`3 * uint32_t = 12 bytes`, padded to
   64). The payload is 64-byte aligned. AVX-512 (64-byte) loads are satisfied.
-- **128 bytes** — eliminates any possibility of producer/consumer sharing even on adjacent cache line prefetcher, but
+- **128 bytes**: eliminates any possibility of producer/consumer sharing even on adjacent cache line prefetcher, but
   doubles the per-message overhead for small payloads. A 1-byte message costs 128 bytes of ring buffer space.
 
 The alignment value is compiled into both the producer and the consumer and is validated during the handshake

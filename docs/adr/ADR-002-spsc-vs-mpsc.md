@@ -1,4 +1,4 @@
-# ADR-002 — SPSC strict vs MPSC
+# ADR-002: SPSC strict vs MPSC
 
 ---
 
@@ -15,16 +15,16 @@ or consumers within a single ring buffer instance.
 
 - **MPSC (multiple-producer single-consumer)** requires a compare-and-swap loop on the head pointer so that two
   producers can each reserve a contiguous slot without overlap. Even with a single producer at runtime, the CAS
-  instruction is on the critical path on every`acquire_tx`. Under contention — two producers racing — the CAS loop
-  spins, degrading to unpredictable latency. MPSC also requires head and tail to live in separate cache lines that both
-  sides write, and the per-message metadata must encode which slots are committed vs pending, adding 8–16 bytes of
+  instruction is on the critical path on every`acquire_tx`. Under contention (two producers racing), the CAS loop
+  spins degrading to unpredictable latency. MPSC also requires head and tail to live in separate cache lines that both
+  sides write, and the per-message metadata must encode which slots are committed vs. pending, adding 8–16 bytes of
   overhead per message.
 
 - **SPSC (single-producer single-consumer)** needs only two atomics: `head` (writer-owned) and `tail` (reader-owned).
   The producer reads `tail` to check for space; the consumer reads `head` to check for data. There are no CAS loops, no
   slot-state bytes, and no false sharing between producer and consumer cache lines (guaranteed by 128-byte `alignas`
   padding on the `SPSCIndices` struct). The hot path in `acquire_tx` and `acquire_rx` is a load, a subtraction, and a
-  conditional branch — no atomics on the write path until the batch flush.
+  conditional branch (no atomics on the write path until the batch flush).
 
 The practical consequence of choosing SPSC is that fan-in (N producers to 1 consumer) requires N independent ring
 buffers and a multiplexing layer in the application. This is not a limitation for the primary use cases (ML inference
@@ -56,14 +56,14 @@ concern: use N buses.
 
 **Negative**
 
-- Fan-in requires N buses. A star topology (one consumer, N producers) needs application-level multiplexing — planned as
+- Fan-in requires N buses. A star topology (one consumer, N producers) needs application-level multiplexing. Planned as
   v0.5.0.
-- Two threads sharing a `Bus` object and calling the same direction concurrently produce a data race — there is no
-  longer a TAS lock to serialize them. This is the correct SPSC contract, but it is no longer enforced at runtime.
+- Two threads sharing a `Bus` object and calling the same direction concurrently produce a data race (there is no
+  longer a TAS lock to serialize them). This is the correct SPSC contract, but it is no longer enforced at runtime.
 
 **Neutral**
 
-- RPC patterns (bidirectional channel) compose two SPSC buses — one per direction. Planned as v0.5.0.
+- RPC patterns (bidirectional channel) are composed of two SPSC buses, one per direction. Planned as v0.5.0.
 - MPSC as a first-class primitive remains possible in a future major version.
 - `tachyon_bus_set_polling_mode(bus, 1)` signals that the consumer is in a dedicated spin loop and will never sleep. The
   producer skips the `seq_cst` fence and the `consumer_sleeping` check entirely, saving one fence + one atomic load per

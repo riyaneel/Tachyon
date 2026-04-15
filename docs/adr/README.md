@@ -3,7 +3,7 @@
 This directory contains Architecture Decision Records (ADRs) for Tachyon.
 Each ADR documents a significant design choice, the context that motivated it, and its consequences.
 
-New ADRs use the template at the bottom of this file. Once accepted, an ADR is never deleted — superseded decisions are
+New ADRs use the template at the bottom of this file. Once accepted, an ADR is never deleted, superseded decisions are
 marked **Superseded** and linked to the replacement.
 
 ---
@@ -23,17 +23,17 @@ marked **Superseded** and linked to the replacement.
 
 ## Statuses
 
-- **Accepted** — in effect, implemented in the codebase.
-- **Superseded** — replaced by a later ADR; kept for history.
-- **Deprecated** — no longer recommended; will be removed in a future major version.
-- **Proposed** — under discussion, not yet merged.
+- **Accepted**: in effect, implemented in the codebase.
+- **Superseded**: replaced by a later ADR; kept for history.
+- **Deprecated**: no longer recommended; will be removed in a future major version.
+- **Proposed**: under discussion, not yet merged.
 
 ---
 
 ## Template
 
 ```markdown
-# ADR-NNN — Title
+# ADR-NNN: Title
 
 ---
 

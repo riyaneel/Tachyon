@@ -1,4 +1,4 @@
-# ADR-005 — SCM_RIGHTS vs named shared memory
+# ADR-005: SCM_RIGHTS vs named shared memory
 
 ---
 
@@ -13,7 +13,7 @@ The producer creates a shared memory region and must hand the consumer a way to 
 
 - **Named shared memory** (`shm_open` with a well-known path, or a path negotiated out-of-band) leaves a `/dev/shm/name`
   entry on the filesystem. Any process with filesystem access to `/dev/shm` can open the name, regardless of whether the
-  producer intended to share it with that process. The producer must `unlink` the name after the consumer connects — but
+  producer intended to share it with that process. The producer must `unlink` the name after the consumer connects, but
   there is a race between the consumer opening the name and the producer unlinking it. If the producer crashes before
   unlinking, the name persists indefinitely. Cleanup is the operator's responsibility.
 
@@ -62,5 +62,5 @@ exists at any point after the handshake.
 
 - The consumer calls `close(received_fd)` after `mmap` to avoid leaking the fd. The mapping remains valid; `close` on a
   `memfd` does not unmap existing mappings.
-- The socket path passed to `tachyon_bus_listen` is reused as the `memfd_create` name (Linux) for debuggability — it
+- The socket path passed to `tachyon_bus_listen` is reused as the `memfd_create` name (Linux) for debuggability, it
   appears in `/proc/self/fd` as the memfd label.
