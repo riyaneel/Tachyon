@@ -90,7 +90,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "TACHYON_SANITIZER": "msan",
-        "TACHYON_MSAN_LIBCXX_DIR":"${sourceDir}/.msan_toolchain/"
+        "TACHYON_MSAN_LIBCXX_DIR":"${sourceDir}/.msan_toolchain/llvm-21"
       }
     },
     {
