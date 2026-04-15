@@ -56,12 +56,12 @@ export class AbiMismatchError extends TachyonError {
 /**
  * Thrown when the bus transitions to TACHYON_STATE_FATAL_ERROR.
  *
- * Triggered exclusively by a corrupted message header detected in acquire_rx —
+ * Triggered exclusively by a corrupted message header detected in acquire_rx,
  * not by a producer crash. A crashed producer causes the consumer to block
  * indefinitely; use an external supervisor if dead-peer detection is required.
  *
  * This error is raised by Bus after polling tachyon_get_state(), not
- * thrown directly by the native binding — there is no corresponding tachyon_error_t.
+ * thrown directly by the native binding there is no corresponding tachyon_error_t.
  */
 export class PeerDeadError extends TachyonError {
 	public constructor() {
@@ -95,7 +95,7 @@ export function isAbiMismatch(err: unknown): err is AbiMismatchError {
 
 /**
  * Returns true if the bus has entered a fatal error state.
- * Uses instanceof rather than .code — PeerDeadError is raised by Bus, not the native binding.
+ * Uses instanceof rather than .code. PeerDeadError is raised by Bus, not the native binding.
  */
 export function isPeerDead(err: unknown): err is PeerDeadError {
 	return err instanceof PeerDeadError;

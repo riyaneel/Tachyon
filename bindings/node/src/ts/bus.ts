@@ -81,7 +81,7 @@ function warnMainThread(method: string): void {
 /**
  * Tachyon SPSC IPC bus.
  *
- * Start the consumer first — it owns the UNIX socket and the SHM arena.
+ * Start the consumer first, it owns the UNIX socket and the SHM arena.
  * All blocking operations (listen, acquireRx, drainBatch) spin then park on a futex;
  * call them from a Worker thread to avoid saturating the main event loop.
  *
@@ -175,7 +175,7 @@ export class Bus implements Disposable {
 		for (;;) {
 			if (this.#handle.getState() === 4) throw new PeerDeadError();
 			const result = this.#handle.acquireRxBlocking(spinThreshold);
-			if (result === null) continue; // EINTR — retry
+			if (result === null) continue; // EINTR - retry
 			const copy = Buffer.from(result.data);
 			this.#handle.commitRx();
 			return { data: copy, typeId: result.typeId };
@@ -207,7 +207,7 @@ export class Bus implements Disposable {
 
 	/**
 	 * Blocks until a message is available and returns a zero-copy read lease.
-	 * Returns `null` on EINTR — caller decides whether to retry.
+	 * Returns `null` on EINTR caller decides whether to retry.
 	 *
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */

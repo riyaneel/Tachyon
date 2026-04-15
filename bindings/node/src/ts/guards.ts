@@ -1,6 +1,6 @@
 import { PeerDeadError } from './error.ts';
 
-// Branded slot types — nominal subtypes of Buffer.
+// Branded slot types, nominal subtypes of Buffer.
 // Brand symbols are not accessible outside this module, so only
 // TxGuard and RxGuard can produce these types.
 declare const txSlotBrand: unique symbol;
@@ -55,7 +55,7 @@ export class TxGuard {
 
 	/**
 	 * Returns the writable zero-copy window into shared memory.
-	 * The reference is invalidated on commit or rollback — any cached reference
+	 * The reference is invalidated on commit or rollback, any cached reference
 	 * will throw `TypeError` on subsequent access (underlying ArrayBuffer detached).
 	 *
 	 * @throws {Error} If the slot has already been finalized.
@@ -148,7 +148,7 @@ export class RxGuard {
 
 	/**
 	 * Returns the read-only zero-copy window into shared memory.
-	 * The reference is invalidated on commit — any cached reference will throw `TypeError`.
+	 * The reference is invalidated on commit, any cached reference will throw `TypeError`.
 	 *
 	 * @throws {Error} If the slot has already been committed.
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.

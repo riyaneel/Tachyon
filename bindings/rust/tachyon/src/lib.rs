@@ -78,7 +78,7 @@ mod tests {
         let srv = thread::spawn(move || {
             let bus = Bus::listen(&path_srv, CAPACITY).unwrap();
             let guard = bus.acquire_rx(10_000).unwrap();
-            // data() gives a zero-copy slice tied to guard's lifetime —
+            // data() gives a zero-copy slice tied to guard's lifetime,
             // borrow checker prevents access after commit().
             let data = guard.data();
             assert_eq!(data, b"zero_copy_rx");
@@ -139,7 +139,7 @@ mod tests {
         let srv = thread::spawn(move || {
             let bus = Bus::listen(&path_srv, CAPACITY).unwrap();
 
-            // Drop without commit is now a true rollback — no phantom message.
+            // Drop without commit is now a true rollback, no phantom message.
             let guard = bus.acquire_rx(10_000).unwrap();
             assert_eq!(guard.type_id, 99);
             assert_eq!(guard.data(), b"committed");
@@ -188,7 +188,7 @@ mod tests {
         thread::sleep(Duration::from_millis(20));
 
         let bus = Bus::connect(&path).unwrap();
-        // Single flush after all three — guarantees drain_batch sees them together.
+        // Single flush after all three guarantees drain_batch sees them together.
         for (data, tid) in [(b"a".as_ref(), 0u32), (b"bb", 1), (b"ccc", 2)] {
             let guard = bus.acquire_tx(data.len()).unwrap();
             guard.write(data);

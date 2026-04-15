@@ -21,7 +21,7 @@ export interface RxMessage {
  * Obtain via {@link Bus.drainBatch}. Iterate the messages then call {@link commit}.
  * `using` commits automatically.
  *
- * All `RxMessage.data` references are invalidated on commit — any cached reference
+ * All `RxMessage.data` references are invalidated on commit. Any cached reference
  * will throw `TypeError` (underlying ArrayBuffers are detached by the C++ side).
  *
  * @example
@@ -63,7 +63,7 @@ export class RxBatch {
 			throw new RangeError(`RxBatch: index ${i} out of range [0, ${this.#messages.length}).`);
 		}
 
-		// Bounds already validated — explicit undefined check satisfies noUncheckedIndexedAccess.
+		// Bounds already validated. Explicit undefined check satisfies noUncheckedIndexedAccess.
 		const msg = this.#messages[i];
 		if (msg === undefined) throw new RangeError('RxBatch: internal index error.');
 		return msg;

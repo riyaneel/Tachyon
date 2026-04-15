@@ -5,7 +5,7 @@ use tachyon_sys::*;
 
 const STATE_FATAL_ERROR: u32 = tachyon_state_t_TACHYON_STATE_FATAL_ERROR as u32;
 
-/// SPSC IPC bus. `Send` but not `Sync` — one `Bus` per thread.
+/// SPSC IPC bus. `Send` but not `Sync`, one `Bus` per thread.
 pub struct Bus {
     inner: NonNull<tachyon_bus_t>,
 }
@@ -30,7 +30,7 @@ impl Bus {
             let err = unsafe { tachyon_bus_listen(path.as_ptr(), capacity, &mut raw) };
 
             if err == tachyon_error_t_TACHYON_ERR_INTERRUPTED as u32 {
-                // No GIL in Rust — signal handling is the caller's responsibility.
+                // Signal handling is the caller's responsibility.
                 // Simply retry on EINTR from poll().
                 continue;
             }
@@ -57,7 +57,7 @@ impl Bus {
 
     /// Bind the shared memory backing this bus to a specific NUMA node.
     ///
-    /// Uses `MPOL_PREFERRED` policy — prefers the requested node but falls back
+    /// Uses `MPOL_PREFERRED` policy, prefers the requested node but falls back
     /// rather than failing hard. Pages already allocated by `mmap(MAP_POPULATE)`
     /// are migrated via `MPOL_MF_MOVE`.
     ///
@@ -80,7 +80,7 @@ impl Bus {
     ///
     /// When `spin_mode` is `1`, the producer omits the `atomic_thread_fence(seq_cst)`
     /// and the `consumer_sleeping` load on every `flush` call. Use only when the
-    /// consumer thread is dedicated and will never park — if it parks, the
+    /// consumer thread is dedicated and will never park, if it parks, the
     /// producer will not issue a futex wake and the consumer will spin
     /// indefinitely instead of sleeping.
     ///
@@ -225,7 +225,7 @@ impl<'bus> TxGuard<'bus> {
         }
     }
 
-    /// Raw mutable slice over the entire reserved TX slot — zero-copy write.
+    /// Raw mutable slice over the entire reserved TX slot with zero-copy write.
     ///
     /// # Safety
     /// Caller must not write beyond `max_size` bytes.
@@ -246,7 +246,7 @@ impl<'bus> TxGuard<'bus> {
         from_raw(err)
     }
 
-    /// Commit without flushing — use when batch-sending multiple messages.
+    /// Commit without flushing, use when batch-sending multiple messages.
     /// Caller MUST call `bus.flush()` after the last message to make all
     /// committed messages visible to the consumer.
     pub fn commit_unflushed(

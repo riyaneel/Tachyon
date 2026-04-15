@@ -436,7 +436,7 @@ private:
 
 	// Advances the consumer head, then detaches every ArrayBuffer from the
 	// previous DrainBatch. Any cached JS reference will immediately throw
-	// TypeError — explicit fail-fast, no SHM writes, no MESI bouncing.
+	// TypeError explicit fail-fast, no SHM writes, no MESI bouncing.
 	Napi::Value CommitBatch(const Napi::CallbackInfo &info) {
 		Napi::Env env = info.Env();
 		if (!assert_open(env))
