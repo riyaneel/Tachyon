@@ -178,6 +178,7 @@ final class TachyonABI {
 	 * @return The memory segment pointing to the opaque native bus handle.
 	 * @implSpec Uses a confined arena to safely allocate the output pointer during the FFI transition.
 	 */
+	 @SuppressWarnings("removal")
 	static MemorySegment busListen(MemorySegment path, long capacity) {
 		try (Arena arena = Arena.ofConfined()) {
 			MemorySegment outBus = arena.allocate(ValueLayout.ADDRESS);
@@ -195,6 +196,7 @@ final class TachyonABI {
 	 * @param path The memory segment containing the UDS socket path.
 	 * @return The memory segment pointing to the opaque native bus handle.
 	 */
+	 @SuppressWarnings("removal")
 	static MemorySegment busConnect(MemorySegment path) {
 		try (Arena arena = Arena.ofConfined()) {
 			MemorySegment outBus = arena.allocate(ValueLayout.ADDRESS);

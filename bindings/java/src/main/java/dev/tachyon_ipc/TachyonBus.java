@@ -36,6 +36,7 @@ public final class TachyonBus implements AutoCloseable {
 	 * @implSpec The native bus pointer is strictly bound to a shared FFM {@link Arena}
 	 * that dictates the spatial bounds of further memory segments mapped to this bus.
 	 */
+	 @SuppressWarnings("removal")
 	public static TachyonBus listen(String path, long capacity) {
 		Objects.requireNonNull(path, "Path cannot be null");
 		if (capacity <= 0 || (capacity & (capacity - 1)) != 0) {
@@ -55,6 +56,7 @@ public final class TachyonBus implements AutoCloseable {
 	 * @param path The absolute filesystem path of the target UDS socket.
 	 * @return A new active {@link TachyonBus} instance mapped to the remote arena.
 	 */
+	 @SuppressWarnings("removal")
 	public static TachyonBus connect(String path) {
 		Objects.requireNonNull(path, "Path cannot be null");
 
@@ -135,7 +137,10 @@ public final class TachyonBus implements AutoCloseable {
 		checkOpen();
 		TachyonABI.RxResult result = TachyonABI.acquireRxBlocking(busHandle, spinThreshold);
 		if (result == null) {
-			return null;
+			if (TachyonABI.getState(busHandle) == 4 /* TACHYON_STATE_FATAL_ERROR */) {
+				throw new PeerDeadException();
+			}
+			return null; // EINTR
 		}
 		MemorySegment safePtr = result.payload().reinterpret(result.actualSize(), busArena, null);
 		return new RxGuard(busHandle, safePtr, result.typeId(), result.actualSize());
