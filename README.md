@@ -9,28 +9,48 @@
 [![npm](https://img.shields.io/npm/v/@tachyon-ipc/core)](https://www.npmjs.com/package/@tachyon-ipc/core)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-Tachyon is a bare-metal, lock-free IPC primitive. Strictly-bounded SPSC ring buffer over POSIX shared memory, with
-zero-copy bindings for Python, Rust, and C++.
+**Same machine. RAM speed. 7 languages.**
+
+56.5 ns round-trip. Zero-copy. Python, Node.js, Java, Kotlin, Rust, Go, C++.
 
 ---
 
-- [When to use](#when-to-use-tachyon)
-- [Install](#install)
-- [Quickstart](#quickstart)
-- [Benchmarks](#benchmarks)
-- [Examples](#examples)
-- [Architecture](#architecture)
-- [Requirements](#requirements)
+## How fast?
+
+| Transport          | p50 RTT     | Cross-language  | Zero-copy |
+|--------------------|-------------|-----------------|-----------|
+| **Tachyon**        | **56.5 ns** | ✓ (7 languages) | ✓         |
+| iceoryx            | ~150 ns     | C++ only        | ✓         |
+| Aeron IPC          | ~250 ns     | same-lang only  | ✓         |
+| Chronicle Queue    | ~250 ns     | Java only       | ✓         |
+| Unix domain socket | ~2 µs       | ✓               | ✗         |
+| ZeroMQ (`ipc://`)  | ~10 µs      | ✓               | ✗         |
+| gRPC (localhost)   | ~1 ms       | ✓               | ✗         |
+
+All measurements are same-machine IPC. Aeron also supports network transport (UDP);
+Tachyon is same-machine only by design. `memfd` and `SCM_RIGHTS` are local primitives.
+
+i7-12650H · DDR5-5600 · Linux 6.19 · full methodology [below](#benchmarks)
+
+---
+
+## Why Tachyon?
+
+- **Nothing is faster in the cross-language space.** Aeron (~250 ns, Java or C++), Chronicle Queue (~250 ns, Java),
+  and iceoryx (~150 ns, C++) match the latency in a single language. Tachyon does it across 7.
+- **Zero-copy from producer to PyTorch/NumPy.** DLPack support means a C++ process can feed tensors to Python with no
+  serialization, no memcpy, no glue.
+- **One dependency: your kernel.** No broker, no daemon, no media driver. Two processes, one shared ring, done.
 
 ---
 
 ## When to use Tachyon
 
 - **ML inference pipeline**: a C++ or Rust process generates feature vectors faster than Python can consume them.
-  Tachyon lets PyTorch read directly from
-  shared memory via DLPack or `memoryview`, with no serialization and no kernel copies on the hot path.
-- **Trading feed**: a native order book process pushes market data ticks at 1M+ msg/sec to a Python strategy. Zero-copy
-  `send_zero_copy` + typed `type_id` routing keeps the producer below 100 ns per message.
+  Tachyon lets PyTorch read directly from shared memory via DLPack or `memoryview`, with no serialization and no kernel
+  copies on the hot path.
+- **Trading feed**: a native order book process pushes market data ticks at 1M+ msg/sec to a Python strategy.
+  Zero-copy `send_zero_copy` + typed `type_id` routing keeps the producer below 100 ns per message.
 - **Audio / video inter-process**: a real-time encoder or DSP process pushes fixed-size frames to a consumer on the
   same machine. The SPSC ring absorbs bursts during consumer pauses without dropping frames or blocking the producer.
 
@@ -38,25 +58,7 @@ zero-copy bindings for Python, Rust, and C++.
 
 ## Install
 
-**C++ (CMake FetchContent):**
-
-```cmake
-include(FetchContent)
-
-FetchContent_Declare(tachyon
-		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
-		GIT_TAG v0.3.0
-)
-FetchContent_GetProperties(tachyon)
-if (NOT tachyon_POPULATED)
-	FetchContent_Populate(tachyon)
-	add_subdirectory(${tachyon_SOURCE_DIR}/core ${tachyon_BINARY_DIR}/tachyon-core)
-endif ()
-
-target_link_libraries(my_app PRIVATE tachyon)
-```
-
-**Python**: compiles the C++ core at install time, requires GCC 14+ or Clang 17+:
+**Python** - compiles the C++ core at install time, requires GCC 14+ or Clang 17+:
 
 ```bash
 pip install tachyon-ipc
@@ -65,10 +67,10 @@ pip install tachyon-ipc
 > **Note:** the PyPI package is `tachyon-ipc`, not `tachyon` (which is an unrelated quantum simulator). Always install
 > with `pip install tachyon-ipc`.
 
-**Rust:**
+**Node.js:**
 
 ```bash
-cargo add tachyon-ipc
+npm install @tachyon-ipc/core
 ```
 
 **Java (Maven):**
@@ -88,10 +90,34 @@ cargo add tachyon-ipc
 implementation("dev.tachyon-ipc:tachyon-kotlin:0.3.0")
 ```
 
-**Node.js:**
+**Rust:**
 
 ```bash
-npm install @tachyon-ipc/core
+cargo add tachyon-ipc
+```
+
+**Go:**
+
+```bash
+go get github.com/riyaneel/tachyon/bindings/go@v0.3.0
+```
+
+**C++ (CMake FetchContent):**
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(tachyon
+		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
+		GIT_TAG v0.3.0
+)
+FetchContent_GetProperties(tachyon)
+if (NOT tachyon_POPULATED)
+	FetchContent_Populate(tachyon)
+	add_subdirectory(${tachyon_SOURCE_DIR}/core ${tachyon_BINARY_DIR}/tachyon-core)
+endif ()
+
+target_link_libraries(my_app PRIVATE tachyon)
 ```
 
 ---
@@ -249,8 +275,8 @@ p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`, the 
 
 ## Examples
 
-End-to-end cross-language examples in [`examples/`](./examples). Each runs in
-two terminals and uses a typed payload with a sentinel shutdown signal.
+End-to-end cross-language examples in [`examples/`](./examples). Each runs in two terminals and uses a typed payload
+with a sentinel shutdown signal.
 
 | Example                                                                   | Producer | Consumer       | Throughput                       | Payload                |
 |---------------------------------------------------------------------------|----------|----------------|----------------------------------|------------------------|
@@ -280,13 +306,13 @@ indices are updated at most once every 32 messages or on an explicit `flush()`.
 **Hardware sympathy.** Every control structure (message headers, atomic indices, watchdog flags) is padded to 64-byte
 or 128-byte boundaries. False sharing between producer and consumer cache lines is structurally impossible.
 
-**Hybrid wait strategy.** The consumer spins for a bounded threshold (`cpu_relax()`), then sleeps via `SYS_futex` (
-Linux) or `__ulock_wait` (macOS) with a 200 ms watchdog timeout. Kernel sleeps are bounded, so the thread periodically
+**Hybrid wait strategy.** The consumer spins for a bounded threshold (`cpu_relax()`), then sleeps via `SYS_futex`
+(Linux) or `__ulock_wait` (macOS) with a 200 ms watchdog timeout. Kernel sleeps are bounded, so the thread periodically
 returns to the host runtime to process signals.
 
-**Zero-copy contract.** C++ and Rust expose raw pointers or slices tied to the ring buffer lifetime. Python surfaces the
-buffer protocol (`memoryview`) and DLPack (`__dlpack__`), allowing PyTorch, JAX, and NumPy to consume payloads directly
-from shared memory without copying.
+**Zero-copy contract.** C++ and Rust expose raw pointers or slices tied to the ring buffer lifetime. Python surfaces
+the buffer protocol (`memoryview`) and DLPack (`__dlpack__`), allowing PyTorch, JAX, and NumPy to consume payloads
+directly from shared memory without copying.
 
 For wire protocol details and ABI guarantees → [`ABI.md`](./ABI.md).  
 For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATION.md`](./INTEGRATION.md).
@@ -295,13 +321,38 @@ For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATIO
 
 ## Requirements
 
-| Component | Minimum                                                    |
-|-----------|------------------------------------------------------------|
-| OS        | Linux 5.10+ (primary), macOS 13+ (tier-2)                  |
-| Compiler  | Clang 17+ for basic use, Clang 21+ for preset-based builds |
-| CMake     | 3.31+                                                      |
-| Python    | 3.10+                                                      |
-| Rust      | stable (2024 edition)                                      |
+| Component | Minimum                                                                                                      |
+|-----------|--------------------------------------------------------------------------------------------------------------|
+| OS        | Linux 5.10+ (primary), macOS 13+ (tier-2). **Windows: not supported** (`memfd`, `SCM_RIGHTS` are POSIX-only) |
+| Compiler  | Clang 17+ for basic use, Clang 21+ for preset-based builds                                                   |
+| CMake     | 3.31+                                                                                                        |
+| Python    | 3.10+                                                                                                        |
+| Node.js   | 20+                                                                                                          |
+| Java      | 21+ (Panama FFM GA)                                                                                          |
+| Kotlin    | 2.0+                                                                                                         |
+| Go        | 1.23+                                                                                                        |
+| Rust      | stable (2024 edition)                                                                                        |
+
+---
+
+## FAQ
+
+**vs Aeron / iceoryx / Chronicle Queue?**
+
+- **Aeron** (~250 ns): excellent, adds network transport (UDP), same-language only. Tachyon is same-machine only,
+  cross-language.
+- **iceoryx** (~150 ns): excellent C++-only shared-memory IPC for automotive/ROS2. No Python, Java, Node.
+- **Chronicle Queue** (~250 ns): Java-only, disk-persistent by design.
+
+Tachyon is the only sub-100 ns same-machine IPC that works natively across 7 languages.
+
+**vs Python's `multiprocessing.SharedMemory`?**  
+stdlib gives you a raw buffer. Tachyon gives you a lock-free SPSC queue with message framing, typed routing, zero-copy
+receive, and a cross-language ABI. Both ends Python, simple buffer → stdlib. Anything else → Tachyon.
+
+**Why SPSC and not MPMC?**  
+SPSC is the only topology that eliminates coordination overhead entirely and hits sub-100 ns. For fan-out, use N
+independent SPSC buses. Native MPSC is planned.
 
 ---
 
