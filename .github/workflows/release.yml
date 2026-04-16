@@ -477,7 +477,7 @@ jobs:
         env:
           CC: 'clang'
           CXX: 'clang++'
-        run: npm install && npm run build:ts
+        run: npm install --ignore-scripts && npm run build:ts
 
       - name: Publish to NPM
         working-directory: bindings/node
@@ -524,8 +524,9 @@ jobs:
       needs.tachyon_top.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
+      attestations: write
       contents: write
-
+      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -573,6 +574,28 @@ jobs:
             --prefix="tachyon-${TAG}/" \
             --output="dist/tachyon-${TAG}-source.tar.gz" \
             "${TAG}"
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd dist
+          find . -maxdepth 1 -type f | sort | xargs sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Generate SLSA provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'dist/*'
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign artifacts
+        run: |
+          for f in dist/*; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes "$f" \
+              --bundle "${f}.bundle"
+          done
 
       - name: Extract release notes from CHANGELOG
         id: notes
