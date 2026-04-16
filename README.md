@@ -80,14 +80,14 @@ npm install @tachyon-ipc/core
 <dependency>
     <groupId>dev.tachyon-ipc</groupId>
     <artifactId>tachyon-java</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.5</version>
 </dependency>
 ```
 
 **Kotlin (Gradle):**
 
 ```kotlin
-implementation("dev.tachyon-ipc:tachyon-kotlin:0.3.0")
+implementation("dev.tachyon-ipc:tachyon-kotlin:0.3.5")
 ```
 
 **Rust:**
@@ -99,7 +99,7 @@ cargo add tachyon-ipc
 **Go:**
 
 ```bash
-go get github.com/riyaneel/tachyon/bindings/go@v0.3.0
+go get github.com/riyaneel/tachyon/bindings/go@v0.3.5
 ```
 
 **C++ (CMake FetchContent):**
@@ -109,7 +109,7 @@ include(FetchContent)
 
 FetchContent_Declare(tachyon
 		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
-		GIT_TAG v0.3.0
+		GIT_TAG v0.3.5
 )
 FetchContent_GetProperties(tachyon)
 if (NOT tachyon_POPULATED)
