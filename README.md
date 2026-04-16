@@ -259,8 +259,8 @@ two terminals and uses a typed payload with a sentinel shutdown signal.
 | [rust_producer_python_consumer](./examples/rust_producer_python_consumer) | Rust     | Python (torch) | **510 K frames/s** · 0.51 GB/s   | 1 024 bytes `f32[256]` |
 | [cpp_producer_python_consumer](./examples/cpp_producer_python_consumer)   | C++      | Python (torch) | **533 K frames/s** · 0.53 GB/s   | 1 024 bytes `f32[256]` |
 
-All numbers: i7-12650H · DDR5-5600 · Ubuntu 24.04 · no CPU isolation (except `cpp_producer_cpp_consumer` which uses
-`SCHED_FIFO` + core pinning).
+All numbers: i7-12650H · DDR5-5600 · Fedora 43 · Linux 6.19.11 · no CPU isolation (except `cpp_producer_cpp_consumer`
+which uses `SCHED_FIFO` + core pinning).
 
 ---
 

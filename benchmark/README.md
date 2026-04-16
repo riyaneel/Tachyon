@@ -73,41 +73,26 @@ The comparator reads `p50_ns` … `p99.99_ns` counters from both `bench_intra` (
 
 ## Results
 
-**Machine:** Intel Core i7-12650H · 64 GiB DDR5-5600 · Ubuntu 24.04 · GCC 14 · Release.  
+**Machine:** Intel Core i7-12650H · 64 GiB DDR5-5600 · Fedora 43 · Linux 6.19.11 · GCC 14 · Release.  
 **Setup:** `PING_CORE=8 PONG_CORE=9`, SCHED_FIFO, CPU governor `performance`. No `isolcpus`.
 
 ### Intra vs inter vs ZeroMQ
 
 | Percentile | Intra (ns) | Inter (ns) | ZeroMQ inproc (ns) | Intra vs ZMQ |
 |------------|:----------:|:----------:|:------------------:|:------------:|
-| p50        |    107     |    134     |       6 751        |   **63×**    |
-| p90        |    160     |    167     |       10 121       |     63×      |
-| p99        |    178     |    201     |       10 553       |     59×      |
-| p99.9      |    216     |    254     |       13 097       |     61×      |
-| p99.99     |    926     |    953     |       17 390       |     19×      |
+| p50        |    45.1    |    56.5    |       6 751        |   **150×**   |
+| p90        |    80.5    |   101.2    |       10 121       |     126×     |
+| p99        |    90.7    |   112.4    |       10 553       |     116×     |
+| p99.9      |    96.4    |   122.0    |       13 097       |     136×     |
+| p99.99     |   467.3    |   467.3    |       17 390       |     37×      |
 
-The intra/inter gap at p50 is +27 ns (+25%). This is the cost of the process boundary, the second SHM arena is mapped
+The intra/inter gap at p50 is +11.4 ns (+25%). This is the cost of the process boundary, the second SHM arena is mapped
 via `SCM_RIGHTS`, and the hot path after handshake is identical in both cases: the same lock-free ring with no kernel
 involvement.
 
-ZeroMQ `inproc://` is a shared-memory transport within the same process, its strongest possible configuration. The 63×
-gap at p50 reflects ZMQ's message framing, reference counting, and HWM bookkeeping. At p99.99 the gap narrows to 19×
+ZeroMQ `inproc://` is a shared-memory transport within the same process, its strongest possible configuration. The 150×
+gap at p50 reflects ZMQ's message framing, reference counting, and HWM bookkeeping. At p99.99 the gap narrows to 37×
 because Tachyon's scheduler jitter floor (~1 µs) dominates both tails on an untuned kernel.
-
-### PGO build
-
-**Setup:** `bash ci/bench/pgo.sh`, Clang 18, `taskset -c 7,8,9`, SCHED_FIFO.
-
-| Percentile | Intra (ns) |   Throughput    |
-|------------|:----------:|:---------------:|
-| p50        |     88     | 8 868 K RTT/sec |
-| p99        |    138     |                 |
-| p99.99     |    350     |                 |
-
-PGO reduces p50 by 18% (107 → 88 ns). The gain comes from branch misprediction elimination in the ring buffer hot path,
-specifically the`acquire_tx` capacity check and the `commit_tx` batch-flush threshold branch. Clang's
-`fprofile-instr-generate` path typically yields slightly tighter tail latency than GCC due to more aggressive inlining
-under feedback.
 
 ---
 

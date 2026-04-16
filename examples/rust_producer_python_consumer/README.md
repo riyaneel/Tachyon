@@ -5,7 +5,7 @@ pre-allocated NumPy buffer and runs batched inference. No serialization. No kern
 
 ## Results
 
-Hardware: i7-12650H · DDR5-5600 · Ubuntu 24.04 · no CPU isolation.
+Hardware: i7-12650H · DDR5-5600 · Fedora 43 · Linux 6.19.11 · no CPU isolation.
 
 | Metric               | Value                    |
 |----------------------|--------------------------|

@@ -5,8 +5,8 @@ syscalls, no allocations, and no kernel involvement after the UDS handshake.
 
 ## Results
 
-Hardware: i7-12650H · DDR5-5600 · Ubuntu 24.04 · cores 8 and 9 pinned ·`SCHED_FIFO` priority 99 · `mlockall` · no
-`isolcpus`.
+Hardware: i7-12650H · DDR5-5600 · Fedora 43 · Linux 6.19.11 · cores 8 and 9 pinned ·`SCHED_FIFO` priority 99 ·
+`mlockall` · no `isolcpus`.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -16,24 +16,20 @@ Hardware: i7-12650H · DDR5-5600 · Ubuntu 24.04 · cores 8 and 9 pinned ·`SCHE
 ├──────────────────────────────────┬──────────────┤
 │  Metric                          │     RTT (ns) │
 ├──────────────────────────────────┼──────────────┤
-│  Min                              │        95.2 │
-│  p50  (median)                    │       124.3 │
-│  p90                              │       191.2 │
-│  p99                              │       205.4 │
-│  p99.9                            │       236.6 │
-│  p99.99                           │       509.7 │
-│  Max                              │      4938.3 │
+│  Min                             │        51.3  │
+│  p50  (median)                   │        56.5  │
+│  p90                             │       101.2  │
+│  p99                             │       112.4  │
+│  p99.9                           │       122.0  │
+│  p99.99                          │       467.3  │
+│  Max                             │      4938.0  │
 ├──────────────────────────────────┼──────────────┤
-│  Mean                             │       141.2 │
-│  Std dev                          │        39.8 │
-├──────────────────────────────────┼──────────────┤
-│  One-way p50 estimate             │        62.1 │
-│  Throughput (K RTT/s)             │      6686.4 │
+│  One-way p50 estimate            │        28.3  │
+│  Throughput (K RTT/s)            │     13229.0  │
 └──────────────────────────────────┴──────────────┘
 ```
 
-One-way p50: **62 ns**. p99.99 at 509 ns is scheduler jitter — `isolcpus=8,9`
-brings it below 200 ns.
+One-way p50: **28.3 ns**. p99.99 at 467.3 ns is scheduler jitter — `isolcpus=8,9` brings it below 200 ns.
 
 ## Build
 
