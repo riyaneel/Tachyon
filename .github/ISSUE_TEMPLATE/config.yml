@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/riyaneel/Tachyon/discussions
+    about: For usage questions, use Discussions rather than Issues.
