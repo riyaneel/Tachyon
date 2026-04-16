@@ -303,8 +303,8 @@ jobs:
       - name: Publish to Central Portal
         working-directory: bindings/java
         env:
-          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_TOKEN }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
         run: ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-build-cache --rerun-tasks
@@ -349,8 +349,8 @@ jobs:
       - name: Publish to Central Portal
         working-directory: bindings/kotlin
         env:
-          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_TOKEN }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
         run: ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-build-cache --rerun-tasks
@@ -366,7 +366,7 @@ jobs:
           path: bindings/kotlin/build/libs/tachyon-kotlin-*.jar
 
   nodejs_prebuilt:
-    name: Node.js Prebuilt (${{ matrix.platform }}-={{ matrix.arch }})
+    name: Node.js Prebuilt (${{ matrix.platform }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -406,6 +406,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: bindings/node
+        env:
+          CC: ${{ matrix.platform == 'linux' && 'clang-21' || 'clang' }}
+          CXX: ${{ matrix.platform == 'linux' && 'clang++-21' || 'clang++' }}
         run: npm install
 
       - name: Build Prebuilt
@@ -413,7 +416,16 @@ jobs:
         env:
           CC: ${{ matrix.platform == 'linux' && 'clang-21' || 'clang' }}
           CXX: ${{ matrix.platform == 'linux' && 'clang++-21' || 'clang++' }}
-        run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
+        run: |
+          npx cmake-js compile --arch ${{ matrix.arch }}
+          TARGET_DIR="prebuilds/${{ matrix.platform }}-${{ matrix.arch }}"
+          mkdir -p "${TARGET_DIR}"
+          cp build/Release/*.node "${TARGET_DIR}/node.napi.node"
+          if [ "${{ matrix.platform }}" = "linux" ]; then
+            strip "${TARGET_DIR}/node.napi.node"
+          else
+            strip -x "${TARGET_DIR}/node.napi.node"
+          fi
 
       - name: Create Tarball Asset
         run: |
@@ -450,6 +462,9 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Vendor C++ core
+        run: bash ci/vendor.sh node
+
       - name: Download all prebuilts
         uses: actions/download-artifact@v8
         with:
@@ -459,6 +474,9 @@ jobs:
 
       - name: Build TypeScript
         working-directory: bindings/node
+        env:
+          CC: 'clang'
+          CXX: 'clang++'
         run: npm install && npm run build:ts
 
       - name: Publish to NPM

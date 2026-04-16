@@ -35,8 +35,6 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
     }
-    withSourcesJar()
-    withJavadocJar()
 }
 
 tasks.withType<JavaCompile> {
@@ -69,6 +67,12 @@ tasks.withType<Javadoc> {
     val stdOptions = options as StandardJavadocDocletOptions
     stdOptions.addStringOption("-enable-preview", "-quiet")
     stdOptions.source = "21"
+}
+
+afterEvaluate {
+    tasks.named("generateMetadataFileForMavenPublication") {
+        dependsOn("plainJavadocJar")
+    }
 }
 
 mavenPublishing {

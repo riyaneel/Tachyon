@@ -22,9 +22,6 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
     }
-
-    withSourcesJar()
-    withJavadocJar()
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
@@ -41,6 +38,12 @@ tasks.withType<JavaCompile> {
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+}
+
+afterEvaluate {
+    tasks.named("generateMetadataFileForMavenPublication") {
+        dependsOn("plainJavadocJar")
+    }
 }
 
 mavenPublishing {
