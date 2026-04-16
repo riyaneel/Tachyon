@@ -1,5 +1,230 @@
 # Changelog
 
+## [v0.3.5] | 2026-04-16
+
+### Features
+
+- `550c172` | **ci**: Add artifact signing and SLSA provenance generation
+- `eb1021b` | **bindings/node**: Add Prettier format check script to package.json
+- `5a93f42` | **bindings/node**: Add Prettier and ESLint with configuration for TypeScript
+- `4babcbf` | **bindings/node**: Add Bus class
+- `d7e7b63` | **bindings/node**: Add RxBatch class and RxMessage type for batch processing
+- `1a6811b` | **bindings/node**: Add TxGuard and RxGuard for typed zero-copy buffer slots
+- `63021f9` | **bindings/node**: Introduce TypeScript error definitions for N-API boundary
+- `dff1582` | **bindings/node**: Add native TachyonBusNode implementation wrapping Tachyon C API
+- `2c1d892` | **bindings/kotlin**: Add `Bus` class for IPC communication and flow-based message handling
+- `74468c3` | **bindings/kotlin**: Add Message class for typed IPC communication support
+- `36ba05c` | **java**: Refactor RxBatchGuard to use sliced views for memory access
+- `e4727d2` | **java**: Ensure memory segments are read-only in RxMsgView and RxGuard
+- `a29b600` | **java**: Throw BufferFullException when bus buffer is full
+- `bfdccd6` | **java**: Relocate classes to `java.io.tachyon` package for consistency
+- `f90a70c` | **java**: Add TachyonBus for managing bus lifecycle and operations
+- `be68c08` | **java**: Refactor guards to ensure safe and confined memory access
+- `d36ddf8` | **java**: Add RxBatchGuard for managing batch message lifecycles
+- `237c43b` | **java**: Add RxGuard for managing read-only guarded resource lifecycles
+- `15a4bc5` | **java**: Add TxGuard for managing transaction lifecycles
+- `cd60391` | **java**: Add RxMsgView for managing read-only message views
+- `10f657c` | **java**: Add TachyonException and custom exceptions for error handling
+- `ca7455c` | **java**: Add MsgViewLayout for managing native message views
+- `157fe61` | **java**: Add TachyonABI utility for managing native method calls
+- `99b9459` | **java**: Add NativeLoader utility for loading native libraries
+- `d13fd67` | **java**: Add JNI_OnLoad implementation for Java bindings
+- `157bbe7` | **tachyon-top**: Implement JSON export, polling, and interactive UI with dynamic update interval
+- `59cf7ae` | **tachyon-top**: Optimize PID parsing in `ProcScanner`
+- `1f19ef2` | **tachyon-top**: Add UI components for rendering bus metrics and details
+- `3e726b0` | **tachyon-top**: Add `BusView` for visualizing bus state and metrics
+- `9728d14` | **tachyon-top**: Add `ProcScanner` for scanning processes and shared memory
+- `8a79d59` | Add initial `tachyon-top` CLI entry point
+- `acf5e1a` | **rust**: Add `set_polling_mode` to enable pure-spin mode in Rust bindings
+- `4ba1a47` | **python**: Add `set_polling_mode` to enable pure-spin mode in Python bindings
+
+### Bug Fixes
+
+- `2c97226` | **ci**: Stabilize publishing pipelines
+- `a9af33c` | **bindings/java**: Suppress removal warnings and handle TACHYON FATAL or EINTR errors in Rx logic
+- `c1ba1e7` | **cmake**: Update `TACHYON_MSAN_LIBCXX_DIR` to use LLVM 21
+- `27fb65c` | **core**: Add `MFD_CLOEXEC` flag to `memfd_create` for fd safety
+- `37439ca` | **ci**: Correct syntax in LLVM install script
+- `9b815ca` | **core**: Ensure socket file is unlinked after closure
+- `1e9fa0d` | Update default build directory path in `ci/bench/run.sh`
+- `f5e6811` | **bindings/node**: Correct NAPI_VERSION to match supported API version
+- `aa3e926` | **bindings/kotlin**: Add connection retry logic and optimize batch message handling
+- `377f1aa` | **bindings/kotlin**: Correct send method logic, improve send efficiency, adjust Flow spin threshold
+- `48f2974` | **core**: Validate `TachyonBus` capacity to ensure it is a power of two
+- `c4e3a7c` | **tachyon-top**: Handle empty process list in JSON output and adjust fatal error label formatting
+- `9d823b0` | **tachyon-top**: Correct sparkline data mapping in `BusView`
+- `1daabec` | **tachyon-top**: Skip scanning self PID in `ProcScanner`
+- `7a3e988` | **examples**: Correct import paths in producer and consumer mains
+- `c942986` | **ping**: Adjust table formatting for alignment consistency
+- `119d10a` | **arena**: Remove redundant prefetch calls in arena operations
+- `7aea7d3` | **cmake**: Add MSan compile options for gtest and update test discovery mode
+- `3859933` | **cmake**: Update cache variable definitions and add PGO directory in presets
+- `6f76629` | **cmake**: Correct CXX compiler name in clang toolchain and add fallback linker message in gcc toolchain
+- `8e0f07b` | **cmake**: Correct preset name formatting and update include path
+- `4a28498` | **cmake**: Fix linker check in clang toolchain configuration
+
+### Performance Improvements
+
+- `3a2bcfe` | **bindings/java**: Add JMH benchmarks for TachyonBus
+- `e61ffd6` | **core**: Remove atomic flags for locks, add likely/unlikely annotations to reduce branche misses
+- `5096b2a` | **examples**: Enable polling mode in ping/pong mains
+- `7182154` | **core**: Add polling mode support in bus arena
+- `d755f33` | **arena**: Add polling mode and refine consumer state handling
+- `a49884c` | **arena**: Move heartbeat updates inside batch condition
+- `9036714` | **core**: Align atomic flags to cache lines to reduce false sharing
+
+### Code Refactoring
+
+- `3a8a4fe` | **bindings/node**: Replace worker threads with child process for tests
+- `627ee15` | **ci**: Add LLVM 21 support and env vars for Linux builds
+- `227653a` | **core**: Cleanup unused code and improve type const correctness
+- `d078c62` | **bindings/node**: Ensure slot state is properly checked before actions
+- `3fd39f5` | **bindings/kotlin**: Remove redundant `yield` in Bus logic
+- `aa81855` | Replace em dash with hyphen for consistency
+- `1830b4a` | **ci**: Enhance LLVM install script
+- `0d0951f` | **ci**: Replace em dash
+- `d001372` | **workflows**: Replace em dash with hyphen
+- `8787c09` | **build**: Replace em dash with hyphen in build messages and comments
+- `7d8bd51` | **changelog**: Enhance commit parsing and changelog generation
+- `113279b` | **bindings/node**: Improve error handling and streamline `assert_open` logic
+- `2bbc39e` | **bindings/node**: Update imports to use `.ts` extensions and adjust tsconfig
+- `d67c694` | **bindings/node**: Update relative imports
+- `625e1fc` | **bindings/node**: Apply `public` visibility modifier across classes and methods
+- `ac7149c` | **bindings/node**: Reformat code and simplify default member initializers
+- `463cc73` | **bindings/java**: Relocate package to `dev.tachyon_ipc` and update group ID
+- `20faa78` | **tachyon-top**: Streamline core namespace usage and improve const correctness
+- `4620b84` | **tachyon-top**: Optimize view management and buffer handling
+- `638ada1` | **tachyon-top**: Enhance `BusView` and `ProcScanner` with improved buffer management and resource safety
+- `9a00f07` | **tachyon-top**: Improve sparkline rendering scalability with dynamic canvas size
+- `a5dfbbc` | **build**: Rename `LINK_OPTIONS` to `TACHYON_LINK_OPTIONS`
+- `cf8d381` | **examples**: Enable polling mode in consumer examples
+- `9cb22be` | **benchmark**: Enable polling mode in Python and Go benchmarks
+- `164bbb5` | **arena**: Replace `MessageHeader` with `PackedMeta` in data copying
+- `750bcd4` | **arena**: Replace `MessageHeader` with `PackedMeta` for metadata handling
+
+### Build System
+
+- `5ce4851` | **bindings/node**: Include test folder in tsconfig and eslint config
+- `c007283` | **bindings/node**: Migrate to ESM and replace ts-node
+- `de53f04` | **bindings/node**: Update tsconfig with ESNext.Disposable lib and Node types
+- `083e9cb` | **bindings/node**: Add TypeScript configuration and initial entry point
+- `419e94c` | **bindings/node**: Migrate from GYP to cmake-js, update build tooling dependencies
+- `afa0d91` | **bindings/node**: Add GYP build configuration
+- `afc4ed7` | **bindings/node**: Add package.json for Node.js bindings
+- `9dbebe7` | **bindings/node**: Add CMake support for Node.js bindings
+- `e912886` | **bindings/kotlin**: Add Gradle wrapper for version 8.11 setup
+- `fee3417` | **bindings/kotlin**: Add initial Gradle setup and Maven publishing configuration
+- `88e85a0` | **bindings/java**: Upgrade Gradle to 8.11 and migrate to Vanniktech Maven Publish plugin
+- `258eaf2` | **gradle**: Configure JMH annotation processor and link compileJmhJava to jmh task
+- `bd6516b` | **gradle**: Add JUnit Platform Launcher dependency for enhanced test execution
+- `1beaff2` | **gradle**: Enable Java 21 preview features and update compiler, test, and Javadoc configurations
+- `d0ce10d` | **gradle**: Revert version and name in mvn publication
+- `047f701` | **gradle**: Add JMH benchmarks and Maven publishing
+- `41f948b` | **cmake**: Replace Java JNI library with native resources packaging
+- `ee7f31b` | **gradle**: Add Gradle wrapper and configuration for Java bindings
+- `18cb608` | **gradle**: Add initial Gradle configuration for Java bindings
+- `52a7c06` | **cmake**: Add Java bindings support with JNI integration
+- `bcd5f6a` | **cmake**: Add `tachyon-top-ci` preset for CI builds with portable settings
+- `2adfaf9` | **cmake**: Add portable build option to disable `-march=native` for redistributable binaries
+- `17e68e3` | Add support for building `tachyon-top` CLI with FTXUI dependency
+- `2819436` | **cmake**: Set compile options for tachyon_python target
+- `07559c1` | **cmake**: Remove redundant find_package calls for benchmark and GTest
+- `40f9c5e` | **cmake**: Enhance MSan setup with libc++ paths and validation
+- `0f2167c` | Add script for building libc++ with MSan and update .gitignore
+- `2429f69` | **cmake**: Add debug presets for clang and gcc, update .gitignore
+- `fb3cf2e` | **cmake**: Replace inline compile options with tachyon_set_compile_options
+- `881cf07` | **cmake**: Include dependency module and improve sanitizer checks
+- `9eb47d2` | **cmake**: Include compile options module and remove unused debug flags
+- `976e4c4` | **cmake**: Fix preset name formatting and add top-level CMakePresets.json
+- `ed5bf51` | **cmake**: Add MemorySanitizer (MSan) support
+- `7bde253` | **cmake**: Introduce CMakePresets.json for streamlined configuration
+- `98c23ff` | **cmake**: Add module for third-party dependencies with FetchContent
+- `4ebdfc7` | **cmake**: Refactor sanitizer setup into a shared module
+- `caaa78b` | **cmake**: Add sanitizer configuration module
+- `4d770ca` | **cmake**: Move compile options to a dedicated module
+- `e1adb37` | **bindings/python**: Conditionally disable native compile flags in CI environments
+- `272d24b` | **cmake**: Add clang and gcc cmake toolchains
+
+### Continuous Integration
+
+- `1bf644b` | **workflows**: Add Node.js prebuild and publish steps to release workflow
+- `6952fb4` | Fix CI workflow to use correct script (format:check)
+- `7db8320` | Remove redundant build dependency installation from CI workflows
+- `b20991c` | Add format and lint checks to CI (Node) workflow
+- `eb12544` | Add CI workflows for Node.js bindings on Linux and macOS
+- `8b8ef30` | **vendor**: Add support for Node.js target in vendor script
+- `cce19bf` | **release**: Add Kotlin Fat JAR publishing to Maven Central
+- `b137812` | Add CI workflows for Kotlin bindings on Linux and macOS
+- `918be22` | **vendor**: Refactor to use unified `vendor.sh` script in workflows
+- `1c079a9` | **vendor**: Unify vendor scripts into a single target-based script
+- `2283f71` | Add Java native build and publish steps in release
+- `ad36429` | Add workflows for Java bindings on Linux and macOS
+- `563c13d` | Add script to vendor Java core bindings in CI pipeline
+- `e2cc255` | Add smoke test step to verify JSON output in CI pipeline
+- `f4b06e7` | **release**: Add `tachyon-top` build and release steps to CI pipeline
+- `77a0525` | Add workflow for building and testing tachyon-top
+- `a962165` | **bench**: Update PGO script for preset builds and benchmark refinements
+- `efc7015` | **workflows**: Add cpp_msan job, streamline CI workflows with toolchain updates, Kitware APT setup, and preset usage
+- `d031ade` | **fuzz**: Remove redundant packages from fuzz workflow setup
+- `4177f46` | **llvm**: Cleanup old alternatives before installing new LLVM versions
+- `b249f5c` | **fuzz**: Update fuzz workflow to install LLVM 21, use presets and add Kitware APT setup
+- `aff90b3` | **llvm**: Add script to install LLVM toolchain for CI workflows
+
+### Tests
+
+- `bae0c0f` | **bindings/node**: Add ts extensions in Mocha configuration
+- `a3b0130` | **bindings/node**: Add SPSC integration test suite for `Bus` module
+- `9a0b6e4` | **bindings/node**: Add Mocha configuration file (.mocharc.json)
+- `ac3d20b` | **bindings/node**: Add test file
+- `41de5d3` | **bindings/kotlin**: Add unit tests for `Bus` class covering message flow, batch draining, and hardware cfg
+- `93e66cd` | **bindings/java**: Add comprehensive unit tests for TachyonBus lifecycle, messaging, and memory operations
+
+### Documentation
+
+- `13366e5` | **readme**: Enhance benchmarks and add multi-language details
+- `050ffb3` | **examples**: Update latest benchmarks results, hardware and OS details across READMEs
+- `64203ce` | **core**: Add README with structure and mechanics
+- `7b0609d` | **integration**: Correct socket file lifecycle
+- `2494764` | Add empty READMEs
+- `fe58032` | **readme**: Add badges and expand installation instructions
+- `751a9c4` | **bindings**: Improve grammar and clarity across docs
+- `e170fda` | **bindings**: Improve grammar and consistency across READMEs
+- `f322c6d` | **bindings/python**: Improve grammar
+- `ed498ac` | **core**: Improve grammar, clarity, and consistency
+- `0eda2ec` | **changelog**: Update date notation
+- `8da6539` | **bindings/go**: Improve grammar, clarity, and consistency in comments and README
+- `4670d0a` | **adr**: Standardize structure and update formatting
+- `de9bf7b` | Update readme
+- `8455ec4` | **bindings/node**: Add README with setup, usage, API examples, and limitations
+- `2089fae` | **bindings/kotlin**: Add README with setup, usage, and API examples
+- `832962b` | **bindings/java**: Add README for Java bindings with usage, examples, and requirements
+- `82ff49f` | **bindings/java**: Update and refine API documentation for exception classes and core components
+- `b63c461` | **bindings/java**: Add API documentation for `RxMsgView` and `RxBatchGuard` classes
+- `535f758` | **bindings/java**: Add API documentation for `TxGuard` and `RxGuard` classes
+- `84f5df7` | **bindings/java**: Add API documentation for `TachyonBus` class and its public methods
+- `1cd4e29` | **bindings/java**: Add comprehensive API documentation for `TachyonABI`, `NativeLoader`, and `MsgViewLayout` classes
+- `4b87204` | **bindings/java**: Add API documentation for exception constructors and methods in `TachyonException` hierarchy
+- `7596ee6` | **bindings/java**: Add API documentation for `MsgViewLayout` and `NativeLoader` classes
+- `cc658a1` | **bindings/java**: Add API documentation for exceptions and base `TachyonException` class
+- `8be2a67` | **bindings/kotlin**: Add API documentation for `Message` and `Bus` classes
+- `6a61d8e` | **ci**: Update README with new scripts and usage
+- `0268bd5` | **tachyon-top**: Add README with usage instructions, features, and JSON output example
+- `ddc5e00` | **INTEGRATION**: Document `tachyon_bus_set_polling_mode` usage and pure-spin mode limitations
+- `11d5b40` | **ABI**: Document `tachyon_bus_set_polling_mode` addition in v0.3.0
+- `6b8f067` | **integration**: Clarify socket lifecycle and error handling in `INTEGRATION.md`
+- `0b08e86` | **readme**: Update compiler requirements and clarify preset-based builds
+- `16cb16a` | **readme**: Add Go Reference badge
+- `b5a6f8c` | **changelog**: Update for v0.2.0
+
+### Chores
+
+- `aa9c6ca` | **version**: Bump version to 0.3.5
+- `f83e2d1` | **version**: Bump version to 0.3.0 across bindings and documentation
+- `ea96885` | **bindings/node**: Add clean script to package.json
+- `29849e5` | **bindings/node**: Update .npmignore to exclude prebuilds and CMakeUserPresets.json
+- `d536f09` | **bindings/node**: Update ignore files for Node.js project files and dependencies
+- `90cdf0d` | **gitignore**: Add Java build and Gradle files to ignore list
+
 ## [v0.2.0] | 2026-03-31
 
 ### feat
