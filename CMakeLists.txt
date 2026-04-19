@@ -111,4 +111,9 @@ if (TACHYON_ENABLE_TOP)
 	endif ()
 endif ()
 
+option(TACHYON_ENABLE_SECCOMP "Build seccomp BPF generators (Linux + libseccomp)" OFF)
+if (TACHYON_ENABLE_SECCOMP)
+	add_subdirectory(contrib/seccomp)
+endif ()
+
 message(STATUS "Tachyon: Build type -> ${CMAKE_BUILD_TYPE}")

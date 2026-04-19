@@ -149,6 +149,14 @@
         "TACHYON_PGO_PHASE": "USE",
         "TACHYON_PGO_DIR": "${sourceDir}/build/pgo-generate/pgo-data"
       }
+    },
+    {
+      "name": "seccomp-bpf",
+      "displayName": "Seccomp BPF Generator",
+      "inherits": "clang-release",
+      "cacheVariables": {
+        "TACHYON_ENABLE_SECCOMP": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -211,6 +219,15 @@
       "configurePreset": "tachyon-top-ci",
       "targets": [
         "tachyon_top"
+      ],
+      "jobs": 0
+    },
+    {
+      "name": "seccomp-bpf",
+      "configurePreset": "seccomp-bpf",
+      "targets": [
+        "tachyon_hotpath",
+        "tachyon_full"
       ],
       "jobs": 0
     }
