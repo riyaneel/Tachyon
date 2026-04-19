@@ -175,6 +175,13 @@ tachyon_bus_set_polling_mode(rx, 1); // consumer: I will never sleep
 tachyon_bus_set_polling_mode(tx, 1); // producer: skip wake check
 ```
 
+### Syscall containment
+
+Tachyon's post-handshake hot path emits a single syscall type (`futex` on Linux, `__ulock` on macOS). If your deployment
+requires seccomp-BPF containment, apply the filter after `tachyon_bus_listen()`/`tachyon_bus_connect()` returns.
+Pre-built profiles are available in `contrib/seccomp/`. Do not apply them from within a polyglot runtime (Go, Python,
+Java, Node.js).
+
 ---
 
 ## Capacity sizing

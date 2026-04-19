@@ -38,3 +38,11 @@ Known limitations:
 ## Artifact verification
 
 All release artifacts are signed with cosign and carry a SLSA Build Level 2 provenance attestation.
+
+## Syscall containment
+
+Tachyon's post-handshake hot path emits a single syscall type (`futex` on Linux, `__ulock` on macOS). The full syscall
+footprint per phase is documented in [`SYSCALLS.md`](./SYSCALLS.md).
+
+For C++ and Rust deployments that require seccomp-BPF containment, pre-built allowlist generators are available in
+[`contrib/seccomp/`](./contrib/seccomp). Do not apply them from within a polyglot runtime (Go, Python, Java, Node.js).
