@@ -155,3 +155,4 @@ bindings/rust/tachyon-sys/vendor/
 fuzz/corpus/artifacts/
 fuzz/corpus/crashes/
 Testing/
+*.bpf
