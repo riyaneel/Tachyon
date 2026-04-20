@@ -17,6 +17,10 @@ extern "C" {
 #define TACHYON_ABI __attribute__((visibility("default")))
 #endif // #if defined(_WIN32) || defined(__CYGWIN__) #else
 
+#define TACHYON_TYPE_ID(route, type) (((uint32_t)(route) << 16) | (uint32_t)(type))
+#define TACHYON_ROUTE_ID(type_id) ((uint16_t)((type_id) >> 16))
+#define TACHYON_MSG_TYPE(type_id) ((uint16_t)((type_id) & 0xFFFF))
+
 typedef enum {
 	TACHYON_SUCCESS			 = 0,
 	TACHYON_ERR_NULL_PTR	 = 1,
@@ -50,7 +54,7 @@ typedef struct {
 	const void *ptr;
 	size_t		actual_size;
 	size_t		reserved_;
-	uint32_t	type_id;
+	uint32_t	type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 	uint32_t	padding_;
 } tachyon_msg_view_t;
 
