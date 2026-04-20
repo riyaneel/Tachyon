@@ -4,6 +4,7 @@ package tachyon_test
 
 import (
 	"bytes"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ const (
 
 func sockPath(t *testing.T) string {
 	t.Helper()
-	return "/tmp/tachyon_go_" + t.Name() + ".sock"
+	return filepath.Join(t.TempDir(), "bus.sock")
 }
 
 func listenAsync(t *testing.T, path string) <-chan *tachyon.Bus {

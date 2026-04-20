@@ -3,7 +3,7 @@
 package tachyon_test
 
 import (
-	"fmt"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"sync"
@@ -32,8 +32,9 @@ func connectWithRetry(tb testing.TB, path string) *tachyon.Bus {
 	return nil
 }
 
-func benchSockPath(name string) string {
-	return fmt.Sprintf("/tmp/tachyon_go_bench_%s.sock", name)
+func benchSockPath(b *testing.B, name string) string {
+	b.Helper()
+	return filepath.Join(b.TempDir(), name + ".sock")
 }
 
 func drainLoop(bus *tachyon.Bus, stop <-chan struct{}, wg *sync.WaitGroup) {
@@ -57,7 +58,7 @@ func drainLoop(bus *tachyon.Bus, stop <-chan struct{}, wg *sync.WaitGroup) {
 }
 
 func BenchmarkSend(b *testing.B) {
-	path := benchSockPath("send")
+	path := benchSockPath(b, "send")
 
 	srvCh := make(chan *tachyon.Bus, 1)
 	go func() {
@@ -106,7 +107,7 @@ func BenchmarkSend(b *testing.B) {
 }
 
 func BenchmarkRecv(b *testing.B) {
-	path := benchSockPath("recv")
+	path := benchSockPath(b, "recv")
 
 	srvCh := make(chan *tachyon.Bus, 1)
 	go func() {
@@ -164,7 +165,7 @@ srv.SetPollingMode(1)
 }
 
 func BenchmarkDrainBatch(b *testing.B) {
-	path := benchSockPath("drainbatch")
+	path := benchSockPath(b, "drainbatch")
 
 	srvCh := make(chan *tachyon.Bus, 1)
 	go func() {
@@ -227,8 +228,8 @@ func BenchmarkDrainBatch(b *testing.B) {
 }
 
 func BenchmarkPingPong(b *testing.B) {
-	pathAB := benchSockPath("pp_ab")
-	pathBA := benchSockPath("pp_ba")
+	pathAB := benchSockPath(b, "pp_ab")
+	pathBA := benchSockPath(b, "pp_ba")
 
 	abSrvCh := make(chan *tachyon.Bus, 1)
 	baSrvCh := make(chan *tachyon.Bus, 1)
