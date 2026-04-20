@@ -34,7 +34,7 @@ namespace tachyon::core {
 
 		struct PackedMeta {
 			uint32_t size;
-			uint32_t type_id;
+			uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 			uint32_t reserved_size;
 		};
 

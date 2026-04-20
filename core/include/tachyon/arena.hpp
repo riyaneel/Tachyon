@@ -20,7 +20,7 @@ static_assert(TACHYON_MSG_ALIGNMENT >= 32, "TACHYON_MSG_ALIGNMENT must be at lea
 
 namespace tachyon::core {
 	constexpr uint32_t TACHYON_MAGIC   = 0x54414348;
-	constexpr uint32_t TACHYON_VERSION = 0x02;
+	constexpr uint32_t TACHYON_VERSION = 0x03;
 
 	constexpr uint32_t CONSUMER_AWAKE	  = 0;
 	constexpr uint32_t CONSUMER_SLEEPING  = 1;
@@ -37,7 +37,7 @@ namespace tachyon::core {
 
 	struct alignas(TACHYON_MSG_ALIGNMENT) MessageHeader {
 		uint32_t size;
-		uint32_t type_id;
+		uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 		uint32_t reserved_size;
 		uint8_t	 padding_[TACHYON_MSG_ALIGNMENT - sizeof(uint32_t) * 3];
 	};
@@ -71,7 +71,7 @@ namespace tachyon::core {
 		const std::byte *ptr;
 		size_t			 actual_size;
 		size_t			 reserved_;
-		uint32_t		 type_id;
+		uint32_t		 type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 		uint32_t		 padding_;
 	};
 
