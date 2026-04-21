@@ -79,11 +79,11 @@ export class RxBatch {
 		return {
 			next: (): IteratorResult<RxMessage> => {
 				if (this.#done || i >= this.#messages.length) {
-					return { value: undefined as unknown as RxMessage, done: true };
+					return { value: undefined, done: true };
 				}
 				if (this.#ctrl.getState() === 4) throw new PeerDeadError();
 				const msg = this.#messages[i++];
-				if (msg === undefined) return { value: undefined as unknown as RxMessage, done: true };
+				if (msg === undefined) return { value: undefined, done: true };
 				return { value: msg, done: false };
 			},
 		};
