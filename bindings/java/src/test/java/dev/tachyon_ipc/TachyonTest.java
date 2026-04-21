@@ -219,6 +219,46 @@ public class TachyonTest {
 	}
 
 	@Test
+	void testTypeIdEncoding() {
+		assertEquals(42, TypeId.of(0, 42));
+		assertEquals(0,  TypeId.routeId(42));
+		assertEquals(42, TypeId.msgType(42));
+
+		int id = TypeId.of(1, 99);
+		assertEquals(1,  TypeId.routeId(id));
+		assertEquals(99, TypeId.msgType(id));
+
+		assertEquals(0, TypeId.of(0, 0));
+	}
+
+	@Test
+	void testTypeIdRoundTripOverBus(@TempDir Path tempDir) throws Exception {
+		String socketPath = tempDir.resolve("typeid_rt.sock").toString();
+
+		AtomicReference<TachyonBus> producerRef = new AtomicReference<>();
+		CountDownLatch latch = new CountDownLatch(1);
+		Thread listenThread = spawnListener(socketPath, producerRef, latch);
+
+		try (TachyonBus consumer = connectWithRetry(socketPath)) {
+			assertTrue(latch.await(2, TimeUnit.SECONDS));
+			try (TachyonBus producer = producerRef.get()) {
+
+				try (TxGuard tx = producer.acquireTx(4)) {
+					tx.getData().set(ValueLayout.JAVA_INT, 0, 0);
+					tx.commit(4, TypeId.of(0, 42));
+				}
+
+				try (RxGuard rx = consumer.acquireRx(SPIN_THRESHOLD)) {
+					assertNotNull(rx);
+					assertEquals(0,  TypeId.routeId(rx.getTypeId()), "routeId must be 0");
+					assertEquals(42, TypeId.msgType(rx.getTypeId()), "msgType must be 42");
+				}
+			}
+		}
+		listenThread.join(2000);
+	}
+
+	@Test
 	void testAbiMismatch() {
 		TachyonException ex = assertThrows(AbiMismatchException.class, () -> {
 			throw TachyonException.fromCode(14);
