@@ -131,4 +131,40 @@ class BusTest {
         listenerJob.join()
         connectorJob.join()
     }
+
+    @Test
+    fun `should encode and decode type_id`() {
+        assertEquals(42, TypeId.of(0, 42))
+        assertEquals(0,  TypeId.routeId(42))
+        assertEquals(42, TypeId.msgType(42))
+
+        val id = TypeId.of(1, 99)
+        assertEquals(1,  TypeId.routeId(id))
+        assertEquals(99, TypeId.msgType(id))
+
+        assertEquals(0, TypeId.of(0, 0))
+    }
+
+    @Test
+    fun `should round-trip type_id over bus`() = runBlocking {
+        val capacity = 1024L * 16L
+
+        val consumerJob = async(Dispatchers.IO) {
+            Bus.listen(socketPath, capacity).use { bus ->
+                bus.acquireRx(10_000)?.use { rx ->
+                    Pair(TypeId.routeId(rx.getTypeId()), TypeId.msgType(rx.getTypeId()))
+                }
+            }
+        }
+
+        launch(Dispatchers.IO) {
+            connectWithRetry(socketPath).use { bus ->
+                bus.send(byteArrayOf(0), typeId = TypeId.of(0, 42))
+            }
+        }.join()
+
+        val result = consumerJob.await()
+        assertEquals(0,  result?.first)
+        assertEquals(42, result?.second)
+    }
 }
