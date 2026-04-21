@@ -380,3 +380,64 @@ func TestABIMismatchError(t *testing.T) {
 		t.Error("Error(): empty string")
 	}
 }
+
+func TestTypeIDEncoding(t *testing.T) {
+	// route=0 preserves v0.3.x semantics
+	if got := tachyon.MakeTypeID(0, 42); got != 42 {
+		t.Errorf("MakeTypeID(0, 42): got %d, want 42", got)
+	}
+	if got := tachyon.RouteID(42); got != 0 {
+		t.Errorf("RouteID(42): got %d, want 0", got)
+	}
+	if got := tachyon.MsgType(42); got != 42 {
+		t.Errorf("MsgType(42): got %d, want 42", got)
+	}
+
+	// round-trip
+	id := tachyon.MakeTypeID(1, 99)
+	if tachyon.RouteID(id) != 1 {
+		t.Errorf("RouteID: got %d, want 1", tachyon.RouteID(id))
+	}
+	if tachyon.MsgType(id) != 99 {
+		t.Errorf("MsgType: got %d, want 99", tachyon.MsgType(id))
+	}
+
+	// sentinel unchanged
+	if tachyon.MakeTypeID(0, 0) != 0 {
+		t.Error("MakeTypeID(0, 0) must be 0")
+	}
+}
+
+func TestTypeIDRoundTripOverBus(t *testing.T) {
+	path := sockPath(t)
+	srvCh := listenAsync(t, path)
+
+	time.Sleep(20 * time.Millisecond)
+
+	client := connectWithRetry(t, path)
+	defer client.Close()
+
+	srv := <-srvCh
+	if srv == nil {
+		t.Fatal("Listen failed")
+	}
+	defer srv.Close()
+
+	if err := client.Send([]byte("payload"), tachyon.MakeTypeID(0, 42)); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	data, typeID, err := srv.Recv(10_000)
+	if err != nil {
+		t.Fatalf("Recv: %v", err)
+	}
+	if tachyon.RouteID(typeID) != 0 {
+		t.Errorf("RouteID: got %d, want 0", tachyon.RouteID(typeID))
+	}
+	if tachyon.MsgType(typeID) != 42 {
+		t.Errorf("MsgType: got %d, want 42", tachyon.MsgType(typeID))
+	}
+	if len(data) == 0 {
+		t.Error("data: empty")
+	}
+}
