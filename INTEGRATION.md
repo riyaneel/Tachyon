@@ -184,6 +184,51 @@ Java, Node.js).
 
 ---
 
+## Type ID encoding
+
+Every message carries a `uint32_t type_id` field. As of v0.4.0, this field is split into two 16-bit halves by
+convention:
+
+```
+bits [31:16]  route_id   routing discriminator, reserved for RPC
+bits [15:0]   msg_type   application-defined message type
+```
+
+The wire layout of `MessageHeader` is unchanged. The split is a semantic convention, not a structural change.
+
+### route_id = 0
+
+`route_id = 0` is reserved for direct SPSC usage without RPC. All v0.3.x `type_id` values fall in this range. A
+`type_id` of `42` is identical to `TACHYON_TYPE_ID(0, 42)`.
+
+### route_id >= 1
+
+Values in bits [31:16] other than zero are reserved for the RPC primitive introduced in v0.5.0. Do not use them in
+v0.4.0 consumers. Behavior is undefined.
+
+### Macro helpers
+
+C++:
+
+```c++
+#include <tachyon.h>
+
+uint32_t id = TACHYON_TYPE_ID(0, 42);  // encode
+uint16_t route = TACHYON_ROUTE_ID(id); // 0
+uint16_t msg = TACHYON_MSG_TYPE(id);   // 42
+```
+
+Equivalent helpers are available in every binding under the same names (`make_type_id`, `route_id`, `msg_type` in
+Python, Rust, Go, Node.js; `TypeId.of`, `TypeId.routeId`, `TypeId.msgType` in Java and Kotlin). See
+[`MIGRATION.md`](./MIGRATION.md) for per-language snippets.
+
+### Sentinel values
+
+`type_id = 0` (`TACHYON_TYPE_ID(0, 0)`) is conventionally used as a shutdown sentinel in the cross-language examples.
+This convention is unchanged. `route_id = 0` and `msg_type = 0` together still read as `type_id == 0`.
+
+---
+
 ## Capacity sizing
 
 The ring buffer must be large enough to absorb producer bursts during consumer pauses (batch compute, GC, scheduling
