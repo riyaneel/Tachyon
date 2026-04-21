@@ -426,6 +426,9 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
+          cache-dependency-path: |
+            bindings/java/*.gradle*
+            bindings/java/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh java
@@ -460,6 +463,9 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
+          cache-dependency-path: |
+            bindings/java/*.gradle*
+            bindings/java/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh java
@@ -505,6 +511,9 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
+          cache-dependency-path: |
+            bindings/kotlin/*.gradle*
+            bindings/kotlin/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh java
@@ -539,6 +548,9 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
+          cache-dependency-path: |
+            bindings/kotlin/*.gradle*
+            bindings/kotlin/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh java
@@ -586,7 +598,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package.json
+          cache-dependency-path: bindings/node/package-lock.json
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh node
@@ -635,7 +647,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package.json
+          cache-dependency-path: bindings/node/package-lock.json
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh node
