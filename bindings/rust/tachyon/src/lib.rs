@@ -1,8 +1,10 @@
 mod bus;
 mod error;
+mod type_id;
 
 pub use bus::{BatchIter, Bus, RxBatchGuard, RxGuard, RxMsgView, TxGuard};
 pub use error::TachyonError;
+pub use type_id::{make_type_id, msg_type, route_id};
 
 #[cfg(test)]
 mod tests {
@@ -157,6 +159,44 @@ mod tests {
         bus.flush();
 
         bus.send(b"committed", 99).unwrap();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_type_id_encoding() {
+        // v0.3.x semantic
+        assert_eq!(make_type_id(0, 42), 42u32);
+        assert_eq!(route_id(42), 0u16);
+        assert_eq!(msg_type(42), 42u16);
+
+        // round trip
+        let id = make_type_id(1, 99);
+        assert_eq!(route_id(id), 1u16);
+        assert_eq!(msg_type(id), 99u16);
+
+        assert_eq!(make_type_id(0, 0), 0u32);
+    }
+
+    #[test]
+    fn test_type_id_round_trip_over_bus() {
+        let path = sock("type_id_rt");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = Bus::listen(&path_srv, CAPACITY).unwrap();
+            let guard = bus.acquire_rx(10_000).unwrap();
+            assert_eq!(route_id(guard.type_id), 0u16);
+            assert_eq!(msg_type(guard.type_id), 42u16);
+            guard.commit().unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = Bus::connect(&path).unwrap();
+        bus.send(b"payload", make_type_id(0, 42)).unwrap();
 
         srv.join().unwrap();
         cleanup(&path);
