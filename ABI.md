@@ -2,14 +2,14 @@
 
 ## Wire Protocol
 
-### Handshake (v0x02)
+### Handshake (v0x03)
 
 Sent once over UDS via `SCM_RIGHTS`. Socket discarded after exchange.
 
 ```c++
 struct TachyonHandshake {
     uint32_t magic;         /* 0x54414348 ("TACH") */
-    uint32_t version;       /* currently 0x02 */
+    uint32_t version;       /* currently 0x03 */
     uint32_t capacity;      /* ring size in bytes, power of two */
     uint32_t shm_size;      /* sizeof(MemoryLayout) + capacity */
     uint32_t msg_alignment; /* TACHYON_MSG_ALIGNMENT compiled into producer */
@@ -23,7 +23,7 @@ Native endian. Flat `iovec`, no framing.
 | Field           | Condition                         | Failure                    |
 |-----------------|-----------------------------------|----------------------------|
 | `magic`         | `== 0x54414348`                   | `TACHYON_ERR_ABI_MISMATCH` |
-| `version`       | `== TACHYON_VERSION` (`0x02`)     | `TACHYON_ERR_ABI_MISMATCH` |
+| `version`       | `== TACHYON_VERSION` (`0x03`)     | `TACHYON_ERR_ABI_MISMATCH` |
 | `msg_alignment` | `== TACHYON_MSG_ALIGNMENT` (`64`) | `TACHYON_ERR_ABI_MISMATCH` |
 
 Secondary validation in `Arena::attach()`: re-checks `magic`, `msg_alignment`, capacity power-of-two.
@@ -47,10 +47,11 @@ No bump required for:
 
 ### Version History
 
-| Version | Change                                                        |
-|---------|---------------------------------------------------------------|
-| `0x01`  | Initial wire format                                           |
-| `0x02`  | `msg_alignment` added to `TachyonHandshake` and `ArenaHeader` |
+| Version | Change                                                                                   |
+|---------|------------------------------------------------------------------------------------------|
+| `0x01`  | Initial wire format                                                                      |
+| `0x02`  | `msg_alignment` added to `TachyonHandshake` and `ArenaHeader`                            |
+| `0x03`  | `type_id` encoding: bits [31:16] = route_id (reserved for RPC),  bits [15:0] = msg_type. |
 
 ---
 
@@ -61,7 +62,8 @@ No bump required for:
 - Additions: allowed without version bump
 - `tachyon_bus_set_polling_mode` added in v0.3.0, sets `consumer_sleeping` to `CONSUMER_PURE_SPIN (2)`, disabling futex
   wake checks on the producer flush path. No wire format change.
-- Removal or signature change: requires major version bump
+- Removal or signature change: requires a major version bump.
+- `TACHYON_TYPE_ID`, `TACHYON_ROUTE_ID`, `TACHYON_MSG_TYPE` macros added in v0.4.0.
 
 Visibility: `TACHYON_ABI` on all exported symbols. Internals: `-fvisibility=hidden`.
 
