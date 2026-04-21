@@ -71,6 +71,20 @@ preventing lock starvation.
 | Compiler | GCC 14+ or Clang 17+                      |
 | Rust     | stable (2024 edition)                     |
 
+## Type ID encoding
+
+`type_id` is a `u32` split into two `u16` halves since v0.4.0:
+
+    use tachyon_ipc::{make_type_id, route_id, msg_type};
+    
+    bus.send(data, make_type_id(0, 42))?;
+    
+    let guard = bus.acquire_rx(10_000)?;
+    assert_eq!(route_id(guard.type_id), 0);
+    assert_eq!(msg_type(guard.type_id), 42); 
+
+`route_id >= 1` is reserved for RPC.
+
 ## License
 
 Apache 2.0
