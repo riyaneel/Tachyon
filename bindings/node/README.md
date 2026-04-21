@@ -21,6 +21,7 @@ compiled from source at installation time via `cmake-js`.
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
+- [Type ID encoding](#type-id-encoding)
 - [Prebuild vs compile](#prebuild-vs-compile)
 - [Limitations](#limitations)
 
@@ -303,6 +304,25 @@ To rebuild after modifying the C++ core:
 ```bash
 rm -rf build && npm run build:native
 ```
+
+## Type ID encoding
+
+`typeId` is a `number` (uint32) split into two 16-bit halves since v0.4.0:
+
+```typescript
+import {makeTypeId, routeId, msgType} from '@tachyon-ipc/core';
+
+const id = makeTypeId(0, 42); // == 42, identical to v0.3.x
+routeId(id); // 0
+msgType(id); // 42
+
+bus.send(data, makeTypeId(0, 42));
+
+const {typeId} = bus.recv();
+msgType(typeId); // 42
+```
+
+`routeId >= 1` is reserved for RPC. Do not use it on consumers.
 
 ## Limitations
 
