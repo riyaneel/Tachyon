@@ -9,6 +9,7 @@ from ._tachyon import (
 )
 from .bus import Bus
 from .message import Message
+from .type_id import make_type_id, msg_type, route_id
 
 __all__ = [
     "TachyonBus",
@@ -20,5 +21,8 @@ __all__ = [
     "RxMsgView",
     "Bus",
     "Message",
+    "make_type_id",
+    "msg_type",
+    "route_id"
 ]
 __version__ = "0.3.5"

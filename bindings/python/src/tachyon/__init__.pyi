@@ -12,8 +12,31 @@ __all__ = [
     "RxMsgView",
     "Bus",
     "Message",
+    "make_type_id",
+    "route_id",
+    "msg_type",
 ]
 __version__ = "0.3.5"
+
+
+def make_type_id(route: int, msg_type: int) -> int:
+    """Encodes route_id and msg_type into a single type_id value.
+
+    Bits [31:16] = route_id, bits [15:0] = msg_type.
+    Use route=0 to preserve v0.3.x behavior: make_type_id(0, 42) == 42.
+    route >= 1 is reserved for RPC.
+    """
+    ...
+
+
+def route_id(type_id: int) -> int:
+    """Extracts the route_id from bits [31:16] of type_id."""
+    ...
+
+
+def msg_type(type_id: int) -> int:
+    """Extracts the msg_type from bits [15:0] of type_id."""
+    ...
 
 
 class TachyonError(Exception):

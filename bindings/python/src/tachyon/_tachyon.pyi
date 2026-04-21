@@ -16,6 +16,11 @@ class TxGuard:
     """Tachyon TX Guard Context Manager"""
     actual_size: int
     type_id: int
+    """Message type discriminator.
+
+    Encoded as 16+16 bits since v0.4.0: bits [31:16] = route_id, bits [15:0] = msg_type.
+    Set route_id=0 (or use make_type_id(0, x)) to preserve v0.3.x behavior.
+    """
 
     def __enter__(self) -> "TxGuard": ...
 
@@ -55,7 +60,13 @@ class RxMsgView:
     def actual_size(self) -> int: ...
 
     @property
-    def type_id(self) -> int: ...
+    def type_id(self) -> int:
+        """Message type discriminator.
+
+        Encoded as 16+16 bits since v0.4.0: bits [31:16] = route_id, bits [15:0] = msg_type.
+        Use route_id() and msg_type() helpers to split.
+        """
+        ...
 
     def __dlpack__(self, stream: Any = None) -> Any: ...
 
