@@ -341,6 +341,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.23'
+          cache-dependency-path: 'bindings/go'
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh go
@@ -377,6 +378,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.23'
+          cache-dependency-path: 'bindings/go'
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh go
