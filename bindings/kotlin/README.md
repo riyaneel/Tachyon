@@ -19,6 +19,7 @@ shared with the Java binding, zero additional overhead.
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
+- [Type ID encoding](#type-id-encoding)
 - [Benchmark results](#benchmark-results)
 - [Limitations](#limitations)
 
@@ -271,6 +272,26 @@ Bus.listen(path, 1L shl 16).use { bus ->
 ```
 
 `setNumaNode` uses `MPOL_PREFERRED + MPOL_MF_MOVE`. No-op on macOS.
+
+## Type ID encoding
+
+`typeId` is an `Int` (uint32) split into two 16-bit halves since v0.4.0:
+
+```kotlin
+import dev.tachyon_ipc.TypeId
+
+val id = TypeId.of(0, 42) // == 42, identical to v0.3.x
+TypeId.routeId(id) // 0
+TypeId.msgType(id) // 42
+
+bus.send(data, typeId = TypeId.of(0, 42))
+
+bus.acquireRx(10_000)?.use { rx ->
+    val mt = TypeId.msgType(rx.getTypeId()) // 42
+}
+```
+
+`routeId >= 1` is reserved for RPC. Do not use it on consumers.
 
 ## Benchmark results
 
