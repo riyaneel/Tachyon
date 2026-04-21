@@ -238,6 +238,34 @@ if err := bus.SetNumaNode(0); err != nil {
 `SetNumaNode` uses `MPOL_PREFERRED + MPOL_MF_MOVE`, it prefers the requested node but falls back rather than failing
 hard. It is a no-op on macOS.
 
+## Type ID encoding
+
+`typeID` is a `uint32` split into two 16-bit halves since v0.4.0:
+
+```
+bits [31:16] RouteID: reserved for RPC, must be 0 for now
+bits [15:0]  MsgType: application-defined discriminator
+```
+
+`RouteID = 0` exactly preserves v0.3.x semantics: `MakeTypeID(0, 42) == 42`.
+
+```go
+// encode
+id := tachyon.MakeTypeID(0, 42) // == 42, identical to v0.3.x
+
+// decode
+route := tachyon.RouteID(id) // 0
+mt := tachyon.MsgType(id) // 42
+
+// send and receive
+bus.Send(data, tachyon.MakeTypeID(0, 42))
+
+data, typeID, _ := bus.Recv(10_000)
+fmt.Println(tachyon.MsgType(typeID)) // 42
+```
+
+`RouteID >= 1` is reserved for RPC. Do not use it on consumers.
+
 ## Limitations
 
 **CGO is required.** `CGO_ENABLED=0` does not compile. The C++ core is compiled at build time; GCC 14+ or Clang 17+ must
