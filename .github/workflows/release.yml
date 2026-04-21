@@ -249,9 +249,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install build dependencies
-        run: brew install cmake ninja
-
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
