@@ -18,6 +18,7 @@ required.
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
+- [Type ID encoding](#type-id-encoding)
 - [Benchmark results](#benchmark-results)
 - [Limitations](#limitations)
 
@@ -255,6 +256,38 @@ JMH command:
 The ~76 ns/op figure covers a full `acquireTx → commitUnflushed → flush → acquireRx → commit` cycle. Panama FFM
 `MethodHandle.invokeExact` dispatch overhead is ~15–20 ns per crossing; batching 64 messages reduces per-message FFM
 overhead by x64.
+
+## Type ID encoding
+
+`typeId` is an `int` (uint32) split into two 16-bit halves since v0.4.0:
+
+```
+bits [31:16]: routeId: reserved for RPC, must be 0 for now
+bits [15:0]:  msgType: application-defined discriminator
+```
+
+`routeId = 0` exactly preserves v0.3.x semantics: `TypeId.of(0, 42) == 42`.
+
+```java
+import dev.tachyon_ipc.TypeId;
+
+// encode
+int id = TypeId.of(0, 42); // == 42, identical to v0.3.x
+
+// decode
+int route = TypeId.routeId(id); // 0
+int mt    = TypeId.msgType(id); // 42
+
+// send and receive
+tx.commit(size, TypeId.of(0, 42));
+
+try (var rx = bus.acquireRx(10_000)) {
+    int route = TypeId.routeId(rx.getTypeId()); // 0
+    int mt = TypeId.msgType(rx.getTypeId()); // 42
+}
+```
+
+`routeId >= 1` is reserved for RPC. Do not use it on consumers.
 
 ## Limitations
 
