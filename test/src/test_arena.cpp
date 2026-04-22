@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "tachyon.h"
 #include <tachyon.hpp>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
@@ -324,5 +325,41 @@ namespace tachyon::core::test {
 		EXPECT_EQ(consumer.acquire_rx(out_type_id, out_actual_size), nullptr);
 
 		EXPECT_EQ(consumer.acquire_rx_batch(views.data(), views.size()), 0U);
+	}
+
+	TEST_F(ArenaTest, TypeIdSplit) {
+		auto producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		auto consumer = Arena::attach(shm_owner->data()).value();
+
+		std::byte *tx_ptr1 = producer.acquire_tx(sizeof(DummyOrder));
+		ASSERT_NE(tx_ptr1, nullptr);
+		EXPECT_TRUE(producer.commit_tx(sizeof(DummyOrder), TACHYON_TYPE_ID(0, 42)));
+		producer.flush();
+
+		uint32_t		 type_id_out1 = 0;
+		size_t			 actual_size1 = 0;
+		const std::byte *rx_ptr1	  = consumer.acquire_rx(type_id_out1, actual_size1);
+		ASSERT_NE(rx_ptr1, nullptr);
+
+		EXPECT_EQ(type_id_out1, 42U);
+		EXPECT_EQ(TACHYON_ROUTE_ID(type_id_out1), 0U);
+		EXPECT_EQ(TACHYON_MSG_TYPE(type_id_out1), 42U);
+		EXPECT_TRUE(consumer.commit_rx());
+
+		std::byte *tx_ptr2 = producer.acquire_tx(sizeof(DummyOrder));
+		ASSERT_NE(tx_ptr2, nullptr);
+		constexpr uint32_t compound_type_id = TACHYON_TYPE_ID(1, 42);
+		EXPECT_TRUE(producer.commit_tx(sizeof(DummyOrder), compound_type_id));
+		producer.flush();
+
+		uint32_t		 type_id_out2 = 0;
+		size_t			 actual_size2 = 0;
+		const std::byte *rx_ptr2	  = consumer.acquire_rx(type_id_out2, actual_size2);
+		ASSERT_NE(rx_ptr2, nullptr);
+
+		EXPECT_EQ(type_id_out2, compound_type_id);
+		EXPECT_EQ(TACHYON_ROUTE_ID(type_id_out2), 1U);
+		EXPECT_EQ(TACHYON_MSG_TYPE(type_id_out2), 42U);
+		EXPECT_TRUE(consumer.commit_rx());
 	}
 } // namespace tachyon::core::test
