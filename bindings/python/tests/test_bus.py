@@ -66,6 +66,45 @@ def test_bus_zero_copy_api(clean_socket):
     server_thread.join(timeout=2.0)
 
 
+def test_type_id_encoding():
+    assert tachyon.make_type_id(0, 42) == 42
+    assert tachyon.route_id(42) == 0
+    assert tachyon.msg_type(42) == 42
+    tid = tachyon.make_type_id(1, 99)
+    assert tachyon.route_id(tid) == 1
+    assert tachyon.msg_type(tid) == 99
+    assert tachyon.make_type_id(0, 0) == 0
+    assert tachyon.make_type_id(0xFFFF, 0xFFFF) == 0xFFFFFFFF
+    with pytest.raises(ValueError):
+        tachyon.make_type_id(-1, 0)
+    with pytest.raises(ValueError):
+        tachyon.make_type_id(0, 0x10000)
+
+
+def test_type_id_equivalent_over_bus(clean_socket):
+    results = []
+
+    def run_server():
+        with tachyon.Bus.listen(clean_socket, CAPACITY) as server:
+            it = iter(server)
+            results.append(next(it))
+            results.append(next(it))
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.start()
+    time.sleep(0.1)
+
+    with tachyon.Bus.connect(clean_socket) as client:
+        client.send(b"a", type_id=42)
+        client.send(b"b", type_id=tachyon.make_type_id(0, 42))
+
+    server_thread.join(timeout=2.0)
+
+    assert results[0].type_id == results[1].type_id == 42
+    assert tachyon.msg_type(results[0].type_id) == 42
+    assert tachyon.route_id(results[0].type_id) == 0
+
+
 def test_bus_dlpack_pytorch(clean_socket):
     try:
         import torch
