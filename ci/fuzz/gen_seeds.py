@@ -23,6 +23,11 @@ def toctou_header(size: int, type_id: int, reserved_size: int) -> bytes:
 SKIP_MARKER = 0xFFFFFFFF
 UINT32_MAX = 0xFFFFFFFF
 
+
+def make_type_id(route: int, msg_type: int) -> int:
+    return ((route & 0xFFFF) << 16) | (msg_type & 0xFFFF)
+
+
 seeds_header_parser = {
     "valid_minimal": header(0, 0, MSG_HDR_SIZE),
     "skip_marker": header(SKIP_MARKER, 0, MSG_HDR_SIZE),
@@ -61,6 +66,21 @@ seeds_toctou = {
     "skip_in_reserved": toctou_header(0, 0, UINT32_MAX),
 }
 
+seeds_type_id = {
+    # route_id=0, various msg_type values
+    "route0_msgtype0": header(0, make_type_id(0, 0), MSG_HDR_SIZE),
+    "route0_msgtype1": header(0, make_type_id(0, 1), MSG_HDR_SIZE),
+    "route0_msgtype_max": header(0, make_type_id(0, 0xFFFF), MSG_HDR_SIZE),
+    # route_id=1, first reserved RPC range
+    "route1_msgtype0": header(0, make_type_id(1, 0), MSG_HDR_SIZE),
+    "route1_msgtype1": header(0, make_type_id(1, 1), MSG_HDR_SIZE),
+    "route1_msgtype_max": header(0, make_type_id(1, 0xFFFF), MSG_HDR_SIZE),
+    # route_id=0xFFFF, boundary
+    "route_max_msgtype0": header(0, make_type_id(0xFFFF, 0), MSG_HDR_SIZE),
+    "route_max_msgtype_max": header(0, make_type_id(0xFFFF, 0xFFFF), MSG_HDR_SIZE),
+    "typeid_all_ones": header(0, UINT32_MAX, MSG_HDR_SIZE),
+}
+
 
 def write_seeds(directory: str, seeds: dict[str, bytes]) -> None:
     os.makedirs(directory, exist_ok=True)
@@ -77,4 +97,9 @@ if __name__ == "__main__":
     write_seeds("fuzz/corpus/arena_rx", seeds_arena)
     write_seeds("fuzz/corpus/arena_rx_batch", seeds_arena)
     write_seeds("fuzz/corpus/toctou", seeds_toctou)
+    write_seeds("fuzz/corpus/header_parser", seeds_type_id)
+    write_seeds("fuzz/corpus/arena_rx", {
+        f"typeid_{k}": arena_rx_seed(MSG_HDR_SIZE, v)
+        for k, v in seeds_type_id.items()
+    })
     print("Done.")
