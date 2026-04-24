@@ -142,6 +142,10 @@ yarn-error.log
 build*/
 prebuilds/
 benchmark/results/
+bindings/csharp/src/TachyonIpc/_core_local
+bindings/csharp/src/TachyonIpc/bin
+bindings/csharp/src/TachyonIpc/obj
+bindings/csharp/src/TachyonIpc/runtimes
 bindings/go/tachyon/_core_local/
 bindings/java/src/native/_core_local/
 bindings/java/build/
