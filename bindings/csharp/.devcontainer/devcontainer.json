@@ -1,0 +1,23 @@
+{
+  "name": "Tachyon C# Bindings",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "../../..",
+    "args": {
+      "LLVM_VERSION": "21"
+    }
+  },
+  "workspaceMount": "source=${localWorkspaceFolder}/../..,target=/workspace,type=bind,consistency=cached",
+  "workspaceFolder": "/workspace/bindings/csharp",
+  "runArgs": [
+    "--cap-add=SYS_PTRACE"
+  ],
+  "remoteUser": "code",
+  "customizations": {
+    "jetbrains": {
+      "backend": "Rider"
+    }
+  },
+  "postCreateCommand": "bash /workspace/bindings/csharp/.devcontainer/post-create.sh",
+  "features": {}
+}
