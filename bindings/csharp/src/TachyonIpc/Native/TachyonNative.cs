@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace TachyonIpc.Native;
 
-internal enum TachyonError
+public enum TachyonError
 {
     Success = 0,
     NullPtr = 1,
@@ -21,7 +21,7 @@ internal enum TachyonError
     AbiMismatch = 14
 }
 
-internal enum TachyonState
+public enum TachyonState
 {
     Uninitialized = 0,
     Initializing = 1,
