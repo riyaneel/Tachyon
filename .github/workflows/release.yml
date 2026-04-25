@@ -482,6 +482,168 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
 
+  csharp_native_linux:
+    name: Build Native C# (${{ matrix.rid }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            arch: amd64
+          - rid: linux-arm64
+            arch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Setup QEMU (arm64)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v4
+
+      - name: Vendor C++ core
+        run: bash ci/vendor.sh c#
+
+      - name: Build libtachyon
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          cmake --preset clang-release
+          cmake --build --preset clang-release --target tachyon --parallel
+          mkdir -p dist
+          cp build/clang-release/core/libtachyon.so dist/libtachyon.so
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: csharp-native-${{ matrix.rid }}
+          path: dist/libtachyon.so
+          if-no-files-found: error
+
+  csharp_native_macos:
+    name: Build Native C# (${{ matrix.rid }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            rid: osx-arm64
+          - runner: macos-26-intel
+            rid: osx-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Vendor C++ core
+        run: bash ci/vendor.sh c#
+
+      - name: Build libtachyon.dylib
+        run: |
+          cmake -B build/release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTACHYON_SANITIZER=none
+          cmake --build build/release --target tachyon --parallel
+          mkdir -p dist
+          cp build/release/core/libtachyon.dylib dist/libtachyon.dylib
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: csharp-native-${{ matrix.rid }}
+          path: dist/libtachyon.dylib
+          if-no-files-found: error
+
+  csharp_publish:
+    name: NuGet Publish
+    needs: [ csharp_native_linux, csharp_native_macos, changelog ]
+    runs-on: ubuntu-24.04
+    if: |
+      !contains(github.ref_name, '-rc') &&
+      !contains(github.ref_name, '-alpha') &&
+      !contains(github.ref_name, '-beta')
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.x
+            10.x
+
+      - name: Download linux-x64 native
+        uses: actions/download-artifact@v8
+        with:
+          name: csharp-native-linux-x64
+          path: bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
+
+      - name: Download linux-arm64 native
+        uses: actions/download-artifact@v8
+        with:
+          name: csharp-native-linux-arm64
+          path: bindings/csharp/src/TachyonIpc/runtimes/linux-arm64/native
+
+      - name: Download osx-arm64 native
+        uses: actions/download-artifact@v8
+        with:
+          name: csharp-native-osx-arm64
+          path: bindings/csharp/src/TachyonIpc/runtimes/osx-arm64/native
+
+      - name: Download osx-x64 native
+        uses: actions/download-artifact@v8
+        with:
+          name: csharp-native-osx-x64
+          path: bindings/csharp/src/TachyonIpc/runtimes/osx-x64/native
+
+      - name: Pack NuGet
+        working-directory: bindings/csharp/src/TachyonIpc
+        run: dotnet pack -c Release -o dist/
+
+      - name: NuGet Login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USERNAME }}
+
+      - name: NuGet push
+        working-directory: bindings/csharp/src/TachyonIpc
+        run: dotnet nuget push dist/*.nupkg \
+          --api-key ${{steps.login.outputs.NUGET_API_KEY}} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate
+
+      - name: Upload NuGet artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: csharp-nupkg
+          path: bindings/csharp/src/TachyonIpc/dist/*.nupkg
+          if-no-files-found: error
+
   tachyon_top:
     name: Build tachyon-top CLI
     needs: [ changelog ]
@@ -509,7 +671,7 @@ jobs:
 
   github_release:
     name: Create GitHub Release
-    needs: [ python_sdist, rust_publish, go_publish, java_publish, kotlin_publish, nodejs_publish, tachyon_top ]
+    needs: [ python_sdist, rust_publish, go_publish, java_publish, kotlin_publish, nodejs_publish, csharp_publish, tachyon_top ]
     if: |
       always() &&
       needs.python_sdist.result == 'success' &&
@@ -518,6 +680,7 @@ jobs:
       (needs.java_publish.result == 'success' || needs.java_publish.result == 'skipped') &&
       (needs.kotlin_publish.result == 'success' || needs.kotlin_publish.result == 'skipped') &&
       (needs.nodejs_publish.result == 'success' || needs.nodejs_publish.result == 'skipped') &&
+      (needs.csharp_publish.result == 'success' || needs.csharp_publish.result == 'skipped') &&
       needs.tachyon_top.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
@@ -556,6 +719,13 @@ jobs:
           path: dist/
           pattern: node-tarball-*
           merge-multiple: 'true'
+
+      - name: Download NuGet package
+        if: needs.csharp_publish.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: csharp-nupkg
+          path: dist/
 
       - name: Download tachyon-top binary
         uses: actions/download-artifact@v8
