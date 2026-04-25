@@ -15,6 +15,7 @@ jobs:
     permissions:
       security-events: write
       packages: read
+      contents: read
 
     strategy:
       fail-fast: false
@@ -23,6 +24,8 @@ jobs:
           - language: actions
             build-mode: none
           - language: c-cpp
+            build-mode: autobuild
+          - language: csharp
             build-mode: autobuild
           - language: go
             build-mode: autobuild
