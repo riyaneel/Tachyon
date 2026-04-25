@@ -81,7 +81,8 @@ public unsafe ref struct RxBatchGuard
     {
         if (_done)
             return;
-
+        if (_count == 0)
+            return;
         TachyonException.ThrowIfError(
             TachyonNative.tachyon_commit_rx_batch(_bus, _views, _count), nameof(TachyonNative.tachyon_commit_rx_batch)
         );
