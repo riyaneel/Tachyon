@@ -32,7 +32,7 @@ public enum TachyonState
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal unsafe struct TachyonMsgView
+public unsafe struct TachyonMsgView
 {
     public void* Ptr;
     public nuint ActualSize;
