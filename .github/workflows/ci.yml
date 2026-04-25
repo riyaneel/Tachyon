@@ -723,6 +723,10 @@ jobs:
         working-directory: bindings/csharp
         run: dotnet build src/TachyonIpc/
 
+      - name: Test
+        working-directory: bindings/csharp
+        run: dotnet test tests/TachyonIpc/
+
   csharp_macos:
     name: C# Bindings (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
@@ -759,3 +763,7 @@ jobs:
       - name: Build
         working-directory: bindings/csharp
         run: dotnet build src/TachyonIpc/
+
+      - name: Test
+        working-directory: bindings/csharp
+        run: dotnet test tests/TachyonIpc/
