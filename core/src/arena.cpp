@@ -355,7 +355,7 @@ namespace tachyon::core {
 		pending_rx_ += count;
 
 		if (pending_rx_ >= BATCH_SIZE) {
-			layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
+			// layout_->indices.consumer_heartbeat.store(tachyon::rdtsc()::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
