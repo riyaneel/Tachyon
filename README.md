@@ -7,11 +7,12 @@
 [![Maven Central (Java)](https://img.shields.io/maven-central/v/dev.tachyon-ipc/tachyon-java)](https://central.sonatype.com/artifact/dev.tachyon-ipc/tachyon-java)
 [![Maven Central (Kotlin)](https://img.shields.io/maven-central/v/dev.tachyon-ipc/tachyon-kotlin)](https://central.sonatype.com/artifact/dev.tachyon-ipc/tachyon-kotlin)
 [![npm](https://img.shields.io/npm/v/@tachyon-ipc/core)](https://www.npmjs.com/package/@tachyon-ipc/core)
+[![NuGet](https://img.shields.io/nuget/v/TachyonIpc)](https://www.nuget.org/packages/TachyonIpc)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**Same machine. RAM speed. 7 languages.**
+**Same machine. RAM speed. 8 languages.**
 
-56.5 ns round-trip. Zero-copy. Python, Node.js, Java, Kotlin, Rust, Go, C++.
+49.9 ns round-trip. Zero-copy. Python, Node.js, Java, Kotlin, Rust, Go, C#, C++.
 
 ---
 
@@ -19,7 +20,7 @@
 
 | Transport          | p50 RTT     | Cross-language  | Zero-copy |
 |--------------------|-------------|-----------------|-----------|
-| **Tachyon**        | **50.6 ns** | ✓ (7 languages) | ✓         |
+| **Tachyon**        | **49.9 ns** | ✓ (8 languages) | ✓         |
 | iceoryx            | ~150 ns     | C++ only        | ✓         |
 | Aeron IPC          | ~250 ns     | same-lang only  | ✓         |
 | Chronicle Queue    | ~250 ns     | Java only       | ✓         |
@@ -37,7 +38,7 @@ i7-12650H · DDR5-5600 · Linux 6.19 · full methodology [below](#benchmarks)
 ## Why Tachyon?
 
 - **Nothing is faster in the cross-language space.** Aeron (~250 ns, Java or C++), Chronicle Queue (~250 ns, Java),
-  and iceoryx (~150 ns, C++) match the latency in a single language. Tachyon does it across 7.
+  and iceoryx (~150 ns, C++) match the latency in a single language. Tachyon does it across 8.
 - **Zero-copy from producer to PyTorch/NumPy.** DLPack support means a C++ process can feed tensors to Python with no
   serialization, no memcpy, no glue.
 - **One dependency: your kernel.** No broker, no daemon, no media driver. Two processes, one shared ring, done.
@@ -100,6 +101,12 @@ cargo add tachyon-ipc
 
 ```bash
 go get github.com/riyaneel/tachyon/bindings/go@v0.3.5
+```
+
+**C#:**
+
+```bash
+dotnet add package TachyonIpc
 ```
 
 **C++ (CMake FetchContent):**
@@ -280,7 +287,7 @@ with a sentinel shutdown signal.
 
 | Example                                                                   | Producer | Consumer       | Throughput                       | Payload                |
 |---------------------------------------------------------------------------|----------|----------------|----------------------------------|------------------------|
-| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **14 927 K RTT/s** · p50 50.6 ns | 32 bytes               |
+| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **15 077 K RTT/s** · p50 49.9 ns | 32 bytes               |
 | [python_producer_rust_consumer](./examples/python_producer_rust_consumer) | Python   | Rust           | **1 119 K msg/s**                | 32 bytes `MarketTick`  |
 | [rust_producer_python_consumer](./examples/rust_producer_python_consumer) | Rust     | Python (torch) | **510 K frames/s** · 0.51 GB/s   | 1 024 bytes `f32[256]` |
 | [cpp_producer_python_consumer](./examples/cpp_producer_python_consumer)   | C++      | Python (torch) | **533 K frames/s** · 0.53 GB/s   | 1 024 bytes `f32[256]` |
@@ -332,6 +339,7 @@ For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATIO
 | Kotlin    | 2.0+                                                                                                         |
 | Go        | 1.23+                                                                                                        |
 | Rust      | stable (2024 edition)                                                                                        |
+| C#        | 8.x, 10.x                                                                                                    |
 
 ---
 
@@ -344,7 +352,7 @@ For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATIO
 - **iceoryx** (~150 ns): excellent C++-only shared-memory IPC for automotive/ROS2. No Python, Java, Node.
 - **Chronicle Queue** (~250 ns): Java-only, disk-persistent by design.
 
-Tachyon is the only sub-100 ns same-machine IPC that works natively across 7 languages.
+Tachyon is the only sub-100 ns same-machine IPC that works natively across 8 languages.
 
 **vs Python's `multiprocessing.SharedMemory`?**  
 stdlib gives you a raw buffer. Tachyon gives you a lock-free SPSC queue with message framing, typed routing, zero-copy
