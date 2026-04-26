@@ -38,7 +38,7 @@ required.
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("dev.tachyon-ipc:tachyon-java:0.4.1")
+    implementation("dev.tachyon-ipc:tachyon-java:0.4.2")
 }
 ```
 
