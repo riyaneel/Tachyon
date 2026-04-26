@@ -53,6 +53,7 @@ def build_entries(old: str, new: str) -> list[Entry]:
             rf'(^\s*version\s*=\s*"){ov}(")',
             rf"\g<1>{new}\g<2>",
             re.MULTILINE,
+            2
         ),
         # Java / Kotlin
         Entry(
