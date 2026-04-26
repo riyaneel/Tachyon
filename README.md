@@ -19,7 +19,7 @@
 
 | Transport          | p50 RTT     | Cross-language  | Zero-copy |
 |--------------------|-------------|-----------------|-----------|
-| **Tachyon**        | **56.5 ns** | ✓ (7 languages) | ✓         |
+| **Tachyon**        | **50.6 ns** | ✓ (7 languages) | ✓         |
 | iceoryx            | ~150 ns     | C++ only        | ✓         |
 | Aeron IPC          | ~250 ns     | same-lang only  | ✓         |
 | Chronicle Queue    | ~250 ns     | Java only       | ✓         |
@@ -259,15 +259,15 @@ Ping-pong RTT, two processes, 32-byte payload, 1 000 000 samples.
 
 | Percentile | Latency  |
 |------------|----------|
-| Min        | 51.3 ns  |
-| p50        | 56.5 ns  |
-| p90        | 101.2 ns |
-| p99        | 112.4 ns |
-| p99.9      | 122 ns   |
-| p99.99     | 467.3 ns |
+| Min        | 45.4 ns  |
+| p50        | 50.6 ns  |
+| p90        | 96.7 ns  |
+| p99        | 104.9 ns |
+| p99.9      | 113.1 ns |
+| p99.99     | 472.5 ns |
 | Max        | 4 938 ns |
 
-**Throughput: 13 229 K RTT/sec · One-way p50: 28.3 ns**
+**Throughput: 14 927 K RTT/sec · One-way p50: 25.3 ns**
 
 p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`, the tail converges toward the p99 band.
 
@@ -280,8 +280,8 @@ with a sentinel shutdown signal.
 
 | Example                                                                   | Producer | Consumer       | Throughput                       | Payload                |
 |---------------------------------------------------------------------------|----------|----------------|----------------------------------|------------------------|
-| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **13 229 K RTT/s** · p50 56.5 ns | 32 bytes               |
-| [python_producer_rust_consumer](./examples/python_producer_rust_consumer) | Python   | Rust           | **1 060 K msg/s**                | 32 bytes `MarketTick`  |
+| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **14 927 K RTT/s** · p50 50.6 ns | 32 bytes               |
+| [python_producer_rust_consumer](./examples/python_producer_rust_consumer) | Python   | Rust           | **1 119 K msg/s**                | 32 bytes `MarketTick`  |
 | [rust_producer_python_consumer](./examples/rust_producer_python_consumer) | Rust     | Python (torch) | **510 K frames/s** · 0.51 GB/s   | 1 024 bytes `f32[256]` |
 | [cpp_producer_python_consumer](./examples/cpp_producer_python_consumer)   | C++      | Python (torch) | **533 K frames/s** · 0.53 GB/s   | 1 024 bytes `f32[256]` |
 
