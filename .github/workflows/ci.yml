@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   cpp:
     name: C++ (${{ matrix.compiler }}, ${{ matrix.build_type }})

@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   changelog:
     name: Generate CHANGELOG
@@ -584,6 +587,7 @@ jobs:
       !contains(github.ref_name, '-beta')
     permissions:
       id-token: write
+      contents: read
 
     steps:
       - name: Checkout
