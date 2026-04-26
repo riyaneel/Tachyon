@@ -20,6 +20,8 @@ if (NOT TACHYON_PORTABLE_BUILD)
 else ()
 	if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
 		list(APPEND TACHYON_FLAGS "-march=x86-64-v3")
+	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		list(APPEND TACHYON_FLAGS "-march=armv8-a")
 	endif ()
 endif ()
 

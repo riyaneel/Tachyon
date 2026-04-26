@@ -39,6 +39,19 @@
       }
     },
     {
+      "name": "clang-aarch64-base",
+      "hidden": true,
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/clang-aarch64.cmake",
+      "cacheVariables": {
+        "LLVM_VERSION": {
+          "type": "STRING",
+          "value": "21"
+        },
+        "TACHYON_PORTABLE_BUILD": "ON"
+      }
+    },
+    {
       "name": "clang-release",
       "displayName": "Clang 21 - Release",
       "inherits": "clang-base",
@@ -75,6 +88,15 @@
       }
     },
     {
+      "name": "clang-aarch64-release",
+      "displayName": "Clang 21 - Release (aarch64 cross)",
+      "inherits": "clang-aarch64-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "ASan + UBSan - Clang 21",
       "inherits": "clang-base",
@@ -90,7 +112,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "TACHYON_SANITIZER": "msan",
-        "TACHYON_MSAN_LIBCXX_DIR":"${sourceDir}/.msan_toolchain/llvm-21"
+        "TACHYON_MSAN_LIBCXX_DIR": "${sourceDir}/.msan_toolchain/llvm-21"
       }
     },
     {
@@ -178,6 +200,11 @@
     {
       "name": "gcc-debug",
       "configurePreset": "gcc-debug",
+      "jobs": 0
+    },
+    {
+      "name": "clang-aarch64-release",
+      "configurePreset": "clang-aarch64-release",
       "jobs": 0
     },
     {
