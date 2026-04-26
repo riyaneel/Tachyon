@@ -259,15 +259,15 @@ Ping-pong RTT, two processes, 32-byte payload, 1 000 000 samples.
 
 | Percentile | Latency  |
 |------------|----------|
-| Min        | 45.4 ns  |
-| p50        | 50.6 ns  |
-| p90        | 96.7 ns  |
-| p99        | 104.9 ns |
-| p99.9      | 113.1 ns |
-| p99.99     | 472.5 ns |
+| Min        | 46.1 ns  |
+| p50        | 49.9 ns  |
+| p90        | 95.2 ns  |
+| p99        | 102.7 ns |
+| p99.9      | 110.1 ns |
+| p99.99     | 380.2 ns |
 | Max        | 4 938 ns |
 
-**Throughput: 14 927 K RTT/sec · One-way p50: 25.3 ns**
+**Throughput: 15 077 K RTT/sec · One-way p50: 24.9 ns**
 
 p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`, the tail converges toward the p99 band.
 
