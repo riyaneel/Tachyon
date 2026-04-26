@@ -33,7 +33,7 @@ jobs:
           git add CHANGELOG
           git diff --cached --quiet || \
             git commit -m "docs(changelog): update for ${{ github.ref_name }}"
-          git push origin HEAD:main  
+          git push origin HEAD:main
 
   python_sdist:
     name: Build sdist + Publish PyPI
