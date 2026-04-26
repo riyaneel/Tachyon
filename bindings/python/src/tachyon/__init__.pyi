@@ -16,7 +16,7 @@ __all__ = [
     "route_id",
     "msg_type",
 ]
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 
 def make_type_id(route: int, msg_type: int) -> int:

@@ -1,6 +1,6 @@
 [package]
 name = "tachyon-ipc"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 description = "Bare-metal lock-free IPC, SPSC ring buffer over POSIX shared memory"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ repository = "https://github.com/riyaneel/tachyon"
 readme = "README.md"
 
 [dependencies]
-tachyon-sys = { version = "0.4.0", path = "../tachyon-sys" }
+tachyon-sys = { version = "0.4.1", path = "../tachyon-sys" }
 
 [profile.release]
 opt-level = 3
