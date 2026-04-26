@@ -636,10 +636,11 @@ jobs:
 
       - name: NuGet push
         working-directory: bindings/csharp/src/TachyonIpc
-        run: dotnet nuget push dist/*.nupkg \
-          --api-key ${{steps.login.outputs.NUGET_API_KEY}} \
-          --source https://api.nuget.org/v3/index.json \
-          --skip-duplicate
+        run: |
+          dotnet nuget push dist/*.nupkg \
+            --api-key ${{ steps.login.outputs.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
 
       - name: Upload NuGet artifact
         uses: actions/upload-artifact@v7
