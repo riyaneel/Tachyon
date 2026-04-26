@@ -10,7 +10,7 @@
 
 <PropertyGroup>
     <PackageId>TachyonIpc</PackageId>
-    <Version>0.3.5</Version>
+    <Version>0.4.0</Version>
     <Authors>tachyon-ipc</Authors>
     <Description>Bare-metal SPSC lock-free IPC. C# bindings for Tachyon.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

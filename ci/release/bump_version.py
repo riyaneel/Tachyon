@@ -87,12 +87,6 @@ def build_entries(old: str, new: str) -> list[Entry]:
             max_count=0,
         ),
         Entry(
-            "bindings/python/README.md",
-            re.escape(old),
-            new,
-            max_count=0,
-        ),
-        Entry(
             "bindings/rust/tachyon/README.md",
             re.escape(old),
             new,
