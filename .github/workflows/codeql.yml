@@ -2,7 +2,7 @@ name: "CodeQL Advanced"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "development" ]
   pull_request:
     branches: [ "main" ]
   schedule:
@@ -24,13 +24,13 @@ jobs:
           - language: actions
             build-mode: none
           - language: c-cpp
-            build-mode: autobuild
+            build-mode: manual
           - language: csharp
-            build-mode: autobuild
+            build-mode: manual
           - language: go
             build-mode: autobuild
           - language: java-kotlin
-            build-mode: autobuild
+            build-mode: manual
           - language: javascript-typescript
             build-mode: none
           - language: python
@@ -42,11 +42,87 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup Kitware APT repository
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install CMake + Ninja
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+
+      - name: Install LLVM 21
+        if: matrix.language == 'c-cpp' || matrix.language == 'csharp' || matrix.language == 'java-kotlin'
+        run: bash ci/install_llvm.sh 21
+
+      - name: Setup Java
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+          cache-dependency-path: |
+            bindings/java/*.gradle*
+            bindings/java/**/gradle-wrapper.properties
+            bindings/kotlin/*.gradle*
+            bindings/kotlin/**/gradle-wrapper.properties
+
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.x
+            10.x
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+
+      - name: Build (c-cpp)
+        if: matrix.language == 'c-cpp'
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          cmake --preset clang-release
+          cmake --build --preset clang-release --parallel
+
+      - name: Build (csharp)
+        if: matrix.language == 'csharp'
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          bash ci/vendor.sh c#
+          cmake --preset clang-release
+          cmake --build --preset clang-release --parallel
+          mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
+          cp build/clang-release/core/libtachyon.so bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native/
+          dotnet build bindings/csharp/src/TachyonIpc/
+
+      - name: Build (java-kotlin)
+        if: matrix.language == 'java-kotlin'
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          bash ci/vendor.sh java
+          cmake --preset clang-release
+          cmake --build --preset clang-release --parallel
+          cmake --build --preset clang-release --target tachyon_java_resources
+          cd bindings/java && ./gradlew compileJava --no-daemon
+          cd ../kotlin && ./gradlew compileKotlin --no-daemon
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
