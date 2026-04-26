@@ -82,15 +82,15 @@ namespace tachyon::core {
 		size_t		  capacity_mask_{0};
 
 		static constexpr size_t BATCH_SIZE = 32;
-		size_t					local_head_{0};
-		size_t					cached_tail_{0};
-		size_t					pending_tx_{0};
-		size_t					local_tail_{0};
-		size_t					cached_head_{0};
-		size_t					pending_rx_{0};
-		size_t					tx_reserved_size_{0};
-		size_t					pre_acquire_head_{0};
-		size_t					rx_reserved_size_{0};
+		alignas(64) size_t local_head_{0};
+		size_t cached_tail_{0};
+		size_t pending_tx_{0};
+		size_t tx_reserved_size_{0};
+		size_t pre_acquire_head_{0};
+		alignas(64) size_t local_tail_{0};
+		size_t cached_head_{0};
+		size_t pending_rx_{0};
+		size_t rx_reserved_size_{0};
 
 		explicit Arena(MemoryLayout *layout, size_t capacity) noexcept;
 
