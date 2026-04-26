@@ -8,14 +8,14 @@
     <Optimize>true</Optimize>
   </PropertyGroup>
 
-  <PropertyGroup>
+<PropertyGroup>
     <PackageId>TachyonIpc</PackageId>
     <Version>0.3.5</Version>
     <Authors>tachyon-ipc</Authors>
     <Description>Bare-metal SPSC lock-free IPC. C# bindings for Tachyon.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/tachyon-ipc/tachyon</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/tachyon-ipc/tachyon</RepositoryUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/riyaneel/Tachyon</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/riyaneel/Tachyon</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>ipc;shm;spsc;lock-free;low-latency;hft;interprocess</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
