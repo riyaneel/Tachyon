@@ -1,5 +1,120 @@
 # Changelog
 
+## [v0.4.2] | 2026-04-26
+
+### Features
+
+- `44a50e7` | **bindings/csharp**: Add Bus class
+- `3ed7704` | **bindings/csharp**: Add RxBatchGuard struct for batch message handling
+- `2084535` | **bindings/csharp**: Add RxGuard struct for message read management
+- `253cc81` | **bindings/csharp**: Add TxGuard struct for transaction management
+- `e081f22` | **bindings/csharp**: Add TypeId utility class
+- `24a5efa` | **bindings/csharp**: Add TachyonException class
+- `23c4e92` | **bindings/csharp**: Update enums visibility
+- `dcaede9` | **bindings/csharp**: Add P/Invoke bindings for native lib
+- `846c544` | **bindings/csharp**: Add native library loader
+- `84216e9` | **devcontainer**: Add devcontainer for C# bindings
+- `6a063d8` | **ci**: Add C# support to vendor script
+- `54a1adc` | **fuzz**: Extend tachyon.dict with TypeId seeds
+- `38dd071` | **fuzz**: Add corpus seeds for header_parser and arena_rx
+- `7d1441a` | **ci/fuzz**: Add TypeId-based seed generation
+- `ff4efcf` | **ci**: Add CodeQL analysis workflow
+- `a8c1e58` | **bindings/node**: Add TypeId helpers for encoding/decoding type_id components
+- `6e0bbc4` | **ci**: Update dependency caching paths for Java, Kotlin, and Node bindings
+- `eacd17c` | **ci**: Add Go dependency caching in CI
+- `f7cb6b1` | **bindings/kotlin**: Add TypeId helpers for encoding/decoding type_id components
+- `e02deba` | **bindings/java**: Add TypeId helpers for encoding/decoding type_id components
+- `406a15b` | **bindings/go**: Add type_id encoding and decoding with tests
+- `29634ba` | **bindings/python**: Add type_id helpers
+- `d65d16c` | **bindings/rust**: Add type_id encoding and tests
+- `d638660` | **core**: Add macros for encoding and decoding type_id components
+- `2cdfe24` | **core**: Update TACHYON_VERSION and document type_id bit usage
+- `622316e` | **seccomp**: Add BPF generators for full and hotpath filters
+
+### Bug Fixes
+
+- `afa53fa` | Adjust NuGet push command formatting in release.yml
+- `f81cd3a` | **bindings/csharp**: Update README path in project file
+- `e131b31` | **bindings/go**: Disable AVX-512 support in cgo flags
+- `62e9ca5` | **ci**: Add missing `count` argument for tachyon crate in version bump
+- `df47d8e` | **bindings/csharp**: Prevent commit with zero batch count
+- `49db126` | **bindings/csharp**: Make TachyonMsgView struct public
+- `b02d250` | **ci**: Remove redundant build deps
+- `f898c44` | **bindings/node**: Remove redundant type assertion in batch iterator
+
+### Performance Improvements
+
+- `df0b5c7` | **arena**: Remove rdtsc heartbeat in commit_rx_batch
+- `e417a73` | **arena**: Align Arena attributes to avoid false sharing and remove rdtsc heartbeats
+
+### Code Refactoring
+
+- `02672fc` | **ci**: Remove unnecessary Python README from version bump script
+- `266ada0` | Remove trailing whitespace in release.yml
+
+### Build System
+
+- `642b8e1` | **seccomp**: Add seccomp BPF generator support
+
+### Continuous Integration
+
+- `4372259` | **workflows**: Add missing permissions to workflows
+- `68a077c` | **codeql**: Add support for `development` branch and custom build setups for C++, C#, and Java/Kotlin
+- `8548476` | **release**: Remove C# README from version bump script
+- `947b4b0` | **codeql**: Add C# analysis and update contents permissions
+- `8394b1e` | **release**: Add script to bump version across bindings and docs
+- `26bdaf1` | **release**: Add C# build and publish
+- `13fc202` | Add csharp bindings test step to CI
+- `b89a18b` | Add C# build workflows
+
+### Tests
+
+- `059da15` | **bindings/csharp**: Add test suite for Bus/IPC
+- `d815ca1` | **bindings/python**: Add tests for TypeId encoding
+- `200bd35` | **core**: Add test for TypeId split and compound encoding
+- `8b21c26` | **bindings/kotlin**: Add tests for TypeId
+- `d4806b6` | **bindings/java**: Add unit tests for TypeId encoding
+- `ffcac58` | **go**: Use t.TempDir() for UDS socket paths
+
+### Documentation
+
+- `19b5919` | **SECURITY**: Update supported versions
+- `cf73fd1` | **README**: Update to include C# bindings and revised performance metrics
+- `ea63315` | **perf**: Update latency and throughput metrics in README
+- `8f8bcb3` | Update perf data
+- `da140ff` | Document heartbeat granularity and limitations
+- `93d8561` | **bindings/csharp**: Add README for C# bindings
+- `f9e6794` | **bindings/csharp**: Document `Bus` class
+- `8ce4adf` | **bindings/node**: Document TypeId encoding in README
+- `bba54fe` | **bindings/kotlin**: Document TypeId in README
+- `c35507e` | **bindings/java**: Document TypeId encoding in README
+- `dcd0459` | **bindings/go**: Document type_id encoding in README
+- `aa51a7d` | **bindings/rust**: Document type_id encoding in README
+- `c6642b6` | **core**: Add migration guide for v0.4.0
+- `007e947` | **INTEGRATION**: Document type_id encoding
+- `dab4022` | **ABI**: Update to handshake v0x03 and define type_id encoding
+- `0359afe` | **seccomp**: Document syscall containment and seccomp filters
+- `5894e5d` | **seccomp**: Add README for BPF allowlist generators
+- `9a981a2` | Add syscalls ref
+- `10ceefc` | **github**: Add pull request template
+- `ed5350b` | **github**: Add issue templates for bugs, features, and questions
+- `15bb13c` | Add SECURITY policy
+- `26f22fc` | Add CONTRIBUTING guide
+- `95f89be` | Add CODE_OF_CONDUCT
+- `1226f03` | **changelog**: Update for v0.3.5
+
+### Chores
+
+- `4c183f8` | **version**: Bump version to 0.4.2
+- `22512f6` | **bindings/csharp**: Update package metadata to use Apache-2.0
+- `4dd3bdc` | **bindings/csharp**: Downgrade package version to 0.3.5
+- `88137ae` | **gitignore**: Add all C# build dirs
+- `e5b8d1a` | **bindings/csharp**: Add initial C# project
+- `3f5f922` | **gitignore**: Add _core_local and build dirs for C# bindings
+- `8d86c00` | **bindings/node**: Add package-lock.json to VC
+- `b7d9c83` | **gitignore**: Remove package-lock.json from .gitignore
+- `11036a5` | **gitignore**: Add BPF files
+
 ## [v0.3.5] | 2026-04-16
 
 ### Features
