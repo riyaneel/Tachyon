@@ -175,6 +175,23 @@ tachyon_bus_set_polling_mode(rx, 1); // consumer: I will never sleep
 tachyon_bus_set_polling_mode(tx, 1); // producer: skip wake check
 ```
 
+### Heartbeat granularity
+
+`tachyon-top` displays `producer_hb_age_us` and `consumer_hb_age_us`, the age of the last observed producer and
+consumer heartbeat. These counters are updated at batch boundaries only (every 32 committed messages on the producer
+side, every 32 committed messages on the consumer side). They are not updated on every flush.
+
+Consequences:
+
+- On a low-throughput bus (fewer than 32 messages per burst), heartbeat age grows continuously and does not reflect
+  actual liveness. This is expected.
+- On a high-throughput bus, heartbeat age stays bounded at the batch amortization interval.
+- Heartbeat values are observable only via `tachyon-top` (external `mmap(PROT_READ)`). They have no effect on IPC
+  correctness, ordering, or latency.
+
+Do not use heartbeat age as a dead-peer detector. See the supervision section above for reliable peer monitoring
+strategies.
+
 ### Syscall containment
 
 Tachyon's post-handshake hot path emits a single syscall type (`futex` on Linux, `__ulock` on macOS). If your deployment

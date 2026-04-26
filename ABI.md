@@ -73,3 +73,6 @@ Visibility: `TACHYON_ABI` on all exported symbols. Internals: `-fvisibility=hidd
 
 - Endianness: assumed identical between producer and consumer. Not detected.
 - Version check is strict equality. No forward compatibility.
+- Heartbeat granularity: `producer_heartbeat` and `consumer_heartbeat` in `SPSCIndices` are updated at batch
+  boundaries (every 32 commits), not on every flush. `tachyon-top` displays stale heartbeat ages on low-throughput
+  buses. No IPC correctness impact.
