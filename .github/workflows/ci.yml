@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   cpp:
-    name: C++ (${{ matrix.compiler }}, ${{ matrix.build_type }})
+    name: C++ (${{ matrix.compiler }}, ${{ matrix.build_type }}, x86-64)
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -56,7 +56,7 @@ jobs:
         run: ctest --test-dir build/${{ matrix.compiler }}-${{ matrix.build_type}}/test --output-on-failure --parallel 4
 
   cpp_aarch64:
-    name: C++ aarch64
+    name: C++ (clang, release, aarch64)
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -92,7 +92,7 @@ jobs:
             (echo "Error: not an aarch64 elf." && exit 1)
 
   cpp_asan:
-    name: C++ ASan (Clang 21, Debug)
+    name: C++ ASan (Clang 21, Debug, x86-64)
     runs-on: ubuntu-24.04
 
     steps:
@@ -129,7 +129,7 @@ jobs:
         run: ctest --test-dir build/asan/test --output-on-failure --parallel 1
 
   cpp_msan:
-    name: C++ MSan (Clang 21, Debug)
+    name: C++ MSan (Clang 21, Debug, x86-64)
     runs-on: ubuntu-24.04
 
     steps:
@@ -168,7 +168,7 @@ jobs:
         run: ctest --test-dir build/msan/test --output-on-failure --parallel 1
 
   cpp_tsan:
-    name: C++ TSan (Clang 21, Debug)
+    name: C++ TSan (Clang 21, Debug, x86-64)
     runs-on: ubuntu-24.04
 
     steps:
