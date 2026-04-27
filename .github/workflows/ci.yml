@@ -55,6 +55,42 @@ jobs:
       - name: Test
         run: ctest --test-dir build/${{ matrix.compiler }}-${{ matrix.build_type}}/test --output-on-failure --parallel 4
 
+  cpp_aarch64:
+    name: C++ aarch64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build \
+            gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Configure
+        run: cmake --preset clang-aarch64-release
+
+      - name: Build
+        run: cmake --build --preset clang-aarch64-release --target tachyon --parallel
+
+      - name: Check ELF target
+        run: |
+          file build/clang-aarch64-release/core/libtachyon.so | grep -q "aarch64" || \
+            (echo "Error: not an aarch64 elf." && exit 1)
+
   cpp_asan:
     name: C++ ASan (Clang 21, Debug)
     runs-on: ubuntu-24.04
