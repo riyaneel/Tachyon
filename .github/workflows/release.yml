@@ -197,8 +197,17 @@ jobs:
             "https://sum.golang.org/lookup/${MODULE}@${VERSION}"    || true
 
   java_native_linux:
-    name: Build Native FFM (Linux)
+    name: Build Native FFM (Linux ${{ matrix.arch }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            preset: clang-release
+          - arch: aarch64
+            preset: clang-aarch64-release
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -217,30 +226,37 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
 
+      - name: Install aarch64 cross toolchain
+        if: matrix.arch == 'aarch64'
+        run: |
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
+
       - name: Install LLVM 21
         run: bash ci/install_llvm.sh 21
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh java
 
-      - name: Build Linux FFM
+      - name: Build Linux FFM (${{ matrix.arch }})
         env:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release
-          cmake --build --preset clang-release --target tachyon_java_resources
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --target tachyon_java_resources
 
       - name: Upload Linux Native asset
         uses: actions/upload-artifact@v7
         with:
-          name: 'native-linux-x86_64'
+          name: native-linux-${{ matrix.arch }}
           path: bindings/java/src/main/resources/native
+          if-no-files-found: 'error'
 
   java_native_macos:
     name: Build Native FFM (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: macos-26
@@ -272,6 +288,7 @@ jobs:
         with:
           name: native-macos-${{ matrix.arch }}
           path: bindings/java/src/main/resources/native
+          if-no-files-found: 'error'
 
   java_publish:
     name: Publish Fat JAR to Maven Central
@@ -318,6 +335,7 @@ jobs:
         with:
           name: 'java-fat-jar'
           path: bindings/java/build/libs/tachyon-java-*.jar
+          if-no-files-found: 'error'
 
   kotlin_publish:
     name: Publish Fat JAR to Maven Central
@@ -364,6 +382,7 @@ jobs:
         with:
           name: 'kotlin-fat-jar'
           path: bindings/kotlin/build/libs/tachyon-kotlin-*.jar
+          if-no-files-found: 'error'
 
   nodejs_prebuilt:
     name: Node.js Prebuilt (${{ matrix.platform }}-${{ matrix.arch }})
@@ -374,9 +393,6 @@ jobs:
         include:
           - os: ubuntu-24.04
             arch: x64
-            platform: linux
-          - os: ubuntu-24.04
-            arch: arm64
             platform: linux
           - os: macos-26-intel
             arch: x64
@@ -396,10 +412,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 20
-
-      - name: Setup QEMU (Linux ARM)
-        if: matrix.platform == 'linux' && matrix.arch == 'arm64'
-        uses: docker/setup-qemu-action@v4
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh node
@@ -515,31 +527,46 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
 
+      - name: Install aarch64 cross toolchain
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
+
       - name: Install LLVM 21
         run: bash ci/install_llvm.sh 21
-
-      - name: Setup QEMU (arm64)
-        if: matrix.arch == 'arm64'
-        uses: docker/setup-qemu-action@v4
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh c#
 
-      - name: Build libtachyon
+      - name: Build libtachyon (x86-64)
+        if: matrix.arch == 'amd64'
         env:
           CC: clang-21
           CXX: clang++-21
         run: |
           cmake --preset clang-release
           cmake --build --preset clang-release --target tachyon --parallel
-          mkdir -p dist
-          cp build/clang-release/core/libtachyon.so dist/libtachyon.so
+          mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
+          cp build/clang-release/core/libtachyon.so \
+            bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native/libtachyon.so
+
+      - name: Build libtachyon (aarch64)
+        if: matrix.arch == 'arm64'
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          cmake --preset clang-aarch64-release
+          cmake --build --preset clang-aarch64-release --target tachyon --parallel
+          mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-arm64/native
+          cp build/clang-aarch64-release/core/libtachyon.so \
+            bindings/csharp/src/TachyonIpc/runtimes/linux-arm64/native/libtachyon.so
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v7
         with:
           name: csharp-native-${{ matrix.rid }}
-          path: dist/libtachyon.so
+          path: bindings/csharp/src/TachyonIpc/runtimes/${{ matrix.rid }}/native/libtachyon.so
           if-no-files-found: error
 
   csharp_native_macos:
@@ -656,6 +683,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup Kitware APT repository
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ca-certificates gpg wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
 
       - name: Install LLVM
         run: bash ci/install_llvm.sh 21
