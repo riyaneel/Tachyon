@@ -1,5 +1,33 @@
 # Migration Guide
 
+---
+
+## v0.4.x → v0.5.0
+
+### Wire protocol
+
+v0.5.0 introduces `TACHYON_VERSION = 0x04`. The version check at `connect()` is strict equality.
+**Both producer and consumer must be rebuilt from the same release tag.**
+
+There is no in-place upgrade path. Restart both sides simultaneously.
+
+### Breaking changes
+
+**`TachyonHandshake` struct replaced.** The five-field v0x03 struct is incompatible with the eight-field v0x04 struct. A
+v0x04 connector will reject a v0x03 listener sending 20 bytes before any data is exchanged.
+
+**`MessageHeader` extended.** `correlation_id` (`uint64_t`) added at offset 16. Existing SPSC code requires no change:
+the field is always 0 on the wire for buses created with `tachyon_bus_listen`/`tachyon_bus_connect`. The
+`sizeof(MessageHeader)` remains 64 bytes.
+
+### No action required for SPSC code
+
+`type_id` encoding, `tachyon_msg_view_t` layout, all existing C API signatures, and all language binding APIs are
+unchanged. Existing `Bus.listen` / `Bus.connect` / `TxGuard` / `RxGuard` code compiles and runs without modification
+after rebuild.
+
+---
+
 ## v0.3.x -> v0.4.0
 
 ### Wire protocol
@@ -66,8 +94,8 @@ bus.send(data, type_id=make_type_id(0, 42))
 # reading
 from tachyon import route_id, msg_type
 
-route = route_id(msg.type_id) # 0
-mt = msg_type(msg.type_id) # 42
+route = route_id(msg.type_id)  # 0
+mt = msg_type(msg.type_id)  # 42
 ```
 
 #### Rust
@@ -76,13 +104,13 @@ mt = msg_type(msg.type_id) # 42
 use tachyon_ipc::{make_type_id, route_id, msg_type};
 
 // v0.3.x
-bus.send(data, 42)?;
+bus.send(data, 42) ?;
 
 // v0.4.0
-bus.send(data, make_type_id(0, 42))?;
+bus.send(data, make_type_id(0, 42)) ?;
 
 // reading
-let guard = bus.acquire_rx(10_000)?;
+let guard = bus.acquire_rx(10_000) ?;
 let route = route_id(guard.type_id); // 0
 let mt = msg_type(guard.type_id); // 42
 ```
@@ -143,7 +171,7 @@ val mt = TypeId.msgType(rx.typeId) // 42
 #### Node.js
 
 ```typescript
-import { makeTypeId, routeId, msgType } from '@tachyon-ipc/core';
+import {makeTypeId, routeId, msgType} from '@tachyon-ipc/core';
 
 // v0.3.x
 tx.commit(size, 42);
