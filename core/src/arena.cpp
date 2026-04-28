@@ -189,7 +189,7 @@ namespace tachyon::core {
 		}
 
 		if (need_skip) {
-			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, 0, {}};
+			constexpr MessageHeader skip_hdr{SKIP_MARKER, 0, 0, 0, {}};
 			std::memcpy(&layout_->data_arena()[physical_idx], &skip_hdr, sizeof(MessageHeader));
 			local_head_ += space_until_end;
 			physical_idx = 0;

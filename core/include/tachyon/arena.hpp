@@ -39,7 +39,8 @@ namespace tachyon::core {
 		uint32_t size;
 		uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 		uint32_t reserved_size;
-		uint8_t	 padding_[TACHYON_MSG_ALIGNMENT - sizeof(uint32_t) * 3];
+		uint64_t correlation_id;
+		uint8_t padding_[TACHYON_MSG_ALIGNMENT - (sizeof(uint32_t) * 4) - sizeof(uint64_t)];
 	};
 
 	struct alignas(128) ArenaHeader {
