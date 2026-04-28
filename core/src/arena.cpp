@@ -36,6 +36,14 @@ namespace tachyon::core {
 			uint32_t size;
 			uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 			uint32_t reserved_size;
+		}; // __attribute__((packed))
+
+		struct RpcPackedMeta {
+			uint32_t size;
+			uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
+			uint32_t reserved_size;
+			uint32_t padding_;
+			uint64_t correlation_id;
 		};
 
 		enum class WaitResult : int8_t { Woken = 0, Timeout = 1, Interrupted = -1 };
@@ -412,6 +420,72 @@ namespace tachyon::core {
 		}
 
 		return ptr;
+	}
+
+	bool
+	Arena::commit_tx_rpc(const size_t actual_size, const uint32_t type_id, const uint64_t correlation_id) noexcept {
+		if (tx_reserved_size_ == 0 || actual_size > tx_reserved_size_ - sizeof(MessageHeader)) [[unlikely]] {
+			tx_reserved_size_ = 0;
+			return false;
+		}
+
+		const size_t		physical_idx = local_head_ & capacity_mask_;
+		const RpcPackedMeta pmeta		 = {
+			   static_cast<uint32_t>(actual_size), type_id, static_cast<uint32_t>(tx_reserved_size_), 0u, correlation_id
+		   };
+		std::memcpy(&layout_->data_arena()[physical_idx], &pmeta, sizeof(RpcPackedMeta));
+
+		local_head_ += tx_reserved_size_;
+		tx_reserved_size_ = 0;
+		pending_tx_++;
+
+		if (pending_tx_ >= BATCH_SIZE) [[unlikely]] {
+			layout_->indices.head.store(local_head_, std::memory_order_release);
+			pending_tx_ = 0;
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
+				std::atomic_thread_fence(std::memory_order_seq_cst);
+				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
+					[[unlikely]] {
+					platform_wake(&layout_->indices.consumer_sleeping);
+				}
+			}
+		}
+
+		return true;
+	}
+
+	const std::byte *
+	Arena::acquire_rx_rpc(uint32_t &out_type_id, size_t &out_actual_size, uint64_t &out_correlation_id) noexcept {
+		if (cached_head_ <= local_tail_) {
+			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
+			if (cached_head_ <= local_tail_) [[likely]]
+				return nullptr;
+		}
+
+		const size_t  capacity	   = capacity_mask_ + 1;
+		size_t		  physical_idx = local_tail_ & capacity_mask_;
+		RpcPackedMeta pmeta{};
+		std::memcpy(&pmeta, &layout_->data_arena()[physical_idx], sizeof(RpcPackedMeta));
+
+		if (pmeta.size == SKIP_MARKER) [[unlikely]] {
+			const size_t space_until_end = capacity - physical_idx;
+			local_tail_ += space_until_end;
+			physical_idx = 0;
+			std::memcpy(&pmeta, &layout_->data_arena()[0], sizeof(RpcPackedMeta));
+		}
+
+		if (pmeta.reserved_size < HDR_SIZE || pmeta.reserved_size > capacity ||
+			(pmeta.reserved_size & ALIGN_MASK) != 0U || pmeta.size > pmeta.reserved_size - HDR_SIZE) [[unlikely]] {
+			layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+			return nullptr;
+		}
+
+		out_type_id		   = pmeta.type_id;
+		out_actual_size	   = pmeta.size;
+		out_correlation_id = pmeta.correlation_id;
+		rx_reserved_size_  = pmeta.reserved_size;
+
+		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
 	}
 
 	void Arena::flush() noexcept {

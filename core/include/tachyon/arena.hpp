@@ -40,7 +40,7 @@ namespace tachyon::core {
 		uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
 		uint32_t reserved_size;
 		uint64_t correlation_id;
-		uint8_t padding_[TACHYON_MSG_ALIGNMENT - (sizeof(uint32_t) * 4) - sizeof(uint64_t)];
+		uint8_t	 padding_[TACHYON_MSG_ALIGNMENT - (sizeof(uint32_t) * 4) - sizeof(uint64_t)];
 	};
 
 	struct alignas(128) ArenaHeader {
@@ -129,6 +129,11 @@ namespace tachyon::core {
 
 		[[nodiscard]] const std::byte *
 		acquire_rx_blocking(uint32_t &out_type_id, size_t &out_actual_size, uint32_t spin_threshold = 10000) noexcept;
+
+		[[nodiscard]] bool commit_tx_rpc(size_t actual_size, uint32_t type_id, uint64_t correlation_id) noexcept;
+
+		[[nodiscard]] const std::byte *
+		acquire_rx_rpc(uint32_t &out_type_id, size_t &out_actual_size, uint64_t &out_correlation_id) noexcept;
 
 		void flush() noexcept;
 
