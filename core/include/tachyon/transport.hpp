@@ -9,12 +9,15 @@ namespace tachyon::core {
 	/**
 	 * @brief ABI contract for initial exchange
 	 */
-	struct TachyonHandshake {
+	struct alignas(32) TachyonHandshake {
 		uint32_t magic;
 		uint32_t version;
-		uint32_t capacity;
-		uint32_t shm_size;
+		uint32_t capacity_fwd;
+		uint32_t shm_size_fwd;
+		uint32_t capacity_rev;
+		uint32_t shm_size_rev;
 		uint32_t msg_alignment;
+		uint32_t flags;
 	};
 
 	/**

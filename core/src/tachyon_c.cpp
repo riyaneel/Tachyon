@@ -84,11 +84,14 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 		return TACHYON_ERR_MEM;
 
 	const TachyonHandshake handshake = {
-		TACHYON_MAGIC,
-		TACHYON_VERSION,
-		static_cast<uint32_t>(capacity),
-		static_cast<uint32_t>(required_shm_size),
-		TACHYON_MSG_ALIGNMENT
+		.magic		   = TACHYON_MAGIC,
+		.version	   = TACHYON_VERSION,
+		.capacity_fwd  = static_cast<uint32_t>(capacity),
+		.shm_size_fwd  = static_cast<uint32_t>(required_shm_size),
+		.capacity_rev  = 0,
+		.shm_size_rev  = 0,
+		.msg_alignment = TACHYON_MSG_ALIGNMENT,
+		.flags		   = 0
 	};
 
 	if (auto transport_res = uds_export_shm(socket_path, bus->shm.get_fd(), handshake); !transport_res.has_value()) {
@@ -114,7 +117,7 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 		return TACHYON_ERR_ABI_MISMATCH;
 	}
 
-	auto shm_join = SharedMemory::join(received_fd, hs.shm_size);
+	auto shm_join = SharedMemory::join(received_fd, hs.shm_size_fwd);
 	if (!shm_join.has_value())
 		return map_shm_error(shm_join.error());
 
