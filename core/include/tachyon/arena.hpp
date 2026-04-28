@@ -20,7 +20,7 @@ static_assert(TACHYON_MSG_ALIGNMENT >= 32, "TACHYON_MSG_ALIGNMENT must be at lea
 
 namespace tachyon::core {
 	constexpr uint32_t TACHYON_MAGIC   = 0x54414348;
-	constexpr uint32_t TACHYON_VERSION = 0x03;
+	constexpr uint32_t TACHYON_VERSION = 0x04;
 
 	constexpr uint32_t CONSUMER_AWAKE	  = 0;
 	constexpr uint32_t CONSUMER_SLEEPING  = 1;
