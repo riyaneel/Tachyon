@@ -112,7 +112,8 @@ tachyon_error_t tachyon_bus_connect(const char *socket_path, tachyon_bus_t **out
 		return map_transport_error(transport_res.error());
 
 	const auto &[received_fd, hs] = transport_res.value();
-	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION || hs.msg_alignment != TACHYON_MSG_ALIGNMENT) {
+	if (hs.magic != TACHYON_MAGIC || hs.version != TACHYON_VERSION || hs.msg_alignment != TACHYON_MSG_ALIGNMENT ||
+		hs.flags != 0) {
 		close(received_fd);
 		return TACHYON_ERR_ABI_MISMATCH;
 	}
