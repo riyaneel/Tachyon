@@ -50,6 +50,8 @@ typedef enum {
 
 typedef struct tachyon_bus tachyon_bus_t;
 
+typedef struct tachyon_rpc_bus tachyon_rpc_bus_t;
+
 typedef struct {
 	const void *ptr;
 	size_t		actual_size;
@@ -106,6 +108,42 @@ TACHYON_ABI void tachyon_bus_set_polling_mode(const tachyon_bus_t *bus, int pure
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_listen(
+	const char *socket_path, size_t cap_fwd, size_t cap_rev, tachyon_rpc_bus_t **out_rpc
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_connect(const char *socket_path, tachyon_rpc_bus_t **out_rpc) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void tachyon_rpc_destroy(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_call(
+	tachyon_rpc_bus_t *rpc, const void *payload, size_t size, uint32_t msg_type, uint64_t *out_correlation_id
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI const void *tachyon_rpc_wait(
+	tachyon_rpc_bus_t *rpc, uint64_t correlation_id, size_t *out_size, uint32_t *out_msg_type, uint32_t spin_threshold
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_commit_rx(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
+
+TACHYON_ABI const void *tachyon_rpc_serve(
+	tachyon_rpc_bus_t *rpc,
+	uint64_t		  *out_correlation_id,
+	uint32_t		  *out_msg_type,
+	size_t			  *out_size,
+	uint32_t		   spin_threshold
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_commit_serve(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_reply(
+	tachyon_rpc_bus_t *rpc, uint64_t correlation_id, const void *payload, size_t size, uint32_t msg_type
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void tachyon_rpc_set_polling_mode(const tachyon_rpc_bus_t *rpc, int pure_spin) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_state_t tachyon_rpc_get_state(const tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
 
 #ifdef __cplusplus
 }
