@@ -95,6 +95,8 @@ namespace tachyon::core {
 
 		explicit Arena(MemoryLayout *layout, size_t capacity) noexcept;
 
+		void do_flush_tx() noexcept;
+
 	public:
 		~Arena() = default;
 

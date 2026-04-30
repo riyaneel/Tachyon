@@ -224,16 +224,7 @@ namespace tachyon::core {
 		pending_tx_++;
 
 		if (pending_tx_ >= BATCH_SIZE) [[unlikely]] {
-			// layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
-			layout_->indices.head.store(local_head_, std::memory_order_release);
-			pending_tx_ = 0;
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
-				std::atomic_thread_fence(std::memory_order_seq_cst);
-				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
-					[[unlikely]] {
-					platform_wake(&layout_->indices.consumer_sleeping);
-				}
-			}
+			do_flush_tx();
 		}
 
 		return true;
@@ -286,7 +277,6 @@ namespace tachyon::core {
 		pending_rx_++;
 
 		if (pending_rx_ >= BATCH_SIZE) [[unlikely]] {
-			// layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
@@ -363,7 +353,6 @@ namespace tachyon::core {
 		pending_rx_ += count;
 
 		if (pending_rx_ >= BATCH_SIZE) {
-			// layout_->indices.consumer_heartbeat.store(tachyon::rdtsc()::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
@@ -440,15 +429,7 @@ namespace tachyon::core {
 		pending_tx_++;
 
 		if (pending_tx_ >= BATCH_SIZE) [[unlikely]] {
-			layout_->indices.head.store(local_head_, std::memory_order_release);
-			pending_tx_ = 0;
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
-				std::atomic_thread_fence(std::memory_order_seq_cst);
-				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
-					[[unlikely]] {
-					platform_wake(&layout_->indices.consumer_sleeping);
-				}
-			}
+			do_flush_tx();
 		}
 
 		return true;
@@ -490,20 +471,10 @@ namespace tachyon::core {
 
 	void Arena::flush() noexcept {
 		if (pending_tx_ > 0) {
-			// layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
-			layout_->indices.head.store(local_head_, std::memory_order_release);
-			pending_tx_ = 0;
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
-				std::atomic_thread_fence(std::memory_order_seq_cst);
-				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
-					[[unlikely]] {
-					platform_wake(&layout_->indices.consumer_sleeping);
-				}
-			}
+			do_flush_tx();
 		}
 
 		if (pending_rx_ > 0) {
-			// layout_->indices.consumer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
 			layout_->indices.tail.store(local_tail_, std::memory_order_release);
 			pending_rx_ = 0;
 		}
@@ -511,16 +482,7 @@ namespace tachyon::core {
 
 	void Arena::flush_tx() noexcept {
 		if (pending_tx_ > 0) {
-			// layout_->indices.producer_heartbeat.store(tachyon::rdtsc(), std::memory_order_relaxed);
-			layout_->indices.head.store(local_head_, std::memory_order_release);
-			pending_tx_ = 0;
-			if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
-				std::atomic_thread_fence(std::memory_order_seq_cst);
-				if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING)
-					[[unlikely]] {
-					platform_wake(&layout_->indices.consumer_sleeping);
-				}
-			}
+			do_flush_tx();
 		}
 	}
 
@@ -550,5 +512,16 @@ namespace tachyon::core {
 
 	void Arena::set_fatal_error() const noexcept {
 		layout_->header.state.store(BusState::FatalError, std::memory_order_release);
+	}
+
+	void Arena::do_flush_tx() noexcept {
+		layout_->indices.head.store(local_head_, std::memory_order_release);
+		pending_tx_ = 0;
+		if (layout_->indices.consumer_sleeping.load(std::memory_order_relaxed) != CONSUMER_PURE_SPIN) [[unlikely]] {
+			std::atomic_thread_fence(std::memory_order_seq_cst);
+			if (layout_->indices.consumer_sleeping.load(std::memory_order_acquire) == CONSUMER_SLEEPING) [[unlikely]] {
+				platform_wake(&layout_->indices.consumer_sleeping);
+			}
+		}
 	}
 } // namespace tachyon::core
