@@ -346,6 +346,74 @@ tachyon_error_t tachyon_rpc_reply(
 	return TACHYON_SUCCESS;
 }
 
+void *tachyon_rpc_acquire_tx(tachyon_rpc_bus_t *rpc, const size_t max_size) TACHYON_NOEXCEPT {
+	if (!rpc) [[unlikely]] {
+		return nullptr;
+	}
+	return rpc->arena_fwd.acquire_tx(max_size);
+}
+
+tachyon_error_t tachyon_rpc_commit_call(
+	tachyon_rpc_bus_t *rpc, const size_t actual_size, const uint32_t msg_type, uint64_t *out_cid
+) TACHYON_NOEXCEPT {
+	if (!rpc || !out_cid) [[unlikely]] {
+		return TACHYON_ERR_NULL_PTR;
+	}
+
+	const uint64_t cid	   = rpc->correlation_counter.fetch_add(1, std::memory_order_relaxed);
+	const uint32_t type_id = TACHYON_TYPE_ID(0, msg_type);
+	if (!rpc->arena_fwd.commit_tx_rpc(actual_size, type_id, cid)) [[unlikely]] {
+		return TACHYON_ERR_SYSTEM;
+	}
+
+	rpc->arena_fwd.flush_tx();
+	*out_cid = cid;
+	return TACHYON_SUCCESS;
+}
+
+void tachyon_rpc_rollback_call(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT {
+	if (rpc) [[likely]] {
+		if (!rpc->arena_fwd.rollback_tx()) [[unlikely]] {
+			rpc->arena_fwd.set_fatal_error();
+		}
+	}
+}
+
+void *tachyon_rpc_acquire_reply_tx(tachyon_rpc_bus_t *rpc, const size_t max_size) TACHYON_NOEXCEPT {
+	if (!rpc) [[unlikely]] {
+		return nullptr;
+	}
+	return rpc->arena_rev.acquire_tx(max_size);
+}
+
+tachyon_error_t tachyon_rpc_commit_reply(
+	tachyon_rpc_bus_t *rpc, const uint64_t cid, const size_t actual_size, const uint32_t msg_type
+) TACHYON_NOEXCEPT {
+	if (!rpc) [[unlikely]] {
+		return TACHYON_ERR_NULL_PTR;
+	}
+
+	if (cid == 0) [[unlikely]] {
+		return TACHYON_ERR_INVALID_SZ;
+	}
+
+	const uint32_t type_id = TACHYON_TYPE_ID(0, msg_type);
+	if (!rpc->arena_rev.commit_tx_rpc(actual_size, type_id, cid)) [[unlikely]] {
+		return TACHYON_ERR_SYSTEM;
+	}
+
+	rpc->arena_rev.flush_tx();
+	return TACHYON_SUCCESS;
+}
+
+void tachyon_rpc_rollback_reply(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT {
+	if (rpc) [[likely]] {
+		if (!rpc->arena_rev.rollback_tx()) [[unlikely]] {
+			rpc->arena_rev.set_fatal_error();
+		}
+	}
+}
+
 void tachyon_rpc_set_polling_mode(const tachyon_rpc_bus_t *rpc, const int pure_spin) TACHYON_NOEXCEPT {
 	if (rpc) [[likely]] {
 		rpc->arena_fwd.set_polling_mode(pure_spin != 0);

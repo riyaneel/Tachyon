@@ -141,6 +141,21 @@ TACHYON_ABI tachyon_error_t tachyon_rpc_reply(
 	tachyon_rpc_bus_t *rpc, uint64_t correlation_id, const void *payload, size_t size, uint32_t msg_type
 ) TACHYON_NOEXCEPT;
 
+TACHYON_ABI void *tachyon_rpc_acquire_tx(tachyon_rpc_bus_t *rpc, size_t max_size) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_rpc_commit_call(
+	tachyon_rpc_bus_t *rpc, size_t actual_size, uint32_t msg_type, uint64_t *out_cid
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void tachyon_rpc_rollback_call(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void *tachyon_rpc_acquire_reply_tx(tachyon_rpc_bus_t *rpc, size_t max_size) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t
+tachyon_rpc_commit_reply(tachyon_rpc_bus_t *rpc, uint64_t cid, size_t actual_size, uint32_t msg_type) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void tachyon_rpc_rollback_reply(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
+
 TACHYON_ABI void tachyon_rpc_set_polling_mode(const tachyon_rpc_bus_t *rpc, int pure_spin) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_rpc_get_state(const tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
