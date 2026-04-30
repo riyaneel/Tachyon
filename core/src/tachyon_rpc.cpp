@@ -130,8 +130,10 @@ tachyon_error_t tachyon_rpc_connect(const char *socket_path, tachyon_rpc_bus_t *
 	}
 
 	auto shm_fwd = SharedMemory::join(fd_fwd, hs.shm_size_fwd);
-	if (!shm_fwd.has_value())
+	if (!shm_fwd.has_value()) {
+		::close(fd_rev);
 		return map_shm_error(shm_fwd.error());
+	}
 
 	auto shm_rev = SharedMemory::join(fd_rev, hs.shm_size_rev);
 	if (!shm_rev.has_value())
