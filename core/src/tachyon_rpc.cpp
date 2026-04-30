@@ -54,7 +54,7 @@ static tachyon_error_t map_transport_error(const TransportError error) TACHYON_N
 extern "C" {
 
 tachyon_error_t tachyon_rpc_listen(
-	const char *socket_path, size_t cap_fwd, size_t cap_rev, tachyon_rpc_bus_t **out_rpc
+	const char *socket_path, const size_t cap_fwd, const size_t cap_rev, tachyon_rpc_bus_t **out_rpc
 ) TACHYON_NOEXCEPT {
 	if (!socket_path || !out_rpc || cap_fwd == 0 || cap_rev == 0) {
 		return TACHYON_ERR_INVALID_SZ;
@@ -157,5 +157,214 @@ tachyon_error_t tachyon_rpc_connect(const char *socket_path, tachyon_rpc_bus_t *
 
 	*out_rpc = rpc;
 	return TACHYON_SUCCESS;
+}
+
+void tachyon_rpc_destroy(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT {
+	if (rpc && rpc->ref_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+		delete rpc;
+	}
+}
+
+tachyon_error_t tachyon_rpc_call(
+	tachyon_rpc_bus_t *rpc,
+	const void		  *payload,
+	const size_t	   size,
+	const uint32_t	   msg_type,
+	uint64_t		  *out_correlation_id
+) TACHYON_NOEXCEPT {
+	if (!rpc || !payload || !out_correlation_id) [[unlikely]] {
+		return TACHYON_ERR_NULL_PTR;
+	}
+
+	std::byte *ptr = rpc->arena_fwd.acquire_tx(size);
+	if (!ptr) [[unlikely]] {
+		return TACHYON_ERR_FULL;
+	}
+
+	std::memcpy(ptr, payload, size);
+
+	const uint64_t cid	   = rpc->correlation_counter.fetch_add(1, std::memory_order_relaxed);
+	const uint32_t type_id = TACHYON_TYPE_ID(0, msg_type);
+	if (!rpc->arena_fwd.commit_tx_rpc(size, type_id, cid)) [[unlikely]] {
+		return TACHYON_ERR_SYSTEM;
+	}
+
+	rpc->arena_fwd.flush_tx();
+	*out_correlation_id = cid;
+	return TACHYON_SUCCESS;
+}
+
+const void *tachyon_rpc_wait(
+	tachyon_rpc_bus_t *rpc,
+	const uint64_t	   correlation_id,
+	size_t			  *out_size,
+	uint32_t		  *out_msg_type,
+	const uint32_t	   spin_threshold
+) TACHYON_NOEXCEPT {
+	if (!rpc || !out_size || !out_msg_type) [[unlikely]] {
+		return nullptr;
+	}
+
+	uint32_t		 type_id	 = 0;
+	size_t			 actual_size = 0;
+	uint64_t		 recv_cid	 = 0;
+	uint32_t		 spins		 = 0;
+	const std::byte *ptr		 = nullptr;
+
+	for (;;) {
+		ptr = rpc->arena_rev.acquire_rx_rpc(type_id, actual_size, recv_cid);
+		if (ptr != nullptr) {
+			break;
+		}
+
+		if (rpc->arena_rev.get_state() == BusState::FatalError) [[unlikely]] {
+			return nullptr;
+		}
+
+		if (spins < spin_threshold) {
+			tachyon::cpu_relax();
+			spins++;
+		} else {
+			rpc->arena_rev.set_consumer_sleeping(true);
+			ptr = rpc->arena_rev.acquire_rx_rpc(type_id, actual_size, recv_cid);
+			if (ptr != nullptr) {
+				rpc->arena_rev.set_consumer_sleeping(false);
+				break;
+			}
+
+			const int wait_res = rpc->arena_rev.wait_consumer_sleeping();
+			rpc->arena_rev.set_consumer_sleeping(false);
+			if (wait_res == -1) // EINTR
+				return nullptr;
+			spins = 0;
+		}
+	}
+
+	if (correlation_id != 0 && recv_cid != correlation_id) [[unlikely]] {
+		rpc->arena_rev.set_fatal_error();
+		return nullptr;
+	}
+
+	*out_size	  = actual_size;
+	*out_msg_type = TACHYON_MSG_TYPE(type_id);
+	return ptr;
+}
+
+tachyon_error_t tachyon_rpc_commit_rx(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT {
+	if (!rpc) [[unlikely]] {
+		return TACHYON_ERR_NULL_PTR;
+	}
+	return rpc->arena_rev.commit_rx() ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+}
+
+const void *tachyon_rpc_serve(
+	tachyon_rpc_bus_t *rpc,
+	uint64_t		  *out_correlation_id,
+	uint32_t		  *out_msg_type,
+	size_t			  *out_size,
+	uint32_t		   spin_threshold
+) TACHYON_NOEXCEPT {
+	if (!rpc || !out_correlation_id || !out_msg_type || !out_size) [[unlikely]]
+		return nullptr;
+
+	uint32_t type_id	 = 0;
+	size_t	 actual_size = 0;
+	uint64_t cid		 = 0;
+	uint32_t spins		 = 0;
+
+	const std::byte *ptr = nullptr;
+
+	for (;;) {
+		ptr = rpc->arena_fwd.acquire_rx_rpc(type_id, actual_size, cid);
+		if (ptr != nullptr) {
+			break;
+		}
+
+		if (rpc->arena_fwd.get_state() == BusState::FatalError) [[unlikely]] {
+			return nullptr;
+		}
+
+		if (spins < spin_threshold) {
+			tachyon::cpu_relax();
+			spins++;
+		} else {
+			rpc->arena_fwd.set_consumer_sleeping(true);
+			ptr = rpc->arena_fwd.acquire_rx_rpc(type_id, actual_size, cid);
+			if (ptr) {
+				rpc->arena_fwd.set_consumer_sleeping(false);
+				break;
+			}
+
+			const int wait_res = rpc->arena_fwd.wait_consumer_sleeping();
+			rpc->arena_fwd.set_consumer_sleeping(false);
+			if (wait_res == -1) // EINTR
+				return nullptr;
+			spins = 0;
+		}
+	}
+
+	*out_correlation_id = cid;
+	*out_msg_type		= TACHYON_MSG_TYPE(type_id);
+	*out_size			= actual_size;
+	return ptr;
+}
+
+tachyon_error_t tachyon_rpc_commit_serve(tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT {
+	if (!rpc) [[unlikely]] {
+		return TACHYON_ERR_NULL_PTR;
+	}
+	return rpc->arena_fwd.commit_rx() ? TACHYON_SUCCESS : TACHYON_ERR_SYSTEM;
+}
+
+tachyon_error_t tachyon_rpc_reply(
+	tachyon_rpc_bus_t *rpc, uint64_t correlation_id, const void *payload, size_t size, uint32_t msg_type
+) TACHYON_NOEXCEPT {
+	if (!rpc || !payload) [[unlikely]] {
+		return TACHYON_ERR_NULL_PTR;
+	}
+
+	if (correlation_id == 0) [[unlikely]] {
+		return TACHYON_ERR_INVALID_SZ;
+	}
+
+	std::byte *ptr = rpc->arena_rev.acquire_tx(size);
+	if (!ptr) [[unlikely]] {
+		return TACHYON_ERR_FULL;
+	}
+
+	std::memcpy(ptr, payload, size);
+
+	const uint32_t type_id = TACHYON_TYPE_ID(0, msg_type);
+	if (!rpc->arena_rev.commit_tx_rpc(size, type_id, correlation_id)) [[unlikely]] {
+		return TACHYON_ERR_SYSTEM;
+	}
+
+	rpc->arena_rev.flush_tx();
+	return TACHYON_SUCCESS;
+}
+
+void tachyon_rpc_set_polling_mode(const tachyon_rpc_bus_t *rpc, const int pure_spin) TACHYON_NOEXCEPT {
+	if (rpc) [[likely]] {
+		rpc->arena_fwd.set_polling_mode(pure_spin != 0);
+		rpc->arena_rev.set_polling_mode(pure_spin != 0);
+	}
+}
+
+tachyon_state_t tachyon_rpc_get_state(const tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT {
+	if (!rpc) [[unlikely]] {
+		return TACHYON_STATE_UNKNOWN;
+	}
+
+	const BusState fwd_state = rpc->arena_fwd.get_state();
+	const BusState rev_state = rpc->arena_rev.get_state();
+	if (fwd_state == BusState::FatalError || rev_state == BusState::FatalError) {
+		return TACHYON_STATE_FATAL_ERROR;
+	}
+
+	if (fwd_state == BusState::Ready && rev_state == BusState::Ready) {
+		return TACHYON_STATE_READY;
+	}
+
+	return TACHYON_STATE_UNKNOWN;
 }
 }
