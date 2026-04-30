@@ -1,5 +1,6 @@
 #include <atomic>
 #include <new>
+#include <unistd.h>
 
 #include <tachyon.h>
 #include <tachyon/arena.hpp>
