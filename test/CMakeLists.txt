@@ -2,6 +2,7 @@ enable_testing()
 
 add_executable(tachyon_tests
 		src/test_arena.cpp
+		src/test_rpc.cpp
 		src/test_shm.cpp
 )
 
