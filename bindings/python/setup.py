@@ -112,6 +112,7 @@ ext_modules = [
             "_core_local/src/arena.cpp",
             "_core_local/src/shm.cpp",
             "_core_local/src/tachyon_c.cpp",
+            "_core_local/src/tachyon_rpc.cpp",
             "_core_local/src/transport_uds.cpp",
         ],
         include_dirs=[
