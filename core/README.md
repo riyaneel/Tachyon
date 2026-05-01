@@ -24,12 +24,12 @@ core/
 │ └── tachyon/
 │ ├── arena.hpp SPSC ring buffer: producer and consumer state
 │ ├── shm.hpp Shared memory RAII wrapper (memfd / shm_open)
-│ ├── concepts.hpp TachyonPayload concept (trivially copyable, standard layout)
 │ └── transport.hpp UDS handshake types and free functions
 └── src/
 ├── arena.cpp Ring buffer implementation
 ├── shm.cpp memfd_create (Linux) / shm_open (macOS) + mmap
 ├── tachyon_c.cpp tachyon_bus_t + C API implementation
+├── tachyon_rpc.cpp  RPC API implementation
 └── transport_uds.cpp SCM_RIGHTS handshake over UNIX domain socket
 ```
 

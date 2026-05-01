@@ -8,7 +8,6 @@
 #include <span>
 
 #include <tachyon.hpp>
-#include <tachyon/concepts.hpp>
 #include <tachyon/shm.hpp>
 
 #ifndef TACHYON_MSG_ALIGNMENT
@@ -150,26 +149,6 @@ namespace tachyon::core {
 		uint64_t get_producer_heartbeat() const noexcept;
 
 		void set_fatal_error() const noexcept;
-
-		template <TachyonPayload T> [[nodiscard]] inline bool push(const uint32_t type_id, const T &payload) noexcept {
-			if (std::byte *ptr = acquire_tx(sizeof(T))) [[likely]] {
-				std::memcpy(ptr, &payload, sizeof(T));
-				return commit_tx(sizeof(T), type_id);
-			}
-			return false;
-		}
-
-		template <TachyonPayload T> [[nodiscard]] inline bool pop(uint32_t &out_type_id, T &out_payload) noexcept {
-			size_t actual_size = 0;
-			if (const std::byte *ptr = acquire_rx(out_type_id, actual_size)) [[likely]] {
-				if (actual_size == sizeof(T)) {
-					std::memcpy(&out_payload, ptr, sizeof(T));
-					return commit_rx();
-				}
-				(void)commit_rx();
-			}
-			return false;
-		}
 
 		[[nodiscard]] inline BusState get_state() const noexcept {
 			return layout_->header.state.load(std::memory_order_acquire);
