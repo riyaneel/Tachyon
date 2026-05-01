@@ -217,3 +217,87 @@ def test_struct_payload(clean_socket):
     t.join(timeout=2.0)
 
     assert results[0] == pytest.approx((sent[0] * 2, sent[1] * 2))
+
+
+def test_dispatcher_and_endpoint(clean_socket):
+    from tachyon import RpcDispatcher
+
+    dispatcher = RpcDispatcher()
+
+    @dispatcher.handler(msg_type=99)
+    def reverse_handler(mv: memoryview) -> bytes:
+        return mv.tobytes()[::-1]
+
+    def run_callee():
+        with tachyon.RpcBus.rpc_listen(clean_socket, CAP, CAP) as callee:
+            dispatcher.serve_once(callee)
+
+    t = threading.Thread(target=run_callee)
+    t.start()
+    time.sleep(0.05)
+
+    with tachyon.RpcBus.rpc_connect(clean_socket) as caller:
+        payload = b"tachyon"
+        resp = reverse_handler.call(caller, payload)
+
+    t.join(timeout=2.0)
+
+    assert resp == b"noyhcat"
+
+
+def test_dispatcher_unhandled_msg_type(clean_socket):
+    from tachyon import RpcDispatcher
+
+    dispatcher = RpcDispatcher()
+
+    def run_callee():
+        with tachyon.RpcBus.rpc_listen(clean_socket, CAP, CAP) as callee:
+            try:
+                dispatcher.serve_once(callee)
+            except KeyError:
+                pass
+
+    t = threading.Thread(target=run_callee)
+    t.start()
+    time.sleep(0.05)
+
+    with tachyon.RpcBus.rpc_connect(clean_socket) as caller:
+        cid = caller.call(b"unhandled", msg_type=404)
+        with caller.wait(cid) as rx:
+            assert rx.type_id == 0xFFFF
+            with memoryview(rx) as mv:
+                unhandled_mt = struct.unpack("!H", mv[:2])[0]
+                assert unhandled_mt == 404
+
+    t.join(timeout=2.0)
+
+
+def test_dispatcher_handler_exception(clean_socket):
+    from tachyon import RpcDispatcher
+
+    dispatcher = RpcDispatcher()
+
+    @dispatcher.handler(msg_type=50)
+    def crash_handler(mv: memoryview) -> bytes:
+        raise ValueError("Intentional crash")
+
+    def run_callee():
+        with tachyon.RpcBus.rpc_listen(clean_socket, CAP, CAP) as callee:
+            try:
+                dispatcher.serve_once(callee)
+            except RuntimeError:
+                pass
+
+    t = threading.Thread(target=run_callee)
+    t.start()
+    time.sleep(0.05)
+
+    with tachyon.RpcBus.rpc_connect(clean_socket) as caller:
+        cid = caller.call(b"crash", msg_type=50)
+        with caller.wait(cid) as rx:
+            assert rx.type_id == 0xFFFF
+            with memoryview(rx) as mv:
+                crashed_mt = struct.unpack("!H", mv[:2])[0]
+                assert crashed_mt == 50
+
+    t.join(timeout=2.0)
