@@ -30,6 +30,7 @@ fn main() {
         .file(src_dir.join("arena.cpp"))
         .file(src_dir.join("shm.cpp"))
         .file(src_dir.join("tachyon_c.cpp"))
+        .file(src_dir.join("tachyon_rpc.cpp"))
         .file(src_dir.join("transport_uds.cpp"))
         .compile("tachyon");
 
@@ -37,7 +38,13 @@ fn main() {
         println!("cargo:rustc-link-lib=rt")
     }
 
-    for src in &["arena.cpp", "shm.cpp", "tachyon_c.cpp", "transport_uds.cpp"] {
+    for src in &[
+        "arena.cpp",
+        "shm.cpp",
+        "tachyon_c.cpp",
+        "tachyon_rpc.cpp",
+        "transport_uds.cpp",
+    ] {
         println!("cargo:rerun-if-changed={}", src_dir.join(src).display())
     }
 
