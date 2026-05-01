@@ -152,3 +152,145 @@ class TachyonBus:
         on every producer flush. pure_spin=1 enables, 0 restores hybrid mode.
         """
         ...
+
+
+class RpcTxGuard:
+    """Tachyon RPC TX Guard Context Manager.
+
+    Wraps a zero-copy slot in arena_fwd (call side) or arena_rev (reply side).
+    Fill the buffer via memoryview, set actual_size and msg_type, then exit the
+    context to commit. On exception the slot is rolled back automatically.
+    out_cid is populated after a successful call-side commit; always 0 for replies.
+    """
+
+    actual_size: int
+    msg_type: int
+
+    @property
+    def out_cid(self) -> int:
+        """Correlation ID assigned after commit (call side only). 0 before commit or for replies."""
+        ...
+
+    def __enter__(self) -> "RpcTxGuard": ...
+
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[types.TracebackType],
+    ) -> bool: ...
+
+    def __buffer__(self, flags: int) -> memoryview: ...
+
+
+class RpcRxGuard:
+    """Tachyon RPC RX Guard Context Manager.
+
+    Wraps a zero-copy slot in arena_rev (caller wait side) or arena_fwd (callee
+    serve side). Read via memoryview, then exit the context to release the slot.
+    correlation_id must be read before or during the context — it is invalid after exit.
+    """
+
+    @property
+    def actual_size(self) -> int: ...
+
+    @property
+    def type_id(self) -> int: ...
+
+    @property
+    def correlation_id(self) -> int:
+        """Correlation ID of this message. Use to dispatch replies on the callee side."""
+        ...
+
+    def __enter__(self) -> "RpcRxGuard": ...
+
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[types.TracebackType],
+    ) -> bool: ...
+
+    def __buffer__(self, flags: int) -> memoryview: ...
+
+
+class TachyonRpcBus:
+    """Tachyon RPC Bus — low-level C extension type.
+
+    Prefer the high-level RpcBus wrapper. Use this directly only when you need
+    raw guard access without the Python-layer copies.
+    """
+
+    def listen(self, socket_path: str, cap_fwd: int, cap_rev: int) -> None:
+        """
+        Creates two SHM arenas (fwd + rev) and blocks until a connector arrives.
+
+        :raise KeyboardInterrupt: Interrupted by signal while waiting.
+        :raise RuntimeError: Bus already initialized.
+        :raise SystemError: SHM or OS failure.
+        """
+        ...
+
+    def connect(self, socket_path: str) -> None:
+        """
+        Attaches to existing SHM arenas via UNIX socket.
+
+        :raise ConnectionError: ABI mismatch (version or flags mismatch).
+        :raise ConnectionError: UNIX socket unreachable.
+        :raise RuntimeError: Bus already initialized.
+        """
+        ...
+
+    def destroy(self) -> None:
+        """Explicitly unmap both SHM arenas and close fds."""
+        ...
+
+    def acquire_call(self, max_payload_size: int) -> RpcTxGuard:
+        """
+        Acquires a zero-copy TX slot in arena_fwd (caller → callee).
+        Returns an RpcTxGuard. Set actual_size and msg_type before exiting the context.
+        out_cid is populated after successful __exit__.
+
+        :raise PeerDeadError: arena_fwd in FatalError state.
+        :raise TachyonError: Ring buffer full.
+        :raise ValueError: max_payload_size <= 0.
+        """
+        ...
+
+    def acquire_reply(self, correlation_id: int, max_payload_size: int) -> RpcTxGuard:
+        """
+        Acquires a zero-copy TX slot in arena_rev (callee → caller).
+        Returns an RpcTxGuard with is_reply=1. correlation_id must be non-zero.
+
+        :raise PeerDeadError: arena_rev in FatalError state.
+        :raise TachyonError: Ring buffer full.
+        :raise ValueError: correlation_id == 0 or max_payload_size <= 0.
+        """
+        ...
+
+    def wait(self, correlation_id: int, spin_threshold: int = 10000) -> RpcRxGuard:
+        """
+        Blocks until the response matching correlation_id arrives in arena_rev.
+        Returns an RpcRxGuard. A cid mismatch triggers FatalError on arena_rev.
+
+        :raise PeerDeadError: Cid mismatch or arena_rev FatalError.
+        :raise KeyboardInterrupt: Interrupted by signal.
+        """
+        ...
+
+    def serve(self, spin_threshold: int = 10000) -> RpcRxGuard:
+        """
+        Blocks until a request arrives in arena_fwd.
+        Returns an RpcRxGuard. Read correlation_id from the guard for the reply.
+
+        :raise PeerDeadError: arena_fwd in FatalError state.
+        :raise KeyboardInterrupt: Interrupted by signal.
+        """
+        ...
+
+    def set_polling_mode(self, pure_spin: int) -> None:
+        """
+        Signals that both consumers (fwd + rev) will never sleep.
+        pure_spin=1 enables, 0 restores hybrid mode.
+        """
+        ...

@@ -6,8 +6,12 @@ from ._tachyon import (
     RxGuard,
     RxBatchGuard,
     RxMsgView,
+    TachyonRpcBus,
+    RpcTxGuard,
+    RpcRxGuard,
 )
 from .bus import Bus
+from .rpc import RpcBus
 from .message import Message
 from .type_id import make_type_id, msg_type, route_id
 
@@ -19,10 +23,15 @@ __all__ = [
     "RxGuard",
     "RxBatchGuard",
     "RxMsgView",
+    "TachyonRpcBus",
+    "RpcTxGuard",
+    "RpcRxGuard",
     "Bus",
+    "RpcBus",
     "Message",
     "make_type_id",
     "msg_type",
-    "route_id"
+    "route_id",
 ]
+
 __version__ = "0.4.2"

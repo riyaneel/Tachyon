@@ -10,7 +10,11 @@ __all__ = [
     "RxGuard",
     "RxBatchGuard",
     "RxMsgView",
+    "TachyonRpcBus",
+    "RpcTxGuard",
+    "RpcRxGuard",
     "Bus",
+    "RpcBus",
     "Message",
     "make_type_id",
     "route_id",
@@ -54,6 +58,9 @@ TxGuard = _tachyon.TxGuard
 RxGuard = _tachyon.RxGuard
 RxBatchGuard = _tachyon.RxBatchGuard
 RxMsgView = _tachyon.RxMsgView
+TachyonRpcBus = _tachyon.TachyonRpcBus
+RpcTxGuard = _tachyon.RpcTxGuard
+RpcRxGuard = _tachyon.RpcRxGuard
 
 
 class Message:
@@ -138,4 +145,108 @@ class Bus:
 
     def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> RxBatchGuard:
         """Batch RX. Blocks until ≥1 message, drains up to max_msgs."""
+        ...
+
+
+class RpcBus:
+    """Tachyon RPC High-Level API."""
+
+    def __init__(self) -> None:
+        """Private. Use rpc_listen() or rpc_connect()."""
+        ...
+
+    @classmethod
+    def rpc_listen(cls, socket_path: str, cap_fwd: int, cap_rev: int) -> "RpcBus":
+        """Creates two SHM arenas (fwd + rev) and binds UNIX socket."""
+        ...
+
+    @classmethod
+    def rpc_connect(cls, socket_path: str) -> "RpcBus":
+        """Attaches to existing SHM arenas via UNIX socket."""
+        ...
+
+    def __enter__(self) -> "RpcBus": ...
+
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc_val: Optional[BaseException],
+            exc_tb: Optional[types.TracebackType],
+    ) -> None: ...
+
+    def set_polling_mode(self, pure_spin: int) -> None:
+        """
+        Signals that both consumers (fwd + rev arenas) will never sleep.
+        pure_spin=1 enables, 0 restores hybrid mode.
+        """
+        ...
+
+    def call(
+            self,
+            payload: bytes,
+            msg_type: int,
+            max_payload_size: Optional[int] = None,
+            spin_threshold: int = 10000,
+    ) -> int:
+        """
+        Copies payload into arena_fwd and returns the assigned correlation_id.
+
+        :param max_payload_size: Reserve size. Defaults to len(payload).
+        :return: correlation_id for use with wait().
+        """
+        ...
+
+    def call_zero_copy(self, max_payload_size: int, msg_type: int) -> RpcTxGuard:
+        """
+        Zero-copy TX call guard. Fill buffer, set actual_size, exit context.
+        Read out_cid after context exit.
+        """
+        ...
+
+    def wait(self, correlation_id: int, spin_threshold: int = 10000) -> RpcRxGuard:
+        """
+        Blocks until the response matching correlation_id arrives.
+        Returns an RpcRxGuard context manager.
+
+        :raise PeerDeadError: Cid mismatch or FatalError on arena_rev.
+        :raise KeyboardInterrupt: Interrupted by signal.
+        """
+        ...
+
+    def serve(self, spin_threshold: int = 10000) -> RpcRxGuard:
+        """
+        Blocks until a request arrives. Returns an RpcRxGuard.
+        Read correlation_id from the guard before exiting the context.
+
+        :raise PeerDeadError: FatalError on arena_fwd.
+        :raise KeyboardInterrupt: Interrupted by signal.
+        """
+        ...
+
+    def reply(
+            self,
+            correlation_id: int,
+            payload: bytes,
+            msg_type: int,
+            max_payload_size: Optional[int] = None,
+    ) -> None:
+        """
+        Copies payload into arena_rev as a response to correlation_id.
+
+        :raise ValueError: correlation_id == 0.
+        :raise PeerDeadError: FatalError on arena_rev.
+        """
+        ...
+
+    def reply_zero_copy(
+            self,
+            correlation_id: int,
+            max_payload_size: int,
+            msg_type: int,
+    ) -> RpcTxGuard:
+        """
+        Zero-copy TX reply guard. Fill buffer, set actual_size, exit context.
+
+        :raise ValueError: correlation_id == 0.
+        """
         ...
