@@ -1035,7 +1035,10 @@ static PyMethodDef TachyonBusMethods[10] = {
 	{"acquire_rx", reinterpret_cast<PyCFunction>(TachyonBus_acquire_rx), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"drain_batch", reinterpret_cast<PyCFunction>(TachyonBus_drain_batch), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"set_numa_node", reinterpret_cast<PyCFunction>(TachyonBus_set_numa_node), METH_VARARGS | METH_KEYWORDS, nullptr},
-	{"set_polling_mode", reinterpret_cast<PyCFunction>(TachyonBus_set_polling_mode), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"set_polling_mode",
+	 reinterpret_cast<PyCFunction>(TachyonBus_set_polling_mode),
+	 METH_VARARGS | METH_KEYWORDS,
+	 nullptr},
 	{nullptr, nullptr, 0, nullptr}
 };
 
@@ -1043,6 +1046,631 @@ static PyMethodDef TachyonBusMethods[10] = {
  * @brief Python type definition for TachyonBus
  */
 static PyTypeObject TachyonBusType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+typedef struct {
+	PyObject_HEAD tachyon_rpc_bus_t *rpc;
+	void							*ptr;
+	size_t							 max_size;
+	size_t							 actual_size;
+	uint32_t						 msg_type;
+	uint64_t						 out_cid;
+	uint64_t						 reply_cid;
+	int								 is_reply;
+	int								 committed;
+	Py_ssize_t						 exports;
+} RpcTxGuard;
+
+static PyTypeObject RpcTxGuardType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+static PyObject *RpcTxGuard_get_actual_size(const RpcTxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromSize_t(self->actual_size);
+}
+
+static int RpcTxGuard_set_actual_size(RpcTxGuard *self, PyObject *value, void *Py_UNUSED(closure)) {
+	if (!value) {
+		PyErr_SetString(PyExc_TypeError, "Cannot delete actual_size.");
+		return -1;
+	}
+
+	const size_t val = PyLong_AsSize_t(value);
+	if (PyErr_Occurred()) {
+		return -1;
+	}
+	self->actual_size = val;
+	return 0;
+}
+
+static PyObject *RpcTxGuard_get_msg_type(const RpcTxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLong(self->msg_type);
+}
+
+static int RpcTxGuard_set_msg_type(RpcTxGuard *self, PyObject *value, void *Py_UNUSED(closure)) {
+	if (!value) {
+		PyErr_SetString(PyExc_TypeError, "Cannot delete msg_type.");
+		return -1;
+	}
+
+	const unsigned long val = PyLong_AsUnsignedLong(value);
+	if (PyErr_Occurred()) {
+		return -1;
+	}
+
+	self->msg_type = static_cast<uint32_t>(val);
+	return 0;
+}
+
+static PyObject *RpcTxGuard_get_out_cid(const RpcTxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLongLong(self->out_cid);
+}
+
+static PyGetSetDef RpcTxGuardGettersSetter[4] = {
+	{const_cast<char *>("actual_size"),
+	 reinterpret_cast<getter>(RpcTxGuard_get_actual_size),
+	 reinterpret_cast<setter>(RpcTxGuard_set_actual_size),
+	 const_cast<char *>("Actual payload size"),
+	 nullptr},
+	{const_cast<char *>("msg_type"),
+	 reinterpret_cast<getter>(RpcTxGuard_get_msg_type),
+	 reinterpret_cast<setter>(RpcTxGuard_set_msg_type),
+	 const_cast<char *>("Message type"),
+	 nullptr},
+	{const_cast<char *>("out_cid"),
+	 reinterpret_cast<getter>(RpcTxGuard_get_out_cid),
+	 nullptr,
+	 const_cast<char *>("Correlation ID assigned after commit (call side only)"),
+	 nullptr},
+	{nullptr, nullptr, nullptr, nullptr, nullptr}
+};
+
+static PyObject *RpcTxGuard_enter(RpcTxGuard *self, PyObject *Py_UNUSED(ignored)) {
+	Py_INCREF(self);
+	return reinterpret_cast<PyObject *>(self);
+}
+
+static PyObject *RpcTxGuard_exit(RpcTxGuard *self, PyObject *args) {
+	PyObject *exc_type, *exc_value, *traceback;
+	if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &traceback))
+		return nullptr;
+
+	if (self->exports > 0) {
+		if (!self->committed && self->rpc != nullptr) {
+			if (!self->is_reply)
+				tachyon_rpc_rollback_call(self->rpc);
+			else
+				tachyon_rpc_rollback_reply(self->rpc);
+			self->ptr		= nullptr;
+			self->committed = 1;
+		}
+		PyErr_SetString(PyExc_BufferError, "Dangling memoryview detected: release buffer before exiting context.");
+		return nullptr;
+	}
+
+	if (!self->committed && self->rpc != nullptr) {
+		if (exc_type == Py_None) {
+			tachyon_error_t err;
+			if (!self->is_reply)
+				err = tachyon_rpc_commit_call(self->rpc, self->actual_size, self->msg_type, &self->out_cid);
+			else
+				err = tachyon_rpc_commit_reply(self->rpc, self->reply_cid, self->actual_size, self->msg_type);
+			self->ptr		= nullptr;
+			self->committed = 1;
+			if (err != TACHYON_SUCCESS)
+				return raise_tachyon_error(err);
+		} else {
+			if (!self->is_reply)
+				tachyon_rpc_rollback_call(self->rpc);
+			else
+				tachyon_rpc_rollback_reply(self->rpc);
+			self->ptr		= nullptr;
+			self->committed = 1;
+		}
+	}
+
+	Py_RETURN_FALSE;
+}
+
+static void RpcTxGuard_dealloc(RpcTxGuard *self) {
+	if (!self->committed && self->rpc != nullptr) {
+		if (!self->is_reply) {
+			tachyon_rpc_rollback_call(self->rpc);
+		} else {
+			tachyon_rpc_rollback_reply(self->rpc);
+		}
+		self->ptr		= nullptr;
+		self->committed = 1;
+	}
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
+static int RpcTxGuard_getbuffer(RpcTxGuard *self, Py_buffer *view, const int flags) {
+	if (self->committed != 0 || !self->ptr) {
+		PyErr_SetString(PyExc_BufferError, "RpcTxGuard already committed.");
+		return -1;
+	}
+
+	const int ret = PyBuffer_FillInfo(
+		view, reinterpret_cast<PyObject *>(self), self->ptr, static_cast<Py_ssize_t>(self->max_size), 0, flags
+	);
+	if (ret == 0) {
+		self->exports++;
+	}
+
+	return ret;
+}
+
+static void RpcTxGuard_releasebuffer(RpcTxGuard *self, Py_buffer *Py_UNUSED(view)) {
+	self->exports--;
+}
+
+static PyBufferProcs RpcTxGuardBufferProcs = {
+	reinterpret_cast<getbufferproc>(RpcTxGuard_getbuffer), reinterpret_cast<releasebufferproc>(RpcTxGuard_releasebuffer)
+};
+
+static PyMethodDef RpcTxGuardMethods[3] = {
+	{"__enter__", reinterpret_cast<PyCFunction>(RpcTxGuard_enter), METH_NOARGS, "Enter RpcTxGuard context"},
+	{"__exit__",
+	 reinterpret_cast<PyCFunction>(RpcTxGuard_exit),
+	 METH_VARARGS,
+	 "Exit RpcTxGuard context and dispatch call/reply"},
+	{nullptr, nullptr, 0, nullptr}
+};
+
+typedef struct {
+	PyObject_HEAD tachyon_rpc_bus_t *rpc;
+	const void						*ptr;
+	size_t							 actual_size;
+	uint32_t						 type_id;
+	uint64_t						 correlation_id;
+	int								 is_serve; /* 1 = callee serve slot, 0 = caller wait slot */
+	int								 committed;
+	Py_ssize_t						 exports;
+} RpcRxGuard;
+
+static PyTypeObject RpcRxGuardType = {PyVarObject_HEAD_INIT(nullptr, 0)};
+
+static PyObject *RpcRxGuard_get_actual_size(const RpcRxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromSize_t(self->actual_size);
+}
+
+static PyObject *RpcRxGuard_get_type_id(const RpcRxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLong(self->type_id);
+}
+
+static PyObject *RpcRxGuard_get_correlation_id(const RpcRxGuard *self, void *Py_UNUSED(closure)) {
+	return PyLong_FromUnsignedLongLong(self->correlation_id);
+}
+
+static PyGetSetDef RpcRxGuardGettersSetters[4] = {
+	{const_cast<char *>("actual_size"),
+	 reinterpret_cast<getter>(RpcRxGuard_get_actual_size),
+	 nullptr,
+	 const_cast<char *>("Received payload size"),
+	 nullptr},
+	{const_cast<char *>("type_id"),
+	 reinterpret_cast<getter>(RpcRxGuard_get_type_id),
+	 nullptr,
+	 const_cast<char *>("Received message type"),
+	 nullptr},
+	{const_cast<char *>("correlation_id"),
+	 reinterpret_cast<getter>(RpcRxGuard_get_correlation_id),
+	 nullptr,
+	 const_cast<char *>("Correlation ID of this message"),
+	 nullptr},
+	{nullptr, nullptr, nullptr, nullptr, nullptr}
+};
+
+static PyObject *RpcRxGuard_enter(RpcRxGuard *self, PyObject *Py_UNUSED(ignored)) {
+	Py_INCREF(self);
+	return reinterpret_cast<PyObject *>(self);
+}
+
+static PyObject *RpcRxGuard_exit(RpcRxGuard *self, PyObject *args) {
+	PyObject *exc_type, *exc_value, *traceback;
+	if (!PyArg_ParseTuple(args, "OOO", &exc_type, &exc_value, &traceback))
+		return nullptr;
+
+	if (self->exports > 0) {
+		if (!self->committed && self->rpc != nullptr) {
+			if (self->is_serve) {
+				tachyon_rpc_commit_serve(self->rpc);
+			} else {
+				tachyon_rpc_commit_rx(self->rpc);
+			}
+			self->committed = 1;
+			self->ptr		= nullptr;
+		}
+		PyErr_SetString(PyExc_BufferError, "Dangling memoryview detected: release buffer before exiting context.");
+		return nullptr;
+	}
+
+	if (!self->committed && self->rpc != nullptr) {
+		if (self->is_serve) {
+			tachyon_rpc_commit_serve(self->rpc);
+		} else {
+			tachyon_rpc_commit_rx(self->rpc);
+		}
+		self->committed = 1;
+		self->ptr		= nullptr;
+	}
+
+	Py_RETURN_FALSE;
+}
+
+static void RpcRxGuard_dealloc(RpcRxGuard *self) {
+	if (!self->committed && self->rpc != nullptr) {
+		if (self->is_serve) {
+			tachyon_rpc_commit_serve(self->rpc);
+		} else {
+			tachyon_rpc_commit_rx(self->rpc);
+		}
+		self->committed = 1;
+		self->ptr		= nullptr;
+	}
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
+static int RpcRxGuard_getbuffer(RpcRxGuard *self, Py_buffer *view, const int flags) {
+	if (self->committed != 0 || self->ptr == nullptr) {
+		PyErr_SetString(PyExc_BufferError, "Cannot access memory: transaction already committed.");
+		return -1;
+	}
+
+	const int ret = PyBuffer_FillInfo(
+		view,
+		reinterpret_cast<PyObject *>(self),
+		const_cast<void *>(self->ptr),
+		static_cast<Py_ssize_t>(self->actual_size),
+		1,
+		flags
+	);
+	if (ret == 0) {
+		self->exports++;
+	}
+
+	return ret;
+}
+
+static void RpcRxGuard_releasebuffer(RpcRxGuard *self, Py_buffer *Py_UNUSED(view)) {
+	self->exports--;
+}
+
+static PyBufferProcs RpcRxGuardBufferProcs = {
+	reinterpret_cast<getbufferproc>(RpcRxGuard_getbuffer), reinterpret_cast<releasebufferproc>(RpcRxGuard_releasebuffer)
+};
+
+static PyMethodDef RpcRxGuardMethods[3] = {
+	{"__enter__", reinterpret_cast<PyCFunction>(RpcRxGuard_enter), METH_NOARGS, "Enter RpcRxGuard context"},
+	{"__exit__", reinterpret_cast<PyCFunction>(RpcRxGuard_exit), METH_VARARGS, "Exit RpcRxGuard context and commit"},
+	{nullptr, nullptr, 0, nullptr}
+};
+
+typedef struct {
+	PyObject_HEAD tachyon_rpc_bus_t *rpc;
+} TachyonRpcBus;
+
+static PyObject *TachyonRpcBus_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds)) {
+	TachyonRpcBus *self = reinterpret_cast<TachyonRpcBus *>(type->tp_alloc(type, 0));
+	if (self != nullptr)
+		self->rpc = nullptr;
+	return reinterpret_cast<PyObject *>(self);
+}
+
+static void TachyonRpcBus_dealloc(TachyonRpcBus *self) {
+	if (self->rpc != nullptr) {
+		tachyon_rpc_destroy(self->rpc);
+		self->rpc = nullptr;
+	}
+	Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+}
+
+static PyObject *TachyonRpcBus_listen(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {
+		const_cast<char *>("socket_path"), const_cast<char *>("cap_fwd"), const_cast<char *>("cap_rev"), nullptr
+	};
+	const char *socket_path;
+	Py_ssize_t	cap_fwd, cap_rev;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "snn", kwlist, &socket_path, &cap_fwd, &cap_rev))
+		return nullptr;
+
+	if (self->rpc != nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is already initialized.");
+		return nullptr;
+	}
+
+	tachyon_error_t err;
+	for (;;) {
+		Py_BEGIN_ALLOW_THREADS;
+		err = tachyon_rpc_listen(socket_path, static_cast<size_t>(cap_fwd), static_cast<size_t>(cap_rev), &self->rpc);
+		Py_END_ALLOW_THREADS;
+
+		if (err == TACHYON_ERR_INTERRUPTED) {
+			if (PyErr_CheckSignals() != 0)
+				return nullptr;
+			continue;
+		}
+		break;
+	}
+
+	if (err != TACHYON_SUCCESS)
+		return raise_tachyon_error(err);
+	Py_RETURN_NONE;
+}
+
+static PyObject *TachyonRpcBus_connect(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("socket_path"), nullptr};
+	const char	*socket_path;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &socket_path))
+		return nullptr;
+
+	if (self->rpc != nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is already initialized.");
+		return nullptr;
+	}
+
+	tachyon_error_t err;
+	Py_BEGIN_ALLOW_THREADS;
+	err = tachyon_rpc_connect(socket_path, &self->rpc);
+	Py_END_ALLOW_THREADS;
+
+	if (err != TACHYON_SUCCESS)
+		return raise_tachyon_error(err);
+	Py_RETURN_NONE;
+}
+
+static PyObject *TachyonRpcBus_destroy(TachyonRpcBus *self, PyObject *Py_UNUSED(ignored)) {
+	if (self->rpc != nullptr) {
+		tachyon_rpc_destroy(self->rpc);
+		self->rpc = nullptr;
+	}
+	Py_RETURN_NONE;
+}
+
+static PyObject *TachyonRpcBus_acquire_call(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("max_payload_size"), nullptr};
+	Py_ssize_t	 max_payload_size;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "n", kwlist, &max_payload_size))
+		return nullptr;
+
+	if (self->rpc == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is not initialized.");
+		return nullptr;
+	}
+	if (max_payload_size <= 0) {
+		PyErr_SetString(PyExc_ValueError, "max_payload_size must be > 0.");
+		return nullptr;
+	}
+
+	void *ptr;
+	Py_BEGIN_ALLOW_THREADS;
+	ptr = tachyon_rpc_acquire_tx(self->rpc, static_cast<size_t>(max_payload_size));
+	Py_END_ALLOW_THREADS;
+
+	if (!ptr) {
+		if (tachyon_rpc_get_state(self->rpc) == TACHYON_STATE_FATAL_ERROR) {
+			PyErr_SetString(PeerDeadError, "Peer process is dead or unresponsive.");
+			return nullptr;
+		}
+		PyErr_SetString(TachyonError, "Failed to acquire RPC TX slot (bus full).");
+		return nullptr;
+	}
+
+	RpcTxGuard *guard = PyObject_New(RpcTxGuard, &RpcTxGuardType);
+	if (!guard) {
+		tachyon_rpc_rollback_call(self->rpc);
+		return PyErr_NoMemory();
+	}
+
+	guard->rpc		   = self->rpc;
+	guard->ptr		   = ptr;
+	guard->max_size	   = static_cast<size_t>(max_payload_size);
+	guard->actual_size = 0;
+	guard->msg_type	   = 0;
+	guard->out_cid	   = 0;
+	guard->reply_cid   = 0;
+	guard->is_reply	   = 0;
+	guard->committed   = 0;
+	guard->exports	   = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
+static PyObject *TachyonRpcBus_acquire_reply(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("correlation_id"), const_cast<char *>("max_payload_size"), nullptr};
+	unsigned long long reply_cid;
+	Py_ssize_t		   max_payload_size;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "Kn", kwlist, &reply_cid, &max_payload_size))
+		return nullptr;
+
+	if (self->rpc == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is not initialized.");
+		return nullptr;
+	}
+	if (reply_cid == 0) {
+		PyErr_SetString(PyExc_ValueError, "correlation_id must be non-zero.");
+		return nullptr;
+	}
+	if (max_payload_size <= 0) {
+		PyErr_SetString(PyExc_ValueError, "max_payload_size must be > 0.");
+		return nullptr;
+	}
+
+	void *ptr;
+	Py_BEGIN_ALLOW_THREADS;
+	ptr = tachyon_rpc_acquire_reply_tx(self->rpc, static_cast<size_t>(max_payload_size));
+	Py_END_ALLOW_THREADS;
+
+	if (!ptr) {
+		if (tachyon_rpc_get_state(self->rpc) == TACHYON_STATE_FATAL_ERROR) {
+			PyErr_SetString(PeerDeadError, "Peer process is dead or unresponsive.");
+			return nullptr;
+		}
+		PyErr_SetString(TachyonError, "Failed to acquire RPC reply TX slot (bus full).");
+		return nullptr;
+	}
+
+	RpcTxGuard *guard = PyObject_New(RpcTxGuard, &RpcTxGuardType);
+	if (!guard) {
+		tachyon_rpc_rollback_reply(self->rpc);
+		return PyErr_NoMemory();
+	}
+
+	guard->rpc		   = self->rpc;
+	guard->ptr		   = ptr;
+	guard->max_size	   = static_cast<size_t>(max_payload_size);
+	guard->actual_size = 0;
+	guard->msg_type	   = 0;
+	guard->out_cid	   = 0;
+	guard->reply_cid   = static_cast<uint64_t>(reply_cid);
+	guard->is_reply	   = 1;
+	guard->committed   = 0;
+	guard->exports	   = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
+static PyObject *TachyonRpcBus_wait(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char		  *kwlist[] = {const_cast<char *>("correlation_id"), const_cast<char *>("spin_threshold"), nullptr};
+	unsigned long long cid;
+	unsigned int	   spin_threshold = 10000;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "K|I", kwlist, &cid, &spin_threshold))
+		return nullptr;
+
+	if (self->rpc == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is not initialized.");
+		return nullptr;
+	}
+
+	uint32_t	type_id		= 0;
+	size_t		actual_size = 0;
+	const void *ptr			= nullptr;
+
+	for (;;) {
+		Py_BEGIN_ALLOW_THREADS;
+		ptr = tachyon_rpc_wait(self->rpc, static_cast<uint64_t>(cid), &actual_size, &type_id, spin_threshold);
+		Py_END_ALLOW_THREADS;
+
+		if (ptr != nullptr)
+			break;
+
+		if (tachyon_rpc_get_state(self->rpc) == TACHYON_STATE_FATAL_ERROR) {
+			PyErr_SetString(PeerDeadError, "RPC correlation mismatch or peer dead (fatal error on rev arena).");
+			return nullptr;
+		}
+
+		if (PyErr_CheckSignals() != 0)
+			return nullptr;
+	}
+
+	RpcRxGuard *guard = PyObject_New(RpcRxGuard, &RpcRxGuardType);
+	if (!guard) {
+		tachyon_rpc_commit_rx(self->rpc);
+		return PyErr_NoMemory();
+	}
+
+	guard->rpc			  = self->rpc;
+	guard->ptr			  = ptr;
+	guard->actual_size	  = actual_size;
+	guard->type_id		  = type_id;
+	guard->correlation_id = static_cast<uint64_t>(cid);
+	guard->is_serve		  = 0;
+	guard->committed	  = 0;
+	guard->exports		  = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
+static PyObject *TachyonRpcBus_serve(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[]		= {const_cast<char *>("spin_threshold"), nullptr};
+	unsigned int spin_threshold = 10000;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|I", kwlist, &spin_threshold))
+		return nullptr;
+
+	if (self->rpc == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is not initialized.");
+		return nullptr;
+	}
+
+	uint64_t	cid			= 0;
+	uint32_t	type_id		= 0;
+	size_t		actual_size = 0;
+	const void *ptr			= nullptr;
+
+	for (;;) {
+		Py_BEGIN_ALLOW_THREADS;
+		ptr = tachyon_rpc_serve(self->rpc, &cid, &type_id, &actual_size, spin_threshold);
+		Py_END_ALLOW_THREADS;
+
+		if (ptr != nullptr)
+			break;
+
+		if (tachyon_rpc_get_state(self->rpc) == TACHYON_STATE_FATAL_ERROR) {
+			PyErr_SetString(PeerDeadError, "Peer process is dead or unresponsive.");
+			return nullptr;
+		}
+
+		if (PyErr_CheckSignals() != 0)
+			return nullptr;
+	}
+
+	RpcRxGuard *guard = PyObject_New(RpcRxGuard, &RpcRxGuardType);
+	if (!guard) {
+		tachyon_rpc_commit_serve(self->rpc);
+		return PyErr_NoMemory();
+	}
+
+	guard->rpc			  = self->rpc;
+	guard->ptr			  = ptr;
+	guard->actual_size	  = actual_size;
+	guard->type_id		  = type_id;
+	guard->correlation_id = cid;
+	guard->is_serve		  = 1;
+	guard->committed	  = 0;
+	guard->exports		  = 0;
+
+	return reinterpret_cast<PyObject *>(guard);
+}
+
+static PyObject *TachyonRpcBus_set_polling_mode(TachyonRpcBus *self, PyObject *args, PyObject *kwds) {
+	static char *kwlist[] = {const_cast<char *>("pure_spin"), nullptr};
+	int			 pure_spin;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "i", kwlist, &pure_spin))
+		return nullptr;
+
+	if (self->rpc == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonRpcBus is not initialized.");
+		return nullptr;
+	}
+
+	tachyon_rpc_set_polling_mode(self->rpc, pure_spin);
+	Py_RETURN_NONE;
+}
+
+static PyMethodDef TachyonRpcBusMethods[9] = {
+	{"listen", reinterpret_cast<PyCFunction>(TachyonRpcBus_listen), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"connect", reinterpret_cast<PyCFunction>(TachyonRpcBus_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"destroy", reinterpret_cast<PyCFunction>(TachyonRpcBus_destroy), METH_NOARGS, nullptr},
+	{"acquire_call", reinterpret_cast<PyCFunction>(TachyonRpcBus_acquire_call), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"acquire_reply",
+	 reinterpret_cast<PyCFunction>(TachyonRpcBus_acquire_reply),
+	 METH_VARARGS | METH_KEYWORDS,
+	 nullptr},
+	{"wait", reinterpret_cast<PyCFunction>(TachyonRpcBus_wait), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"serve", reinterpret_cast<PyCFunction>(TachyonRpcBus_serve), METH_VARARGS | METH_KEYWORDS, nullptr},
+	{"set_polling_mode",
+	 reinterpret_cast<PyCFunction>(TachyonRpcBus_set_polling_mode),
+	 METH_VARARGS | METH_KEYWORDS,
+	 nullptr},
+	{nullptr, nullptr, 0, nullptr}
+};
+
+static PyTypeObject TachyonRpcBusType = {PyVarObject_HEAD_INIT(nullptr, 0)};
 
 /**
  * @brief Module execution function called during multiphase initialization
@@ -1123,6 +1751,50 @@ static int tachyon_exec(PyObject *m) {
 		return -1;
 	}
 
+	/* Initialize RpcTxGuard Type */
+	RpcTxGuardType.tp_name		= "tachyon.RpcTxGuard";
+	RpcTxGuardType.tp_basicsize = sizeof(RpcTxGuard);
+	RpcTxGuardType.tp_itemsize	= 0;
+	RpcTxGuardType.tp_dealloc	= reinterpret_cast<destructor>(RpcTxGuard_dealloc);
+	RpcTxGuardType.tp_flags		= Py_TPFLAGS_DEFAULT;
+	RpcTxGuardType.tp_doc		= "Tachyon RPC TX Guard Context Manager";
+	RpcTxGuardType.tp_methods	= RpcTxGuardMethods;
+	RpcTxGuardType.tp_getset	= RpcTxGuardGettersSetter;
+	RpcTxGuardType.tp_as_buffer = &RpcTxGuardBufferProcs;
+
+	if (PyType_Ready(&RpcTxGuardType) < 0) {
+		return -1;
+	}
+
+	/* Initialize RpcRxGuard Type */
+	RpcRxGuardType.tp_name		= "tachyon.RpcRxGuard";
+	RpcRxGuardType.tp_basicsize = sizeof(RpcRxGuard);
+	RpcRxGuardType.tp_itemsize	= 0;
+	RpcRxGuardType.tp_dealloc	= reinterpret_cast<destructor>(RpcRxGuard_dealloc);
+	RpcRxGuardType.tp_flags		= Py_TPFLAGS_DEFAULT;
+	RpcRxGuardType.tp_doc		= "Tachyon RPC RX Guard Context Manager";
+	RpcRxGuardType.tp_methods	= RpcRxGuardMethods;
+	RpcRxGuardType.tp_getset	= RpcRxGuardGettersSetters;
+	RpcRxGuardType.tp_as_buffer = &RpcRxGuardBufferProcs;
+
+	if (PyType_Ready(&RpcRxGuardType) < 0) {
+		return -1;
+	}
+
+	/* Initialize TachyonRpcBus Type */
+	TachyonRpcBusType.tp_name	   = "tachyon.TachyonRpcBus";
+	TachyonRpcBusType.tp_basicsize = sizeof(TachyonRpcBus);
+	TachyonRpcBusType.tp_itemsize  = 0;
+	TachyonRpcBusType.tp_new	   = reinterpret_cast<newfunc>(TachyonRpcBus_new);
+	TachyonRpcBusType.tp_dealloc   = reinterpret_cast<destructor>(TachyonRpcBus_dealloc);
+	TachyonRpcBusType.tp_flags	   = Py_TPFLAGS_DEFAULT;
+	TachyonRpcBusType.tp_doc	   = "Tachyon RPC Bus";
+	TachyonRpcBusType.tp_methods   = TachyonRpcBusMethods;
+
+	if (PyType_Ready(&TachyonRpcBusType) < 0) {
+		return -1;
+	}
+
 	Py_INCREF(&TachyonBusType);
 	if (PyModule_AddObject(m, "TachyonBus", reinterpret_cast<PyObject *>(&TachyonBusType)) < 0) {
 		Py_DECREF(&TachyonBusType);
@@ -1163,8 +1835,47 @@ static int tachyon_exec(PyObject *m) {
 		return -1;
 	}
 
+	Py_INCREF(&RpcTxGuardType);
+	if (PyModule_AddObject(m, "RpcTxGuard", reinterpret_cast<PyObject *>(&RpcTxGuardType)) < 0) {
+		Py_DECREF(&RpcTxGuardType);
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
+	Py_INCREF(&RpcRxGuardType);
+	if (PyModule_AddObject(m, "RpcRxGuard", reinterpret_cast<PyObject *>(&RpcRxGuardType)) < 0) {
+		Py_DECREF(&RpcRxGuardType);
+		Py_DECREF(&RpcTxGuardType);
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
+	Py_INCREF(&TachyonRpcBusType);
+	if (PyModule_AddObject(m, "TachyonRpcBus", reinterpret_cast<PyObject *>(&TachyonRpcBusType)) < 0) {
+		Py_DECREF(&TachyonRpcBusType);
+		Py_DECREF(&RpcRxGuardType);
+		Py_DECREF(&RpcTxGuardType);
+		Py_DECREF(&RxMsgViewType);
+		Py_DECREF(&RxBatchGuardType);
+		Py_DECREF(&RxGuardType);
+		Py_DECREF(&TxGuardType);
+		Py_DECREF(&TachyonBusType);
+		return -1;
+	}
+
 	TachyonError = PyErr_NewException("tachyon.TachyonError", nullptr, nullptr);
 	if (!TachyonError) {
+		Py_DECREF(&TachyonRpcBusType);
+		Py_DECREF(&RpcRxGuardType);
+		Py_DECREF(&RpcTxGuardType);
 		Py_DECREF(&RxMsgViewType);
 		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
@@ -1176,6 +1887,9 @@ static int tachyon_exec(PyObject *m) {
 	Py_INCREF(TachyonError);
 	if (PyModule_AddObject(m, "TachyonError", TachyonError) < 0) {
 		Py_DECREF(TachyonError);
+		Py_DECREF(&TachyonRpcBusType);
+		Py_DECREF(&RpcRxGuardType);
+		Py_DECREF(&RpcTxGuardType);
 		Py_DECREF(&RxMsgViewType);
 		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
@@ -1184,10 +1898,12 @@ static int tachyon_exec(PyObject *m) {
 		return -1;
 	}
 
-	/* Initialize and add PeerDeadError inheriting from TachyonError */
 	PeerDeadError = PyErr_NewException("tachyon.PeerDeadError", TachyonError, nullptr);
 	if (!PeerDeadError) {
 		Py_DECREF(TachyonError);
+		Py_DECREF(&TachyonRpcBusType);
+		Py_DECREF(&RpcRxGuardType);
+		Py_DECREF(&RpcTxGuardType);
 		Py_DECREF(&RxMsgViewType);
 		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
@@ -1200,6 +1916,9 @@ static int tachyon_exec(PyObject *m) {
 	if (PyModule_AddObject(m, "PeerDeadError", PeerDeadError) < 0) {
 		Py_DECREF(PeerDeadError);
 		Py_DECREF(TachyonError);
+		Py_DECREF(&TachyonRpcBusType);
+		Py_DECREF(&RpcRxGuardType);
+		Py_DECREF(&RpcTxGuardType);
 		Py_DECREF(&RxMsgViewType);
 		Py_DECREF(&RxBatchGuardType);
 		Py_DECREF(&RxGuardType);
