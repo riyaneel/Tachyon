@@ -12,7 +12,7 @@
 #define TACHYON_INLINE __forceinline
 #else
 #define TACHYON_API __attribute__((visibility("default")))
-#define TACHYON_INLINE __attribute__((always_inline))
+#define TACHYON_INLINE __attribute__((always_inline)) inline
 #endif
 
 namespace tachyon {
