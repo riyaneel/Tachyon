@@ -14,6 +14,7 @@
 #endif // #ifndef MPOL_MF_MOVE
 #endif // #if defined(__linux__)
 
+#include "abi_utils.h"
 #include <tachyon.h>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
@@ -28,36 +29,6 @@ struct alignas(64) tachyon_bus {
 
 	tachyon_bus(SharedMemory &&s, Arena &&a) : shm(std::move(s)), arena(std::move(a)) {}
 };
-
-static tachyon_error_t map_shm_error(const ShmError error) TACHYON_NOEXCEPT {
-	switch (error) {
-	case ShmError::OpenFailed:
-		return TACHYON_ERR_OPEN;
-	case ShmError::TruncateFailed:
-		return TACHYON_ERR_TRUNCATE;
-	case ShmError::MapFailed:
-		return TACHYON_ERR_MAP;
-	case ShmError::InvalidSize:
-		return TACHYON_ERR_INVALID_SZ;
-	case ShmError::SealFailed:
-		return TACHYON_ERR_SEAL;
-	case ShmError::ChmodFailed:
-		return TACHYON_ERR_CHMOD;
-	default:
-		return TACHYON_ERR_SYSTEM;
-	}
-}
-
-static tachyon_error_t map_transport_error(const TransportError error) TACHYON_NOEXCEPT {
-	switch (error) {
-	case TransportError::ProtocolMismatch:
-		return TACHYON_ERR_ABI_MISMATCH;
-	case TransportError::Interrupted:
-		return TACHYON_ERR_INTERRUPTED;
-	default:
-		return TACHYON_ERR_NETWORK;
-	}
-}
 
 extern "C" {
 
