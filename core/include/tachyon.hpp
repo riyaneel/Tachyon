@@ -9,8 +9,10 @@
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #define TACHYON_API __declspec(dllexport)
+#define TACHYON_INLINE __forceinline
 #else
 #define TACHYON_API __attribute__((visibility("default")))
+#define TACHYON_INLINE __attribute__((always_inline))
 #endif
 
 namespace tachyon {
