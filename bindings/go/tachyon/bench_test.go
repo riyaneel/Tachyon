@@ -34,7 +34,7 @@ func connectWithRetry(tb testing.TB, path string) *tachyon.Bus {
 
 func benchSockPath(b *testing.B, name string) string {
 	b.Helper()
-	return filepath.Join(b.TempDir(), name + ".sock")
+	return filepath.Join(b.TempDir(), name+".sock")
 }
 
 func drainLoop(bus *tachyon.Bus, stop <-chan struct{}, wg *sync.WaitGroup) {
@@ -131,7 +131,7 @@ func BenchmarkRecv(b *testing.B) {
 	if srv == nil {
 		b.Fatal("Listen failed")
 	}
-srv.SetPollingMode(1)
+	srv.SetPollingMode(1)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
