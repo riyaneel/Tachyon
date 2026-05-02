@@ -18,15 +18,15 @@
 
 ## How fast?
 
-| Transport          | p50 RTT     | Cross-language  | Zero-copy |
-|--------------------|-------------|-----------------|-----------|
-| **Tachyon**        | **49.9 ns** | ✓ (8 languages) | ✓         |
-| iceoryx            | ~150 ns     | C++ only        | ✓         |
-| Aeron IPC          | ~250 ns     | same-lang only  | ✓         |
-| Chronicle Queue    | ~250 ns     | Java only       | ✓         |
-| Unix domain socket | ~2 µs       | ✓               | ✗         |
-| ZeroMQ (`ipc://`)  | ~10 µs      | ✓               | ✗         |
-| gRPC (localhost)   | ~1 ms       | ✓               | ✗         |
+| Transport          | p50 RTT     | Cross-language  | Zero-copy | RPC |
+|--------------------|-------------|-----------------|-----------|-----|
+| **Tachyon**        | **49.9 ns** | ✓ (8 languages) | ✓         | ✓   |
+| iceoryx            | ~150 ns     | C++ only        | ✓         | ✗   |
+| Aeron IPC          | ~250 ns     | same-lang only  | ✓         | ✓   |
+| Chronicle Queue    | ~250 ns     | Java only       | ✓         | ✗   |
+| Unix domain socket | ~2 µs       | ✓               | ✗         | ✓   |
+| ZeroMQ (`ipc://`)  | ~10 µs      | ✓               | ✗         | ✓   |
+| gRPC (localhost)   | ~1 ms       | ✓               | ✗         | ✓   |
 
 All measurements are same-machine IPC. Aeron also supports network transport (UDP);
 Tachyon is same-machine only by design. `memfd` and `SCM_RIGHTS` are local primitives.
@@ -260,6 +260,8 @@ int main() {
 
 ## Benchmarks
 
+## IPC: Ping Pong RTT
+
 Ping-pong RTT, two processes, 32-byte payload, 1 000 000 samples.  
 **Machine:** Intel Core i7-12650H, 64 GiB DDR5-5600 SODIMM.  
 **Build:** GCC 14, Release, `SCHED_FIFO` priority 99, `mlockall`, cores 8/9 pinned.
@@ -276,7 +278,26 @@ Ping-pong RTT, two processes, 32-byte payload, 1 000 000 samples.
 
 **Throughput: 15 077 K RTT/sec · One-way p50: 24.9 ns**
 
-p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`, the tail converges toward the p99 band.
+### RPC: Order Book snapshot RTT
+
+Request/reply, two processes, 176-byte `BookSnapshot` payload, 1 000 000 samples.  
+**Machine:** Intel Core i7-12650H, 64 GiB DDR5-5600 SODIMM.  
+**Build:** GCC 14, Release, `SCHED_FIFO` priority 99, `mlockall`, cores 8/9 pinned, pure-spin mode.
+
+| Percentile | Latency   |
+|------------|-----------|
+| Min        | 52.8 ns   |
+| p50        | 61.8 ns   |
+| p90        | 107.9 ns  |
+| p99        | 119.0 ns  |
+| p99.9      | 128.0 ns  |
+| p99.99     | 550.6 ns  |
+| Max        | 16 904 ns |
+
+**Throughput: 12 280 K RTT/sec · One-way p50: 30.9 ns**
+
+
+> p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`, the tail converges toward the p99 band.
 
 ---
 
@@ -285,12 +306,13 @@ p99.99 reflects scheduler jitter on an untuned kernel. With `isolcpus=8,9`, the 
 End-to-end cross-language examples in [`examples/`](./examples). Each runs in two terminals and uses a typed payload
 with a sentinel shutdown signal.
 
-| Example                                                                   | Producer | Consumer       | Throughput                       | Payload                |
-|---------------------------------------------------------------------------|----------|----------------|----------------------------------|------------------------|
-| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **15 077 K RTT/s** · p50 49.9 ns | 32 bytes               |
-| [python_producer_rust_consumer](./examples/python_producer_rust_consumer) | Python   | Rust           | **1 119 K msg/s**                | 32 bytes `MarketTick`  |
-| [rust_producer_python_consumer](./examples/rust_producer_python_consumer) | Rust     | Python (torch) | **510 K frames/s** · 0.51 GB/s   | 1 024 bytes `f32[256]` |
-| [cpp_producer_python_consumer](./examples/cpp_producer_python_consumer)   | C++      | Python (torch) | **533 K frames/s** · 0.53 GB/s   | 1 024 bytes `f32[256]` |
+| Example                                                                   | Producer | Consumer       | Throughput                       | Payload                  |
+|---------------------------------------------------------------------------|----------|----------------|----------------------------------|--------------------------|
+| [cpp_producer_cpp_consumer](./examples/cpp_producer_cpp_consumer)         | C++      | C++            | **15 077 K RTT/s** · p50 49.9 ns | 32 bytes                 |
+| [rpc_cpp_cpp](./examples/rpc_cpp_cpp)                                     | C++ RPC  | C++ RPC        | **12 280 K RTT/s** · p50 61.8 ns | 176 bytes `BookSnapshot` |
+| [python_producer_rust_consumer](./examples/python_producer_rust_consumer) | Python   | Rust           | **1 119 K msg/s**                | 32 bytes `MarketTick`    |
+| [rust_producer_python_consumer](./examples/rust_producer_python_consumer) | Rust     | Python (torch) | **510 K frames/s** · 0.51 GB/s   | 1 024 bytes `f32[256]`   |
+| [cpp_producer_python_consumer](./examples/cpp_producer_python_consumer)   | C++      | Python (torch) | **533 K frames/s** · 0.53 GB/s   | 1 024 bytes `f32[256]`   |
 
 All numbers: i7-12650H · DDR5-5600 · Fedora 43 · Linux 6.19.11 · no CPU isolation (except `cpp_producer_cpp_consumer`
 which uses `SCHED_FIFO` + core pinning).
@@ -320,6 +342,13 @@ returns to the host runtime to process signals.
 **Zero-copy contract.** C++ and Rust expose raw pointers or slices tied to the ring buffer lifetime. Python surfaces
 the buffer protocol (`memoryview`) and DLPack (`__dlpack__`), allowing PyTorch, JAX, and NumPy to consume payloads
 directly from shared memory without copying.
+
+**Bidirectional RPC.** v0.5.0 adds a native request/reply layer on top of the SPSC primitives. Each
+`tachyon_rpc_bus_t` owns two independent arenas (fwd: caller → callee, rev: callee → caller) transferred as a pair of
+`memfd` descriptors in a single `sendmsg` call. Every message carries a `correlation_id` in the `MessageHeader`,
+eliminating the need for a separate tracking structure on the caller side. The callee writes replies directly into the
+rev arena slot via `tachyon_rpc_acquire_reply_tx`, with no intermediate buffer. `correlation_id = 0` is rejected at the
+C API boundary as a sentinel.
 
 For wire protocol details and ABI guarantees → [`ABI.md`](./ABI.md).  
 For socket lifecycle, supervision patterns, and capacity sizing → [`INTEGRATION.md`](./INTEGRATION.md).
@@ -361,6 +390,12 @@ receive, and a cross-language ABI. Both ends Python, simple buffer → stdlib. A
 **Why SPSC and not MPMC?**  
 SPSC is the only topology that eliminates coordination overhead entirely and hits sub-100 ns. For fan-out, use N
 independent SPSC buses. Native MPSC is planned.
+
+**SPSC vs RPC: which to use?**  
+SPSC (`Bus`) is one-directional and optimal for streaming: market data ticks, sensor frames, log events. RPC (`RpcBus`)
+adds a reply channel with `correlation_id` ordering, use it when the caller needs a response tied to a specific request,
+such as book snapshot queries or inference requests. Both share the same lock-free SPSC ring internals; RPC adds ~12 ns
+p50 vs SPSC for a 5x larger payload, with no kernel involvement on the hot path.
 
 ---
 
