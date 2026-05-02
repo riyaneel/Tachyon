@@ -1,9 +1,11 @@
 mod bus;
 mod error;
+mod rpc;
 mod type_id;
 
 pub use bus::{BatchIter, Bus, RxBatchGuard, RxGuard, RxMsgView, TxGuard};
 pub use error::TachyonError;
+pub use rpc::{RpcBus, RpcRxGuard, RpcTxGuard};
 pub use type_id::{make_type_id, msg_type, route_id};
 
 #[cfg(test)]
@@ -235,6 +237,223 @@ mod tests {
             guard.commit_unflushed(data.len(), tid).unwrap();
         }
         bus.flush();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+}
+
+#[cfg(test)]
+mod rpc_tests {
+    use super::*;
+    use std::thread;
+    use std::time::Duration;
+
+    const CAP: usize = 1 << 16;
+
+    fn sock(name: &str) -> String {
+        format!("/tmp/tachyon_rpc_rust_{name}.sock")
+    }
+
+    fn cleanup(path: &str) {
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn test_rpc_roundtrip() {
+        let path = sock("roundtrip");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = RpcBus::listen(&path_srv, CAP, CAP).unwrap();
+            let rx = bus.serve(10_000).unwrap();
+            assert_eq!(rx.type_id, 1);
+            let cid = rx.correlation_id;
+            let reply = rx.data().iter().rev().cloned().collect::<Vec<u8>>();
+            rx.commit().unwrap();
+            bus.reply(cid, &reply, 2).unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = RpcBus::connect(&path).unwrap();
+        let cid = bus.call(b"hello", 1).unwrap();
+        assert!(cid > 0);
+        let rx = bus.wait(cid, 10_000).unwrap();
+        assert_eq!(rx.type_id, 2);
+        assert_eq!(rx.data(), b"olleh");
+        rx.commit().unwrap();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_rpc_zero_copy_tx() {
+        let path = sock("zc_tx");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = RpcBus::listen(&path_srv, CAP, CAP).unwrap();
+            let rx = bus.serve(10_000).unwrap();
+            assert_eq!(rx.type_id, 7);
+            assert_eq!(rx.data(), b"zero_copy");
+            let cid = rx.correlation_id;
+            rx.commit().unwrap();
+            bus.reply(cid, b"ok", 8).unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = RpcBus::connect(&path).unwrap();
+        let payload = b"zero_copy";
+        let guard = bus.acquire_call(payload.len()).unwrap();
+        guard.write(payload);
+        let cid = guard.commit(payload.len(), 7).unwrap();
+        assert!(cid > 0);
+
+        let rx = bus.wait(cid, 10_000).unwrap();
+        assert_eq!(rx.type_id, 8);
+        rx.commit().unwrap();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_rpc_zero_copy_reply() {
+        let path = sock("zc_reply");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = RpcBus::listen(&path_srv, CAP, CAP).unwrap();
+            let rx = bus.serve(10_000).unwrap();
+            let cid = rx.correlation_id;
+            rx.commit().unwrap();
+
+            let guard = bus.acquire_reply(cid, 4).unwrap();
+            guard.write(&42u32.to_le_bytes());
+            guard.commit(4, 9).unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = RpcBus::connect(&path).unwrap();
+        let cid = bus.call(b"ping", 1).unwrap();
+        let rx = bus.wait(cid, 10_000).unwrap();
+        assert_eq!(rx.type_id, 9);
+        assert_eq!(rx.actual_size, 4);
+        let val = u32::from_le_bytes(rx.data().try_into().unwrap());
+        assert_eq!(val, 42u32);
+        rx.commit().unwrap();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_rpc_correlation_ordering() {
+        let path = sock("ordering");
+        cleanup(&path);
+        const N: usize = 8;
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = RpcBus::listen(&path_srv, CAP * 4, CAP * 4).unwrap();
+            bus.set_polling_mode(true);
+            for _ in 0..N {
+                let rx = bus.serve(10_000).unwrap();
+                let cid = rx.correlation_id;
+                let val = u32::from_le_bytes(rx.data().try_into().unwrap());
+                rx.commit().unwrap();
+                bus.reply(cid, &val.to_le_bytes(), 0).unwrap();
+            }
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = RpcBus::connect(&path).unwrap();
+        bus.set_polling_mode(true);
+
+        let sent: Vec<u32> = (0..N as u32).map(|i| i * 100).collect();
+        let cids: Vec<u64> = sent
+            .iter()
+            .map(|v| bus.call(&v.to_le_bytes(), 0).unwrap())
+            .collect();
+
+        assert_eq!(cids, (cids[0]..cids[0] + N as u64).collect::<Vec<_>>());
+
+        for (i, &cid) in cids.iter().enumerate() {
+            let rx = bus.wait(cid, 10_000).unwrap();
+            let val = u32::from_le_bytes(rx.data().try_into().unwrap());
+            assert_eq!(val, sent[i]);
+            rx.commit().unwrap();
+        }
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_rpc_txguard_drop_rollback() {
+        let path = sock("rollback");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = RpcBus::listen(&path_srv, CAP, CAP).unwrap();
+            let rx = bus.serve(10_000).unwrap();
+            assert_eq!(rx.type_id, 99);
+            assert_eq!(rx.data(), b"committed");
+            let cid = rx.correlation_id;
+            rx.commit().unwrap();
+            bus.reply(cid, b"ok", 0).unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = RpcBus::connect(&path).unwrap();
+
+        // Drop without commit -> rollback, no message published.
+        {
+            let _guard = bus.acquire_call(32).unwrap();
+        }
+
+        let cid = bus.call(b"committed", 99).unwrap();
+        let rx = bus.wait(cid, 10_000).unwrap();
+        rx.commit().unwrap();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_rpc_as_mut_slice() {
+        let path = sock("mut_slice");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = RpcBus::listen(&path_srv, CAP, CAP).unwrap();
+            let rx = bus.serve(10_000).unwrap();
+            assert_eq!(rx.data(), b"slice_fill");
+            let cid = rx.correlation_id;
+            rx.commit().unwrap();
+            bus.reply(cid, b"ok", 0).unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = RpcBus::connect(&path).unwrap();
+        let payload = b"slice_fill";
+        let mut guard = bus.acquire_call(payload.len()).unwrap();
+        guard.as_mut_slice()[..payload.len()].copy_from_slice(payload);
+        let cid = guard.commit(payload.len(), 1).unwrap();
+        let rx = bus.wait(cid, 10_000).unwrap();
+        rx.commit().unwrap();
 
         srv.join().unwrap();
         cleanup(&path);
