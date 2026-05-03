@@ -130,4 +130,89 @@ internal static unsafe partial class TachyonNative
 
     [LibraryImport(Lib)]
     internal static partial TachyonState tachyon_get_state(nint bus);
+
+    [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial TachyonError tachyon_rpc_listen(
+        string socketPath,
+        nuint capFwd,
+        nuint capRev,
+        nint* outRpc);
+
+    [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial TachyonError tachyon_rpc_connect(
+        string socketPath,
+        nint* outRpc);
+
+    [LibraryImport(Lib)]
+    internal static partial void tachyon_rpc_destroy(nint rpc);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_rpc_call(
+        nint rpc,
+        void* payload,
+        nuint size,
+        uint msgType,
+        ulong* outCorrelationId);
+
+    [LibraryImport(Lib)]
+    internal static partial void* tachyon_rpc_wait(
+        nint rpc,
+        ulong correlationId,
+        nuint* outSize,
+        uint* outMsgType,
+        uint spinThreshold);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_rpc_commit_rx(nint rpc);
+
+    [LibraryImport(Lib)]
+    internal static partial void* tachyon_rpc_serve(
+        nint rpc,
+        ulong* outCorrelationId,
+        uint* outMsgType,
+        nuint* outSize,
+        uint spinThreshold);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_rpc_commit_serve(nint rpc);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_rpc_reply(
+        nint rpc,
+        ulong correlationId,
+        void* payload,
+        nuint size,
+        uint msgType);
+
+    [LibraryImport(Lib)]
+    internal static partial void* tachyon_rpc_acquire_tx(nint rpc, nuint maxSize);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_rpc_commit_call(
+        nint rpc,
+        nuint actualSize,
+        uint msgType,
+        ulong* outCid);
+
+    [LibraryImport(Lib)]
+    internal static partial void tachyon_rpc_rollback_call(nint rpc);
+
+    [LibraryImport(Lib)]
+    internal static partial void* tachyon_rpc_acquire_reply_tx(nint rpc, nuint maxSize);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_rpc_commit_reply(
+        nint rpc,
+        ulong cid,
+        nuint actualSize,
+        uint msgType);
+
+    [LibraryImport(Lib)]
+    internal static partial void tachyon_rpc_rollback_reply(nint rpc);
+
+    [LibraryImport(Lib)]
+    internal static partial void tachyon_rpc_set_polling_mode(nint rpc, int pureSpin);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonState tachyon_rpc_get_state(nint rpc);
 }
