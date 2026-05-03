@@ -5,8 +5,11 @@ namespace TachyonIpc.Tests;
 
 public sealed unsafe class RpcBusTests
 {
-    private static string Sock(string name) =>
-        Path.Combine(Path.GetTempPath(), $"tachyon_rpc_{name}_{Guid.NewGuid():N}.sock");
+    private static string Sock(string name)
+    {
+		string shortId = Guid.NewGuid().ToString("N").Substring(0, 8);
+		return $"/tmp/trpc_{shortId}.sock";
+    }
 
     private static RpcBus ConnectWithRetry(string path, int maxRetries = 100)
     {
