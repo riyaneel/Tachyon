@@ -171,6 +171,9 @@ namespace tachyon::core {
 		if (!is_power_of_two(capacity) || shm_span.size() < sizeof(MemoryLayout) + capacity) [[unlikely]]
 			return std::unexpected(ShmError::InvalidSize);
 
+		if (layout->header.capacity < TACHYON_MSG_ALIGNMENT) [[unlikely]]
+			return std::unexpected(ShmError::InvalidSize);
+
 		return Arena(layout, capacity);
 	}
 
@@ -248,7 +251,11 @@ namespace tachyon::core {
 
 		const size_t capacity	  = capacity_mask_ + 1;
 		size_t		 physical_idx = local_tail_ & capacity_mask_;
-		PackedMeta	 pmeta{};
+		if (capacity - physical_idx < sizeof(PackedMeta)) [[unlikely]] {
+			layout_->header.state.store(BusState::FatalError, std::memory_order_relaxed);
+			return nullptr;
+		}
+		PackedMeta pmeta{};
 		std::memcpy(&pmeta, &layout_->data_arena()[physical_idx], sizeof(PackedMeta));
 
 		if (pmeta.size == SKIP_MARKER) [[unlikely]] {
@@ -300,7 +307,11 @@ namespace tachyon::core {
 		const size_t capacity = capacity_mask_ + 1;
 
 		while (count < max_msgs && current_tail < cached_head_) {
-			size_t	   physical_idx = current_tail & capacity_mask_;
+			size_t physical_idx = current_tail & capacity_mask_;
+			if (capacity - physical_idx < sizeof(PackedMeta)) [[unlikely]] {
+				layout_->header.state.store(BusState::FatalError, std::memory_order_relaxed);
+				break;
+			}
 			PackedMeta pmeta{};
 			std::memcpy(&pmeta, &layout_->data_arena()[physical_idx], sizeof(PackedMeta));
 
@@ -443,8 +454,12 @@ namespace tachyon::core {
 				return nullptr;
 		}
 
-		const size_t  capacity	   = capacity_mask_ + 1;
-		size_t		  physical_idx = local_tail_ & capacity_mask_;
+		const size_t capacity	  = capacity_mask_ + 1;
+		size_t		 physical_idx = local_tail_ & capacity_mask_;
+		if (capacity - physical_idx < sizeof(RpcPackedMeta)) [[unlikely]] {
+			layout_->header.state.store(BusState::FatalError, std::memory_order_relaxed);
+			return nullptr;
+		}
 		RpcPackedMeta pmeta{};
 		std::memcpy(&pmeta, &layout_->data_arena()[physical_idx], sizeof(RpcPackedMeta));
 
