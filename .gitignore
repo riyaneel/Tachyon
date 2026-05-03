@@ -159,3 +159,4 @@ fuzz/corpus/artifacts/
 fuzz/corpus/crashes/
 Testing/
 *.bpf
+crash-
