@@ -9,15 +9,21 @@ cmake --preset fuzz
 cmake --build --preset fuzz --parallel
 ```
 
+## Seed generation
+
+```bash
+python ci/fuzz/gen_seeds.py
+```
+
 ## Run
 
 ```bash
+./build/fuzz/fuzz/tachyon_fuzz_arena_rpc fuzz/corpus/arena_rpc -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ./build/fuzz/fuzz/tachyon_fuzz_arena_rx fuzz/corpus/arena_rx -dict=fuzz/dict/tachyon.dict -max_total_time=300
-
 ./build/fuzz/fuzz/tachyon_fuzz_arena_rx_batch fuzz/corpus/arena_rx_batch -dict=fuzz/dict/tachyon.dict -max_total_time=300
-
+./build/fuzz/fuzz/tachyon_fuzz_arena_tx fuzz/corpus/arena_tx -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ./build/fuzz/fuzz/tachyon_fuzz_header_parser fuzz/corpus/header_parser -dict=fuzz/dict/tachyon.dict -max_total_time=300
-
+./build/fuzz/fuzz/tachyon_fuzz_shm_attach fuzz/corpus/shm_attach -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ./build/fuzz/fuzz/tachyon_fuzz_toctou fuzz/corpus/toctou -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ```
 
@@ -26,34 +32,41 @@ cmake --build --preset fuzz --parallel
 Replays the existing corpus only. No new inputs are generated. Use this in CI.
 
 ```bash
+./build/fuzz/fuzz/tachyon_fuzz_arena_rpc fuzz/corpus/arena_rpc -runs=0
 ./build/fuzz/fuzz/tachyon_fuzz_arena_rx fuzz/corpus/arena_rx -runs=0
-./build/fuzz/fuzz/achyon_fuzz_arena_rx_batch fuzz/corpus/arena_rx_batch -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_arena_rx_batch fuzz/corpus/arena_rx_batch -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_arena_tx fuzz/corpus/arena_tx -runs=0
 ./build/fuzz/fuzz/tachyon_fuzz_header_parser fuzz/corpus/header_parser -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_shm_attach fuzz/corpus/shm_attach -runs=0
 ./build/fuzz/fuzz/tachyon_fuzz_toctou fuzz/corpus/toctou -runs=0
 ```
 
 ## Reproducing a crash
 
-libFuzzer writes the crashing input to `fuzz/corpus/crashes/` (not tracked by git).
+libFuzzer writes the crashing input to the current directory as `crash-<sha1>` (not tracked by git).
+Move it to `fuzz/corpus/crashes/` before minimizing.
 
 ```bash
 # Reproduce
-./build/fuzz/fuzz/tachyon_fuzz_arena_rx fuzz/corpus/crashes/<file>
+./build/fuzz/fuzz/tachyon_fuzz_<target> fuzz/corpus/crashes/<file>
 
 # Minimize
-./build/fuzz/fuzz/tachyon_fuzz_arena_rx -minimize_crash=1 \
+./build/fuzz/fuzz/tachyon_fuzz_<target> -minimize_crash=1 \
     -exact_artifact_path=fuzz/corpus/crashes/<file>_min \
     fuzz/corpus/crashes/<file>
 ```
 
 ## Targets
 
-| Target                | Entry point                            | Notes                                                |
-|-----------------------|----------------------------------------|------------------------------------------------------|
-| `fuzz_arena_rx`       | `acquire_rx` / `commit_rx`             | Drain loop, SKIP_MARKER, wrap-around                 |
-| `fuzz_arena_rx_batch` | `acquire_rx_batch` / `commit_rx_batch` | `current_tail` accumulation, `reserved_size=0` stall |
-| `fuzz_header_parser`  | `acquire_rx` (single call)             | Isolated header parsing, double-SKIP path            |
-| `fuzz_toctou`         | `acquire_rx` with `__builtin_trap`     | Integer underflow, misalignment, bounds invariants   |
+| Target                | Entry point                                | Notes                                                  |
+|-----------------------|--------------------------------------------|--------------------------------------------------------|
+| `fuzz_arena_rpc`      | `commit_tx_rpc` / `acquire_rx_rpc`         | RpcPackedMeta offsets, `correlation_id` edge cases     |
+| `fuzz_arena_rx`       | `acquire_rx` / `commit_rx`                 | Drain loop, SKIP_MARKER, wrap-around                   |
+| `fuzz_arena_rx_batch` | `acquire_rx_batch` / `commit_rx_batch`     | `current_tail` accumulation, `reserved_size=0` stall   |
+| `fuzz_arena_tx`       | `acquire_tx` / `commit_tx` / `rollback_tx` | Corrupted `tail` index, integer overflow on space calc |
+| `fuzz_header_parser`  | `acquire_rx` (single call)                 | Isolated header parsing, double-SKIP path              |
+| `fuzz_shm_attach`     | `Arena::attach` / `acquire_rx`             | Header validation, `capacity_mask_` near-end OOB       |
+| `fuzz_toctou`         | `acquire_rx` with `__builtin_trap`         | Integer underflow, misalignment, bounds invariants     |
 
 `transport_uds.cpp`, `Arena::format()`, and language bindings are out of scope.
 
