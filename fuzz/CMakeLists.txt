@@ -51,9 +51,10 @@ macro(tachyon_fuzz_target TARGET_NAME SOURCE_FILE)
 endmacro()
 
 # Fuzz targets
-tachyon_fuzz_target(tachyon_fuzz_header_parser src/fuzz_header_parser.cpp)
+tachyon_fuzz_target(fuzz_arena_rpc src/fuzz_arena_rpc.cpp)
 tachyon_fuzz_target(tachyon_fuzz_arena_rx src/fuzz_arena_rx.cpp)
 tachyon_fuzz_target(tachyon_fuzz_arena_rx_batch src/fuzz_arena_rx_batch.cpp)
 tachyon_fuzz_target(tachyon_fuzz_arena_tx src/fuzz_arena_tx.cpp)
-tachyon_fuzz_target(tachyon_fuzz_toctou src/fuzz_toctou.cpp)
+tachyon_fuzz_target(tachyon_fuzz_header_parser src/fuzz_header_parser.cpp)
 tachyon_fuzz_target(fuzz_shm_attach src/fuzz_shm_attach.cpp)
+tachyon_fuzz_target(tachyon_fuzz_toctou src/fuzz_toctou.cpp)
