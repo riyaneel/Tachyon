@@ -228,6 +228,7 @@
       "targets": [
         "tachyon_fuzz_arena_rx",
         "tachyon_fuzz_arena_rx_batch",
+        "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
         "tachyon_fuzz_toctou"
       ],
