@@ -226,12 +226,12 @@
       "name": "fuzz",
       "configurePreset": "fuzz",
       "targets": [
-        "fuzz_arena_rpc",
+        "tachyon_fuzz_arena_rpc",
         "tachyon_fuzz_arena_rx",
         "tachyon_fuzz_arena_rx_batch",
         "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
-        "fuzz_shm_attach",
+        "tachyon_fuzz_shm_attach",
         "tachyon_fuzz_toctou"
       ],
       "jobs": 0
