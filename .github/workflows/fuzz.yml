@@ -38,7 +38,15 @@ jobs:
       - name: Build fuzz targets
         run: |
           cmake --preset fuzz
-          cmake --build --preset fuzz
+          cmake --build --preset fuzz --parallel
+
+      - name: Regression - arena_rpc
+        run: |
+          mkdir -p fuzz/corpus/crashes
+          ./build/fuzz/fuzz/tachyon_fuzz_arena_rpc \
+            fuzz/corpus/arena_rpc \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression - arena_rx
         run: |
@@ -55,10 +63,26 @@ jobs:
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
+      - name: Regression - arena_tx
+        run: |
+          mkdir -p fuzz/corpus/crashes
+          ./build/fuzz/fuzz/tachyon_fuzz_arena_tx \
+            fuzz/corpus/arena_tx \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
       - name: Regression - header_parser
         run: |
           ./build/fuzz/fuzz/tachyon_fuzz_header_parser \
             fuzz/corpus/header_parser \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
+      - name: Regression - shared memory attach
+        run: |
+          mkdir -p fuzz/corpus/crashes
+          ./build/fuzz/fuzz/tachyon_fuzz_shm_attach \
+            fuzz/corpus/shm_attach \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
