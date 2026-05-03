@@ -230,7 +230,8 @@
         "tachyon_fuzz_arena_rx_batch",
         "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
-        "tachyon_fuzz_toctou"
+        "tachyon_fuzz_toctou",
+        "fuzz_shm_attach"
       ],
       "jobs": 0
     },
