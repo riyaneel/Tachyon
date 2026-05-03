@@ -5,31 +5,20 @@ Requires Clang. libFuzzer is not available under GCC.
 ## Build
 
 ```bash
-cmake -S . -B cmake-build-fuzz \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_COMPILER=clang++ \
-    -DTACHYON_ENABLE_FUZZING=ON
-
-cmake --build cmake-build-fuzz \
-    --target tachyon_fuzz_arena_rx tachyon_fuzz_arena_rx_batch tachyon_fuzz_header_parser tachyon_fuzz_toctou
+cmake --preset fuzz
+cmake --build --preset fuzz --parallel
 ```
 
 ## Run
 
 ```bash
-cd cmake-build-fuzz
+./build/fuzz/fuzz/tachyon_fuzz_arena_rx fuzz/corpus/arena_rx -dict=fuzz/dict/tachyon.dict -max_total_time=300
 
-./fuzz/tachyon_fuzz_arena_rx ../../fuzz/corpus/arena_rx \
-    -dict=../../fuzz/dict/tachyon.dict -max_total_time=300
+./build/fuzz/fuzz/tachyon_fuzz_arena_rx_batch fuzz/corpus/arena_rx_batch -dict=fuzz/dict/tachyon.dict -max_total_time=300
 
-./fuzz/tachyon_fuzz_arena_rx_batch ../../fuzz/corpus/arena_rx_batch \
-    -dict=../../fuzz/dict/tachyon.dict -max_total_time=300
+./build/fuzz/fuzz/tachyon_fuzz_header_parser fuzz/corpus/header_parser -dict=fuzz/dict/tachyon.dict -max_total_time=300
 
-./fuzz/tachyon_fuzz_header_parser ../../fuzz/corpus/header_parser \
-    -dict=../../fuzz/dict/tachyon.dict -max_total_time=300
-
-./fuzz/tachyon_fuzz_toctou ../../fuzz/corpus/toctou \
-    -dict=../../fuzz/dict/tachyon.dict -max_total_time=300
+./build/fuzz/fuzz/tachyon_fuzz_toctou fuzz/corpus/toctou -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ```
 
 ## Regression mode
@@ -37,10 +26,10 @@ cd cmake-build-fuzz
 Replays the existing corpus only. No new inputs are generated. Use this in CI.
 
 ```bash
-./fuzz/tachyon_fuzz_arena_rx       ../../fuzz/corpus/arena_rx       -runs=0
-./fuzz/tachyon_fuzz_arena_rx_batch ../../fuzz/corpus/arena_rx_batch -runs=0
-./fuzz/tachyon_fuzz_header_parser  ../../fuzz/corpus/header_parser  -runs=0
-./fuzz/tachyon_fuzz_toctou         ../../fuzz/corpus/toctou         -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_arena_rx fuzz/corpus/arena_rx -runs=0
+./build/fuzz/fuzz/achyon_fuzz_arena_rx_batch fuzz/corpus/arena_rx_batch -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_header_parser fuzz/corpus/header_parser -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_toctou fuzz/corpus/toctou -runs=0
 ```
 
 ## Reproducing a crash
@@ -49,12 +38,12 @@ libFuzzer writes the crashing input to `fuzz/corpus/crashes/` (not tracked by gi
 
 ```bash
 # Reproduce
-./fuzz/tachyon_fuzz_arena_rx ../../fuzz/corpus/crashes/<file>
+./build/fuzz/fuzz/tachyon_fuzz_arena_rx fuzz/corpus/crashes/<file>
 
 # Minimize
-./fuzz/tachyon_fuzz_arena_rx -minimize_crash=1 \
-    -exact_artifact_path=../../fuzz/corpus/crashes/<file>_min \
-    ../../fuzz/corpus/crashes/<file>
+./build/fuzz/fuzz/tachyon_fuzz_arena_rx -minimize_crash=1 \
+    -exact_artifact_path=fuzz/corpus/crashes/<file>_min \
+    fuzz/corpus/crashes/<file>
 ```
 
 ## Targets
