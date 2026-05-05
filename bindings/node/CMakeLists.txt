@@ -25,6 +25,7 @@ add_library(tachyon_node SHARED
 		src/native/_core_local/src/shm.cpp
 		src/native/_core_local/src/transport_uds.cpp
 		src/native/_core_local/src/tachyon_c.cpp
+		src/native/_core_local/src/tachyon_rpc.cpp
 )
 
 set_target_properties(tachyon_node PROPERTIES
