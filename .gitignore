@@ -160,3 +160,4 @@ fuzz/corpus/crashes/
 Testing/
 *.bpf
 crash-
+.private/
