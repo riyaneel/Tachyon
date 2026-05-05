@@ -504,8 +504,302 @@ private:
 	}
 };
 
+class TachyonRpcBusNode : public Napi::ObjectWrap<TachyonRpcBusNode> {
+public:
+	static Napi::FunctionReference ctor_;
+
+	static Napi::Object Init(Napi::Env env, Napi::Object exports) {
+		Napi::Function func = DefineClass(
+			env,
+			"TachyonRpcBusNode",
+			{
+				StaticMethod<&TachyonRpcBusNode::Listen>("listen"),
+				StaticMethod<&TachyonRpcBusNode::Connect>("connect"),
+				InstanceMethod<&TachyonRpcBusNode::Close>("close"),
+				InstanceMethod<&TachyonRpcBusNode::Call>("call"),
+				InstanceMethod<&TachyonRpcBusNode::Wait>("wait"),
+				InstanceMethod<&TachyonRpcBusNode::CommitRx>("commitRx"),
+				InstanceMethod<&TachyonRpcBusNode::Serve>("serve"),
+				InstanceMethod<&TachyonRpcBusNode::CommitServe>("commitServe"),
+				InstanceMethod<&TachyonRpcBusNode::Reply>("reply"),
+				InstanceMethod<&TachyonRpcBusNode::SetPollingMode>("setPollingMode"),
+				InstanceMethod<&TachyonRpcBusNode::GetState>("getState"),
+			}
+		);
+		ctor_ = Napi::Persistent(func);
+		exports.Set("TachyonRpcBusNode", func);
+		return exports;
+	}
+
+	explicit TachyonRpcBusNode(const Napi::CallbackInfo &info) : Napi::ObjectWrap<TachyonRpcBusNode>(info) {}
+
+	~TachyonRpcBusNode() override {
+		if (rpc_ != nullptr) {
+			tachyon_rpc_destroy(rpc_);
+			rpc_ = nullptr;
+		}
+	}
+
+private:
+	tachyon_rpc_bus_t *rpc_{nullptr};
+
+	static Napi::Object make_instance() {
+		return ctor_.New({});
+	}
+
+	bool assert_open(Napi::Env env) const noexcept {
+		if (rpc_ != nullptr)
+			return true;
+		Napi::Error::New(env, "TachyonRpcBus is closed or not initialized.").ThrowAsJavaScriptException();
+		return false;
+	}
+
+	static bool extract_payload(
+		Napi::Env env, const Napi::CallbackInfo &info, size_t idx, const uint8_t **src, size_t *size
+	) noexcept {
+		if (idx >= static_cast<size_t>(info.Length()) || (!info[idx].IsBuffer() && !info[idx].IsTypedArray())) {
+			Napi::TypeError::New(env, "Expected Buffer or Uint8Array").ThrowAsJavaScriptException();
+			return false;
+		}
+		if (info[idx].IsBuffer()) {
+			const auto buf = info[idx].As<Napi::Buffer<uint8_t>>();
+			*src		   = buf.Data();
+			*size		   = buf.ByteLength();
+		} else {
+			const auto ta = info[idx].As<Napi::TypedArray>();
+			*src		  = static_cast<const uint8_t *>(ta.ArrayBuffer().Data()) + ta.ByteOffset();
+			*size		  = ta.ByteLength();
+		}
+		return true;
+	}
+
+	static Napi::Value Listen(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (info.Length() < 3 || !info[0].IsString() || !info[1].IsNumber() || !info[2].IsNumber()) {
+			Napi::TypeError::New(env, "listen(path: string, capFwd: number, capRev: number)")
+				.ThrowAsJavaScriptException();
+			return env.Undefined();
+		}
+
+		const std::string path	  = info[0].As<Napi::String>().Utf8Value();
+		const size_t	  cap_fwd = static_cast<size_t>(info[1].As<Napi::Number>().Int64Value());
+		const size_t	  cap_rev = static_cast<size_t>(info[2].As<Napi::Number>().Int64Value());
+
+		Napi::Object	   obj	= make_instance();
+		TachyonRpcBusNode *node = Unwrap(obj);
+
+		tachyon_rpc_bus_t *rpc = nullptr;
+		tachyon_error_t	   err;
+		do {
+			err = tachyon_rpc_listen(path.c_str(), cap_fwd, cap_rev, &rpc);
+		} while (err == TACHYON_ERR_INTERRUPTED);
+
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+			return env.Undefined();
+		}
+
+		node->rpc_ = rpc;
+		return obj;
+	}
+
+	static Napi::Value Connect(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (info.Length() < 1 || !info[0].IsString()) {
+			Napi::TypeError::New(env, "connect(path: string)").ThrowAsJavaScriptException();
+			return env.Undefined();
+		}
+
+		const std::string path = info[0].As<Napi::String>().Utf8Value();
+
+		Napi::Object	   obj	= make_instance();
+		TachyonRpcBusNode *node = Unwrap(obj);
+
+		tachyon_rpc_bus_t	 *rpc = nullptr;
+		const tachyon_error_t err = tachyon_rpc_connect(path.c_str(), &rpc);
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+			return env.Undefined();
+		}
+
+		node->rpc_ = rpc;
+		return obj;
+	}
+
+	Napi::Value Close(const Napi::CallbackInfo &info) {
+		if (rpc_ != nullptr) {
+			tachyon_rpc_destroy(rpc_);
+			rpc_ = nullptr;
+		}
+		return info.Env().Undefined();
+	}
+
+	// Returns { correlationId: bigint }
+	Napi::Value Call(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+
+		const uint8_t *src	= nullptr;
+		size_t		   size = 0;
+		if (!extract_payload(env, info, 0, &src, &size))
+			return env.Undefined();
+
+		const uint32_t msg_type =
+			(info.Length() >= 2 && info[1].IsNumber()) ? info[1].As<Napi::Number>().Uint32Value() : 0u;
+
+		uint64_t			  cid = 0;
+		const tachyon_error_t err = tachyon_rpc_call(rpc_, src, size, msg_type, &cid);
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+			return env.Undefined();
+		}
+
+		Napi::Object result = Napi::Object::New(env);
+		result.Set("correlationId", Napi::BigInt::New(env, cid));
+		return result;
+	}
+
+	// Returns { data: Buffer, msgType: number, actualSize: number } | null
+	Napi::Value Wait(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+
+		if (info.Length() < 1 || !info[0].IsBigInt()) {
+			Napi::TypeError::New(env, "wait(correlationId: bigint, spinThreshold?: number)")
+				.ThrowAsJavaScriptException();
+			return env.Undefined();
+		}
+
+		bool		   lossless = true;
+		const uint64_t cid		= info[0].As<Napi::BigInt>().Uint64Value(&lossless);
+		const uint32_t spin_threshold =
+			(info.Length() >= 2 && info[1].IsNumber()) ? info[1].As<Napi::Number>().Uint32Value() : 10000u;
+
+		size_t		actual_size = 0;
+		uint32_t	msg_type	= 0;
+		const void *ptr			= tachyon_rpc_wait(rpc_, cid, &actual_size, &msg_type, spin_threshold);
+		if (ptr == nullptr)
+			return env.Null();
+
+		Napi::Object result = Napi::Object::New(env);
+		result.Set(
+			"data",
+			Napi::Buffer<uint8_t>::New(
+				env, const_cast<uint8_t *>(static_cast<const uint8_t *>(ptr)), actual_size, noop_finalizer
+			)
+		);
+		result.Set("msgType", Napi::Number::New(env, msg_type));
+		result.Set("actualSize", Napi::Number::New(env, static_cast<double>(actual_size)));
+		return result;
+	}
+
+	Napi::Value CommitRx(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+		const tachyon_error_t err = tachyon_rpc_commit_rx(rpc_);
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+		}
+		return env.Undefined();
+	}
+
+	// Returns { data: Buffer, correlationId: bigint, msgType: number, actualSize: number } | null
+	Napi::Value Serve(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+
+		const uint32_t spin_threshold =
+			(info.Length() >= 1 && info[0].IsNumber()) ? info[0].As<Napi::Number>().Uint32Value() : 10000u;
+
+		uint64_t	cid			= 0;
+		uint32_t	msg_type	= 0;
+		size_t		actual_size = 0;
+		const void *ptr			= tachyon_rpc_serve(rpc_, &cid, &msg_type, &actual_size, spin_threshold);
+		if (ptr == nullptr)
+			return env.Null();
+
+		Napi::Object result = Napi::Object::New(env);
+		result.Set(
+			"data",
+			Napi::Buffer<uint8_t>::New(
+				env, const_cast<uint8_t *>(static_cast<const uint8_t *>(ptr)), actual_size, noop_finalizer
+			)
+		);
+		result.Set("correlationId", Napi::BigInt::New(env, cid));
+		result.Set("msgType", Napi::Number::New(env, msg_type));
+		result.Set("actualSize", Napi::Number::New(env, static_cast<double>(actual_size)));
+		return result;
+	}
+
+	Napi::Value CommitServe(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+		const tachyon_error_t err = tachyon_rpc_commit_serve(rpc_);
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+		}
+		return env.Undefined();
+	}
+
+	// reply(correlationId: bigint, data: Buffer | Uint8Array, msgType: number)
+	Napi::Value Reply(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+
+		if (info.Length() < 3 || !info[0].IsBigInt() || !info[2].IsNumber()) {
+			Napi::TypeError::New(env, "reply(correlationId: bigint, data: Buffer | Uint8Array, msgType: number)")
+				.ThrowAsJavaScriptException();
+			return env.Undefined();
+		}
+
+		bool		   lossless = true;
+		const uint64_t cid		= info[0].As<Napi::BigInt>().Uint64Value(&lossless);
+
+		const uint8_t *src	= nullptr;
+		size_t		   size = 0;
+		if (!extract_payload(env, info, 1, &src, &size))
+			return env.Undefined();
+
+		const uint32_t		  msg_type = info[2].As<Napi::Number>().Uint32Value();
+		const tachyon_error_t err	   = tachyon_rpc_reply(rpc_, cid, src, size, msg_type);
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+		}
+		return env.Undefined();
+	}
+
+	Napi::Value SetPollingMode(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+		if (info.Length() < 1 || !info[0].IsNumber()) {
+			Napi::TypeError::New(env, "setPollingMode(spinMode: 0 | 1)").ThrowAsJavaScriptException();
+			return env.Undefined();
+		}
+		tachyon_rpc_set_polling_mode(rpc_, info[0].As<Napi::Number>().Int32Value());
+		return env.Undefined();
+	}
+
+	Napi::Value GetState(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+		return Napi::Number::New(env, static_cast<int>(tachyon_rpc_get_state(rpc_)));
+	}
+};
+
+Napi::FunctionReference TachyonRpcBusNode::ctor_;
+
 Napi::Object InitModule(const Napi::Env env, const Napi::Object exports) {
-	return TachyonBusNode::Init(env, exports);
+	TachyonBusNode::Init(env, exports);
+	TachyonRpcBusNode::Init(env, exports);
+	return exports;
 }
 
 NODE_API_MODULE(tachyon_node, InitModule)
