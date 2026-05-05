@@ -212,19 +212,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Kitware APT repository
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ca-certificates gpg wget
-          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
-            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
-            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+      - name: Setup Kitware
+        uses: ./.github/actions/kitware-apt
 
       - name: Install aarch64 cross toolchain
         if: matrix.arch == 'aarch64'
@@ -513,19 +502,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Kitware APT repository
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ca-certificates gpg wget
-          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
-            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
-            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+      - name: Setup Kitware
+        uses: ./.github/actions/kitware-apt
 
       - name: Install aarch64 cross toolchain
         if: matrix.arch == 'arm64'
@@ -684,19 +662,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Kitware APT repository
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ca-certificates gpg wget
-          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
-            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
-            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+      - name: Setup Kitware
+        uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM
         run: bash ci/install_llvm.sh 21

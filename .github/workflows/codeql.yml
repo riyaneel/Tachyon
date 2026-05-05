@@ -42,21 +42,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Kitware APT repository
+      - name: Setup Kitware
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ca-certificates gpg wget
-          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
-            gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
-            sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-
-      - name: Install CMake + Ninja
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends kitware-archive-keyring cmake ninja-build
+        uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
         if: matrix.language == 'c-cpp' || matrix.language == 'csharp' || matrix.language == 'java-kotlin'
