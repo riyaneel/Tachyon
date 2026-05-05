@@ -209,7 +209,9 @@ namespace tachyon::core {
 		pre_acquire_head_ = local_head_;
 		tx_reserved_size_ = aligned_msg_size;
 
-		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+		return reinterpret_cast<std::byte *>(
+			reinterpret_cast<MessageHeader *>(layout_->data_arena() + physical_idx) + 1
+		);
 	}
 
 	bool Arena::commit_tx(const size_t actual_size, const uint32_t type_id) noexcept {
@@ -275,7 +277,9 @@ namespace tachyon::core {
 		out_actual_size	  = pmeta.size;
 		rx_reserved_size_ = pmeta.reserved_size;
 
-		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+		return reinterpret_cast<std::byte *>(
+			reinterpret_cast<MessageHeader *>(layout_->data_arena() + physical_idx) + 1
+		);
 	}
 
 	bool Arena::commit_rx() noexcept {
@@ -329,7 +333,9 @@ namespace tachyon::core {
 				break;
 			}
 
-			const std::byte *payload_ptr = layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+			const std::byte *payload_ptr = reinterpret_cast<std::byte *>(
+				reinterpret_cast<MessageHeader *>(layout_->data_arena() + physical_idx) + 1
+			);
 
 #if defined(__GNUC__) || defined(__clang__)
 			__builtin_prefetch(payload_ptr, 0, 3);
@@ -481,7 +487,9 @@ namespace tachyon::core {
 		out_correlation_id = pmeta.correlation_id;
 		rx_reserved_size_  = pmeta.reserved_size;
 
-		return layout_->data_arena() + physical_idx + sizeof(MessageHeader);
+		return reinterpret_cast<std::byte *>(
+			reinterpret_cast<MessageHeader *>(layout_->data_arena() + physical_idx) + 1
+		);
 	}
 
 	void Arena::flush() noexcept {
