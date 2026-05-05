@@ -7,27 +7,35 @@ Tachyon IPC lifecycle splits into three phases with very different syscall profi
 
 Called once per `tachyon_bus_listen()`. All syscalls are one-shot except poll.
 
-| Syscall                  | Source                              | Reason                                                         | Conditional |
-|--------------------------|-------------------------------------|----------------------------------------------------------------|-------------|
-| `memfd_create`           | `shm.cpp::SharedMemory::create`     | Creates the anonymous SHM region (visible in `/proc/self/fd`). | Linux only  |
-| `ftruncate`              | `shm.cpp::SharedMemory::create`     | Allocates the ring buffer capacity.                            | Linux only  |
-| `fchmod(0600)`           | `shm.cpp::SharedMemory::create`     | Restricts memfd permissions (no-op in practice).               | Linux only  |
-| `fcntl(F_ADD_SEALS)`     | `shm.cpp::SharedMemory::create`     | Prevents resize after format (`F_SEAL_SHRINK\|GROW\|SEAL`).    | Linux only  |
-| `mmap(MAP_SHARED)`       | `shm.cpp::SharedMemory::create`     | Maps the ring buffer.                                          |             |
-| `mmap(MAP_POPULATE)`     | `shm.cpp::SharedMemory::create`     | Pre-faults all pages before handshake completes.               | Linux only  |
-| `madvise(MADV_DONTFORK)` | `shm.cpp::SharedMemory::create`     | Prevents CoW inheritance in child processes.                   | Linux only  |
-| `socket(AF_UNIX)`        | `transport_uds.cpp::uds_export_shm` | Opens the UDS endpoint.                                        |             |
-| `unlink`                 | `transport_uds.cpp::uds_export_shm` | Clears stale socket before `bind`. `ENOENT` on first run.      |             |
-| `bind`                   | `transport_uds.cpp::uds_export_shm` | Binds to the socket path.                                      |             |
-| `listen`                 | `transport_uds.cpp::uds_export_shm` | Marks the socket as passive. Backlog of 1.                     |             |
-| `poll`                   | `transport_uds.cpp::uds_export_shm` | 100 ms timeout loop until `accept` succeeds.                   |             |
-| `accept`                 | `transport_uds.cpp::uds_export_shm` | One-shot. Listening socket closed immediately after.           |             |
-| `sendmsg`                | `transport_uds.cpp::uds_export_shm` | Transfers handshake struct and memfd fd via `SCM_RIGHTS`.      |             |
-| `close` x2               | `transport_uds.cpp::uds_export_shm` | Closes client socket and listening socket.                     |             |
-| `unlink`                 | `transport_uds.cpp::uds_export_shm` | Removes the socket file. Path no longer exists after this.     |             |
+| Syscall                  | Source                                                     | Reason                                                                                                                                                                   | Conditional |
+|--------------------------|------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|
+| `memfd_create`           | `shm.cpp::SharedMemory::create`                            | Creates the anonymous SHM region (visible in `/proc/self/fd`).                                                                                                           | Linux only  |
+| `ftruncate`              | `shm.cpp::SharedMemory::create`                            | Allocates the ring buffer capacity.                                                                                                                                      | Linux only  |
+| `fchmod(0600)`           | `shm.cpp::SharedMemory::create`                            | Restricts memfd permissions (no-op in practice).                                                                                                                         | Linux only  |
+| `fcntl(F_ADD_SEALS)`     | `shm.cpp::SharedMemory::create`                            | Prevents resize after format (`F_SEAL_SHRINK\|GROW\|SEAL`).                                                                                                              | Linux only  |
+| `mmap(MAP_SHARED)`       | `shm.cpp::SharedMemory::create`                            | Maps the ring buffer.                                                                                                                                                    |             |
+| `mmap(MAP_POPULATE)`     | `shm.cpp::SharedMemory::create`                            | Pre-faults all pages before handshake completes.                                                                                                                         | Linux only  |
+| `madvise(MADV_DONTFORK)` | `shm.cpp::SharedMemory::create`                            | Prevents CoW inheritance in child processes.                                                                                                                             | Linux only  |
+| `socket(AF_UNIX)`        | `transport_uds.cpp::uds_export_shm`                        | Opens the UDS endpoint.                                                                                                                                                  |             |
+| `unlink`                 | `transport_uds.cpp::uds_export_shm`                        | Clears stale socket before `bind`. `ENOENT` on first run.                                                                                                                |             |
+| `bind`                   | `transport_uds.cpp::uds_export_shm`                        | Binds to the socket path.                                                                                                                                                |             |
+| `listen`                 | `transport_uds.cpp::uds_export_shm`                        | Marks the socket as passive. Backlog of 1.                                                                                                                               |             |
+| `poll`                   | `transport_uds.cpp::uds_export_shm`                        | 100 ms timeout loop until `accept` succeeds.                                                                                                                             |             |
+| `accept`                 | `transport_uds.cpp::uds_export_shm`                        | One-shot. Listening socket closed immediately after.                                                                                                                     |             |
+| `sendmsg`                | `transport_uds.cpp::uds_export_shm` / `uds_export_shm_rpc` | Transfers handshake struct and 1 fd (SPSC) or 2 fds (RPC) via `SCM_RIGHTS`. `cmsg_len = CMSG_LEN(sizeof(int))` for SPSC; `cmsg_len = CMSG_LEN(2 * sizeof(int))` for RPC. |             |
+| `close` x2               | `transport_uds.cpp::uds_export_shm`                        | Closes client socket and listening socket.                                                                                                                               |             |
+| `unlink`                 | `transport_uds.cpp::uds_export_shm`                        | Removes the socket file. Path no longer exists after this.                                                                                                               |             |
 
 On macOS, `memfd_create` / `ftruncate` / `fchmod` / `fcntl(F_ADD_SEALS)` are replaced by `shm_open` + immediate
 `unlink` + `ftruncate`. The rest is identical.
+
+### RPC handshake difference
+
+`tachyon_rpc_listen` calls `uds_export_shm_rpc` instead of `uds_export_shm`. It creates two `SharedMemory` instances
+(`shm_fwd`, `shm_rev`) and transfers both fds in a single `sendmsg`. All other syscalls in the handshake phase are
+identical and called twice (once per arena). The hot path syscall profile is unchanged: `arena_fwd` and `arena_rev` are
+independent SPSC rings. Each direction uses the same `futex(FUTEX_WAIT)` / `futex(FUTEX_WAKE)` pair as a standalone SPSC
+bus.
 
 ## Handshake (connect)
 
