@@ -22,6 +22,7 @@ compiled from source at installation time via `cmake-js`.
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
 - [Type ID encoding](#type-id-encoding)
+- [RPC](#rpc)
 - [Prebuild vs compile](#prebuild-vs-compile)
 - [Limitations](#limitations)
 
@@ -323,6 +324,47 @@ msgType(typeId); // 42
 ```
 
 `routeId >= 1` is reserved for RPC. Do not use it on consumers.
+
+## RPC
+
+```typescript
+// callee (start first, on a Worker thread)
+import {RpcBus} from '@tachyon-ipc/core';
+
+using callee = RpcBus.listen('/tmp/rpc.sock', 1 << 16, 1 << 16);
+for (; ;) {
+    const req = callee.serve();
+    if (req === null) continue; // EINTR
+    const cid = req.correlationId;
+    const echo = Buffer.from(req.data());
+    req.commit(); // must commit before reply
+    callee.reply(cid, echo, 2);
+}
+
+// caller
+using caller = RpcBus.connect('/tmp/rpc.sock');
+const cid = caller.call(Buffer.from('ping'), 1);
+for (; ;) {
+    const resp = caller.wait(cid);
+    if (resp === null) continue; // EINTR
+    using _ = resp;
+    console.log('reply msgType=%d size=%d', resp.msgType, resp.actualSize);
+    break;
+}
+```
+
+`RpcRxGuard` implements `Disposable`. The `using` keyword commits the slot on scope exit.
+`serve()` must be committed before `reply()` to avoid holding both arena slots simultaneously.
+`correlationId` is a `bigint` (uint64). All blocking calls must run on a Worker thread.
+
+| Method                                | Description                                                                 |
+|---------------------------------------|-----------------------------------------------------------------------------|
+| `RpcBus.listen(path, capFwd, capRev)` | Creates two SHM arenas. Blocks until a caller connects. EINTR retried.      |
+| `RpcBus.connect(path)`                | Attaches to existing arenas. Throws `AbiMismatchError` on version mismatch. |
+| `call(data, msgType)`                 | Copies payload into `arena_fwd`, returns the correlation ID as `bigint`.    |
+| `wait(cid, spinThreshold?)`           | Blocks until the matching response arrives. Returns `null` on EINTR.        |
+| `serve(spinThreshold?)`               | Blocks until a request arrives. Returns `null` on EINTR.                    |
+| `reply(cid, data, msgType)`           | Copies payload into `arena_rev`. `cid` must be `> 0n`.                      |
 
 ## Limitations
 

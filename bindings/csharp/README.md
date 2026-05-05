@@ -16,6 +16,7 @@ resolved at runtime by `NativeLoader` from the NuGet `runtimes/` layout, no manu
 - [API](#api)
 - [Zero-copy pattern](#zero-copy-pattern)
 - [Batch pattern](#batch-pattern)
+- [RPC](#rpc)
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
@@ -200,6 +201,38 @@ foreach (var msg in batch)
     Process(msg.Data, msg.MsgType);
 }
 ```
+
+## RPC
+
+```csharp
+// callee - start first, on a dedicated thread
+using var callee = RpcBus.Listen("/tmp/rpc.sock", 1 << 16, 1 << 16);
+
+using var req = callee.Serve();
+ulong cid = req.CorrelationId;
+byte[] data = req.Data.ToArray();
+req.Dispose(); // commit before Reply
+callee.Reply(cid, data, msgType: 2);
+
+// caller
+using var caller = RpcBus.Connect("/tmp/rpc.sock");
+
+ulong cid = caller.Call("ping"u8, msgType: 1);
+using var resp = caller.Wait(cid);
+Console.WriteLine($"reply msgType={resp.MsgType} size={resp.Data.Length}");
+```
+
+`RpcRxGuard` is a `ref struct`. `Dispose()` commits the slot. `serve()` must be committed before `Reply()`.
+`Wait()` blocks until the response matching `correlationId` arrives, spinning then falling back to futex sleep.
+
+| Method                                | Description                                                                         |
+|---------------------------------------|-------------------------------------------------------------------------------------|
+| `RpcBus.Listen(path, capFwd, capRev)` | Creates two SHM arenas. Blocks until a caller connects. EINTR retried.              |
+| `RpcBus.Connect(path)`                | Attaches to existing arenas. Throws `TachyonError.AbiMismatch` on version mismatch. |
+| `Call(payload, msgType)`              | Copies payload into `arena_fwd`, returns the assigned correlation ID.               |
+| `Wait(cid, spinThreshold)`            | Blocks until the matching response arrives in `arena_rev`.                          |
+| `Serve(spinThreshold)`                | Blocks until a request arrives in `arena_fwd`.                                      |
+| `Reply(cid, payload, msgType)`        | Copies payload into `arena_rev`. `cid` must be > 0.                                 |
 
 ## Error handling
 

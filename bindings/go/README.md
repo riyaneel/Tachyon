@@ -16,6 +16,7 @@ The C++ core is compiled at build time via CGO. No shared library is required at
 - [API](#api)
 - [Zero-copy lifetime](#zero-copy-lifetime)
 - [Batch pattern](#batch-pattern)
+- [RPC](#rpc)
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
@@ -198,6 +199,33 @@ for msg := range batch.Iter() {
 }
 batch.Commit()
 ```
+
+## RPC
+
+```go
+// callee - start first
+callee, _ := tachyon.ListenRpc("/tmp/rpc.sock", 1<<16, 1<<16)
+defer callee.Close()
+
+req, _ := callee.Serve(10_000)
+cid := req.CorrelationID()
+data := append([]byte(nil), req.Data()...)
+req.Commit()
+callee.Reply(cid, data, 2)
+
+// caller
+caller, _ := tachyon.ConnectRpc("/tmp/rpc.sock")
+defer caller.Close()
+
+cid, _ := caller.Call([]byte("ping"), 1)
+resp, _ := caller.Wait(cid, 10_000)
+fmt.Printf("reply: %q\n", resp.Data())
+resp.Commit()
+```
+
+`RpcRxGuard.Data()` points directly into shared memory and is valid only until `Commit()`.
+Copy before `Commit()` if the data must outlive the guard.
+The finalizer calls `Commit()` if the guard is collected without an explicit call.
 
 ## Error handling
 

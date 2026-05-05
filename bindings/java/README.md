@@ -15,6 +15,7 @@ required.
 - [API](#api)
 - [Zero-copy pattern](#zero-copy-pattern)
 - [Batch pattern](#batch-pattern)
+- [RPC](#rpc)
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
@@ -194,6 +195,37 @@ try (var batch = bus.drainBatch(64, 10_000)) {
     }
 } // commits all slots on exit
 ```
+
+## RPC
+
+```java
+// callee - start first, on a dedicated thread
+try (var callee = TachyonRpcBus.rpcListen("/tmp/rpc.sock", 1 << 16, 1 << 16)) {
+    try (var req = callee.serve()) {
+        long cid = req.getCorrelationId();
+        byte[] data = req.getData();
+        callee.reply(cid, data, 2);
+    }
+}
+
+// caller
+try (var caller = TachyonRpcBus.rpcConnect("/tmp/rpc.sock")) {
+    long cid = caller.call("ping".getBytes(StandardCharsets.UTF_8), 1);
+    try (var resp = caller.waitResponse(cid)) {
+        byte[] payload = resp.getData();
+    }
+}
+```
+
+`RpcRxGuard` implements `AutoCloseable`. `close()` commits the slot.
+`serve()` must be committed before `reply()` to avoid holding both arena slots simultaneously.
+Pre-allocated out-params (`slotCid`, `slotSize`, `slotMsgType`) are reused across calls: no per-call heap allocation on
+the hot path.
+
+| Exception             | Trigger                                                                  |
+|-----------------------|--------------------------------------------------------------------------|
+| `PeerDeadException`   | Correlation ID mismatch or fatal arena error. Close the bus immediately. |
+| `TachyonException(8)` | `correlationId == 0` passed to `reply()`.                                |
 
 ## Error handling
 

@@ -16,6 +16,7 @@ shared with the Java binding, zero additional overhead.
 - [Zero-copy pattern](#zero-copy-pattern)
 - [Batch pattern](#batch-pattern)
 - [Coroutines](#coroutines)
+- [RPC](#rpc)
 - [Error handling](#error-handling)
 - [Thread safety](#thread-safety)
 - [NUMA binding](#numa-binding)
@@ -230,6 +231,37 @@ launch(tachyonDispatcher) {
 
 Do not collect `bus.receive()` on `Dispatchers.Default`, a parked OS thread starves other coroutines sharing the
 same carrier.
+
+## RPC
+
+```kotlin
+// callee - start first, on Dispatchers.IO
+RpcBus.listen("/tmp/rpc.sock", 1L shl 16, 1L shl 16).use { callee ->
+    callee.serve().first().let { req ->
+        callee.reply(req.correlationId, req.data, msgType = 2)
+    }
+}
+
+// caller
+RpcBus.connect("/tmp/rpc.sock").use { caller ->
+    val resp = caller.call("ping".toByteArray(), msgType = 1)
+    println("reply msgType=${resp.msgType} size=${resp.size}")
+}
+```
+
+`RpcBus.call()` is a suspending function. It yields the coroutine on `BufferFullException` and suspends until the
+response arrives. `RpcBus.serve()` returns a `Flow<RpcMessage>` that runs on `Dispatchers.IO` and is cancellable.
+
+```kotlin
+// callee serving a stream of requests
+RpcBus.listen(path, 1L shl 16, 1L shl 16).use { callee ->
+    callee.serve()
+        .take(n)
+        .collect { req ->
+            callee.reply(req.correlationId, req.data, msgType = 0)
+        }
+}
+```
 
 ## Error handling
 
