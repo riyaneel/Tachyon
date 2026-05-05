@@ -1,5 +1,128 @@
 # Changelog
 
+## [v0.5.0] | 2026-05-05
+
+### Features
+
+- `aa9cd34` | **node**: Implement `RpcBus` and `RpcRxGuard`
+- `f7db09e` | **node**: Add `TachyonRpcBusNode` implementation for RPC bindings
+- `455e781` | **csharp**: Implement `RpcBus` class
+- `2033352` | **csharp**: Introduce `RpcRxGuard` for RPC slot management
+- `26767b7` | **csharp**: Add RPC bindings for Tachyon ABI functions
+- `a2da4e4` | **kotlin**: Implement `RpcBus` for bidirectional RPC communication
+- `c8ee521` | **kotlin**: Add `RpcMessage` class for handling inbound RPC messages
+- `41654e9` | **java**: Implement `TachyonRpcBus`
+- `522c8ce` | **java**: Introduce `RpcRxGuard` for RPC slot management
+- `be8fecc` | **java**: Add RPC bindings for Tachyon ABI functions
+- `93d27de` | **fuzz**: Add new corpus files for shm_attach fuzzing
+- `ee09b83` | **fuzz**: Add new corpus files for arena_tx fuzzing
+- `b30f1a5` | **fuzz**: Add new corpus files for arena_rpc fuzzing
+- `b5b4ab8` | **fuzz**: Expand tachyon.dict
+- `7101b6b` | **fuzz**: Add fuzz_shm_attach shm attachment fuzzing
+- `ff15027` | **fuzz**: Add fuzz_arena_rpc for RPC fuzzing
+- `432800b` | **fuzz**: Add new corpus seeds for arena and shm_attach fuzzing
+- `994632e` | **fuzz**: Enhance and reorganize seed generation with expanded coverage
+- `68c809a` | **fuzz**: Add new corpus files for arena_tx fuzzing
+- `0ab4e45` | **fuzz**: Expand tachyon.dict with additional entries for tx
+- `7d9b176` | **fuzz**: Add fuzz_arena_tx.cpp guard
+- `50c6991` | **go**: Add RPC API bindings for Go
+- `7c1fa24` | **go**: Include tachyon_rpc.cpp in Go bindings
+- `cf54aaa` | **core**: Add TACHYON_INLINE macro for future cross-platform inline support
+- `e4c9607` | **cpp**: Add CMake build files for RPC example
+- `91f1bbc` | **rust**: Add Rust bindings for RPC API
+- `96d82b2` | **rust**: Include tachyon_rpc in build.rs
+- `f584112` | **python**: Expose RPC dispatcher in bindings
+- `c0367ce` | **python**: Add RPC dispatcher, endpoints, and decorator to Python bindings
+- `f57875a` | **python**: Expose low-level RPC bus and guards in Python bindings
+- `2775b75` | **python**: Add RpcBus class to Python bindings
+- `57227ba` | **python**: Extend Python bindings with RPC transactional guards and bus
+- `017a87d` | **core**: Add transactional RPC API methods
+- `eab698f` | **core**: Implement C API RPC bus functions
+- `31e66f1` | **core**: Implement RPC bus listen/connect methods
+- `f59e134` | **core**: Define `tachyon_rpc_bus` structure
+- `43387e4` | **core**: Introduce RPC bus and methods in ABI interface
+- `abedcb1` | **core**: Validate handshake flags in ABI checks
+- `f1f5c6f` | **core**: Add RPC support for UDS shared memory transport
+- `b70c44f` | **core**: Add RPC support with commit/acquire methods in Arena
+- `c9c0815` | **core**: Expand TachyonHandshake with reverse fields and flags
+- `720082f` | **core**: Add correlation_id field to MessageHeader and adjust padding
+- `0c0cfe7` | **cmake**: Add clang-aarch64 toolchain and presets
+
+### Bug Fixes
+
+- `97b3967` | **core**: Correct pointer arithmetic for payload calculation in `Arena`
+- `69cfe99` | **test/csharp**: Resolve macOS socket path length limit in RPC tests
+- `ffd6d25` | **arena**: Validate alignment and capacity bounds to prevent out-of-bound access
+- `c08185f` | **core**: Correct TACHYON_INLINE macro to include `inline` keyword for gcc
+- `6cf97e8` | **core**: Include unistd.h in tachyon_rpc.cpp
+- `02b9d54` | **core**: Close file descriptor on shm join failure
+
+### Code Refactoring
+
+- `161d63e` | **fuzz**: Rename fuzz targets
+- `cd54a2d` | **go**: Adjust formatting in bench_test.go
+- `54e4c24` | **core**: Move error mapping utilities to abi_utils.h for reuse
+- `b304c5c` | **core**: Remove `TachyonPayload` concept and related methods
+- `3c62a18` | **core**: Extract common tx flush logic to `do_flush_tx`
+
+### Build System
+
+- `68d6188` | **node**: Add Tachyon RPC source file to build conf
+- `46cfafe` | **fuzz**: Add fuzz_arena_rpc target
+- `9b1f13d` | **fuzz**: Add fuzz target for shm_attach
+- `1d3ce1b` | **fuzz**: Add fuzz target for arena_tx
+- `eed2456` | **python**: Add tachyon_rpc.cpp to Python bindings
+- `084b984` | **test**: Add test_rpc.cpp to tachyon_tests build
+- `f07690a` | **core**: Add tachyon_rpc.cpp to CMakeLists.txt
+
+### Continuous Integration
+
+- `33dfad6` | Remove unused TSan suppressions
+- `63183c6` | **fuzz**: Add regression tests for new fuzz targets
+- `7e60ee0` | **release**: Add matrix builds and artifact handling for Linux (x86_64, aarch64)
+- `08bc639` | Update job names to include arch details
+- `53704c9` | Add C++ aarch64 support to ci.yml
+
+### Tests
+
+- `54d5036` | **node**: Add integration tests for `RpcBus` and `RpcRxGuard`
+- `5b6a7de` | **csharp**: Add unit tests for `RpcBus`
+- `610a46f` | **kotlin**: Add unit tests for `RpcBus`
+- `12469aa` | **java**: Add unit tests for `TachyonRpcBus`
+- `b550070` | **go**: Add unit tests for RPC
+- `03fb341` | **rust**: Add unit tests for RpcBus and tx guards
+- `c8cb60d` | **python**: Add tests for RPC dispatcher handlers and error cases
+- `a9f72ea` | **python**: Add unit tests for RPC bus
+- `708be7f` | **core**: Add unit tests for RPC bus
+
+### Documentation
+
+- `054dfe3` | **integration**: Adding RPC patterns and supervision to `INTEGRATION.md`
+- `f78a3f9` | **syscalls**: Document RPC handshake
+- `7c08340` | **abi**: Add RPC wire semantics
+- `7d86225` | **bindings**: Update README with `RpcBus` category
+- `43cc867` | **python**: Add README for Python bindings
+- `e6ec025` | **go**: Add GoDoc for RPC bus structs/func
+- `bf01438` | **fuzz**: Update README with new targets
+- `d78f68d` | **fuzz**: Correct build and usage instructions in README.md
+- `35d390b` | **readme**: Add RPC bench and details
+- `e1a4214` | **abi**: Update documentation for 0x04 ABI bump
+- `d34033b` | **migration**: Add v0.5.0 migration guide
+- `cce46d0` | **changelog**: Update for v0.4.2
+
+### Chores
+
+- `80d7ceb` | **version**: Bump version to 0.5.0
+- `27d8787` | **tsan**: Remove unused TSan suppressions file
+- `03ad668` | **gitignore**: Rm python bindings README
+- `f8e5b8f` | **gitignore**: Add .private dir to gitignore entries
+- `f566610` | **gitignore**: Add crash entry
+- `5249232` | **abi**: Bump TACHYON_VERSION to 0x04
+
+### examples
+
+- `f936f25` | **rpc**: Add cpp cpp RPC example
+
 ## [v0.4.2] | 2026-04-26
 
 ### Features
