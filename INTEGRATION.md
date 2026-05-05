@@ -27,13 +27,13 @@ Python:
 
 ```python
 while True:
-    try:
-        with tachyon.Bus.listen(SOCKET_PATH, CAPACITY) as bus:
-            for msg in bus:
-                process(msg)
-    except tachyon.PeerDeadError:
-        log.warning("producer died, relistening")
-        time.sleep(0.1)
+	try:
+		with tachyon.Bus.listen(SOCKET_PATH, CAPACITY) as bus:
+			for msg in bus:
+				process(msg)
+	except tachyon.PeerDeadError:
+		log.warning("producer died, relistening")
+		time.sleep(0.1)
 ```
 
 Rust:
@@ -152,9 +152,9 @@ If producer and consumer are on different NUMA nodes, all ring buffer accesses c
 
 ```python
 with tachyon.Bus.listen(path, capacity) as bus:
-    bus.set_numa_node(0)  # pin to node 0 - call before first message
-    for msg in bus:
-        ...
+	bus.set_numa_node(0)  # pin to node 0 - call before first message
+	for msg in bus:
+		...
 ```
 
 ```rust
@@ -198,6 +198,91 @@ Tachyon's post-handshake hot path emits a single syscall type (`futex` on Linux,
 requires seccomp-BPF containment, apply the filter after `tachyon_bus_listen()`/`tachyon_bus_connect()` returns.
 Pre-built profiles are available in `contrib/seccomp/`. Do not apply them from within a polyglot runtime (Go, Python,
 Java, Node.js).
+
+---
+
+## RPC supervision
+
+### Correlation ID lifecycle
+
+Each `tachyon_rpc_call` assigns a monotonically increasing `correlation_id` starting at 1. The callee echoes it verbatim
+in the reply via `tachyon_rpc_commit_reply`. `tachyon_rpc_wait` blocks until it observes the expected ID in `arena_rev`.
+A mismatch (callee sent a reply with the wrong ID) transitions `arena_rev` to `FatalError` and returns `nullptr`. The
+bus must be destroyed immediately.
+
+Valid range: `[1, UINT64_MAX]`. `correlation_id = 0` is rejected by `tachyon_rpc_commit_call` with
+`TACHYON_ERR_INVALID_SZ`.
+
+### Timeout strategy
+
+`tachyon_rpc_wait` has no wall-clock timeout. If the callee crashes after receiving a request but before sending a
+reply, the caller blocks indefinitely. This is the same contract as the SPSC hot path: Tachyon does not detect peer
+crashes.
+
+Recommended pattern: run the caller with a deadline on the application side. If the deadline fires, destroy the bus and
+reconnect.
+
+```c++
+// Caller with external deadline
+auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+
+uint64_t cid = 0;
+tachyon_rpc_call(rpc, payload, size, msg_type, &cid);
+
+// Poll with non-blocking spin threshold, check deadline between retries
+const void *ptr = nullptr;
+while (!ptr) {
+    if (std::chrono::steady_clock::now() > deadline) {
+        tachyon_rpc_destroy(rpc);
+        return handle_timeout();
+    }
+    uint32_t msg_type_out = 0;
+    size_t actual_size = 0;
+    ptr = tachyon_rpc_wait(rpc, cid, &actual_size, &msg_type_out, 1000);
+}
+```
+
+### Dead-callee detection
+
+If the callee process exits after `tachyon_rpc_listen` returns but before processing a request, `arena_fwd` retains the
+message indefinitely. The caller's `tachyon_rpc_wait` blocks. Detect this externally:
+
+- `pidfd_open` + `poll` on the callee PID.
+- A dedicated health check SPSC bus with a heartbeat message sent by the callee on each request iteration.
+- OS process monitoring via `SIGCHLD` in the supervisor.
+
+### Relisten pattern (callee side)
+
+```c++
+for (;;) {
+    tachyon_rpc_bus_t *rpc = nullptr;
+    tachyon_rpc_listen(SOCKET_PATH, CAP_FWD, CAP_REV, &rpc);
+
+    for (;;) {
+        uint64_t cid = 0; uint32_t msg_type = 0; size_t sz = 0;
+        const void *ptr = tachyon_rpc_serve(rpc, &cid, &msg_type, &sz, 10000);
+        if (!ptr) {
+            if (tachyon_rpc_get_state(rpc) == TACHYON_STATE_FATAL_ERROR) break;
+            continue; // EINTR
+        }
+        process(ptr, sz);
+        tachyon_rpc_commit_serve(rpc);
+
+        void *reply_slot = tachyon_rpc_acquire_reply_tx(rpc, reply_size);
+        // write reply...
+        tachyon_rpc_commit_reply(rpc, cid, reply_size, reply_type);
+    }
+
+    tachyon_rpc_destroy(rpc);
+}
+```
+
+### `serve` before `reply` ordering
+
+`tachyon_rpc_serve` acquires a slot in `arena_fwd`. `tachyon_rpc_acquire_reply_tx` acquires a slot in `arena_rev`.
+Holding both simultaneously is safe but wastes one arena slot for the duration of processing. Call
+`tachyon_rpc_commit_serve` before `tachyon_rpc_acquire_reply_tx` to release the request slot first. On a small
+`cap_fwd`, failing to do so can deadlock if the caller queues another request while the callee holds the slot.
 
 ---
 
