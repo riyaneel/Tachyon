@@ -21,9 +21,9 @@ namespace tachyon {
 		asm volatile("pause" ::: "memory");
 #elif defined(__aarch64__) || defined(_M_ARM64) // #if defined(__x86_64__) || defined(_M_X64)
 		asm volatile("yield" ::: "memory");
-#else // #elif defined(__aarch64__) || defined(_M_ARM64)
+#else											// #elif defined(__aarch64__) || defined(_M_ARM64)
 		asm volatile("" ::: "memory");
-#endif // #elif defined(__aarch64__) || defined(_M_ARM64) #else
+#endif											// #elif defined(__aarch64__) || defined(_M_ARM64) #else
 	}
 
 	[[gnu::always_inline]] inline uint64_t rdtsc() noexcept {
@@ -33,9 +33,9 @@ namespace tachyon {
 		uint64_t val;
 		asm volatile("mrs %0, cntvct_el0" : "=r"(val));
 		return val;
-#else // #elif defined(__aarch64__) || defined(_M_ARM64)
+#else											// #elif defined(__aarch64__) || defined(_M_ARM64)
 		return 0;
-#endif // #elif defined(__aarch64__) || defined(_M_ARM64) #else
+#endif											// #elif defined(__aarch64__) || defined(_M_ARM64) #else
 	}
 
 	template <typename T> [[nodiscard]] inline T *tachyon_start_lifetime_as(void *p) noexcept {
