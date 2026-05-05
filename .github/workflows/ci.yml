@@ -200,7 +200,7 @@ jobs:
 
       - name: Test
         env:
-          TSAN_OPTIONS: "suppressions=${{ github.workspace }}/tsan.supp halt_on_error=1 second_deadlock_stack=1 history_size=5"
+          TSAN_OPTIONS: "halt_on_error=1 second_deadlock_stack=1 history_size=5"
         run: ctest --test-dir build/tsan/test --output-on-failure --parallel 1
 
   cpp_macos:
