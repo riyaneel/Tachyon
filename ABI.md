@@ -23,12 +23,12 @@ Native endian. Flat `iovec`, no framing. One `sendmsg` transfers 1 fd (SPSC) or 
 
 ### Validation at `connect()`
 
-| Field           | Condition                         | Failure                    |
-|-----------------|-----------------------------------|----------------------------|
-| `magic`         | `== 0x54414348`                   | `TACHYON_ERR_ABI_MISMATCH` |
-| `version`       | `== TACHYON_VERSION` (`0x04`)     | `TACHYON_ERR_ABI_MISMATCH` |
-| `msg_alignment` | `== TACHYON_MSG_ALIGNMENT` (`64`) | `TACHYON_ERR_ABI_MISMATCH` |
-| `flags`         | `== 0` for SPSC connector         | `TACHYON_ERR_ABI_MISMATCH` |
+| Field           | Condition                                                   | Failure                    |
+|-----------------|-------------------------------------------------------------|----------------------------|
+| `magic`         | `== 0x54414348`                                             | `TACHYON_ERR_ABI_MISMATCH` |
+| `version`       | `== TACHYON_VERSION` (`0x04`)                               | `TACHYON_ERR_ABI_MISMATCH` |
+| `msg_alignment` | `== TACHYON_MSG_ALIGNMENT` (`64`)                           | `TACHYON_ERR_ABI_MISMATCH` |
+| `flags`         | bit 0 clear for SPSC connector; bit 0 set for RPC connector | `TACHYON_ERR_ABI_MISMATCH` |
 
 Secondary validation in `Arena::attach()`: re-checks `magic`, `msg_alignment`, capacity power-of-two.
 
@@ -72,6 +72,35 @@ No bump required for:
 | `0x02`  | `msg_alignment` added to `TachyonHandshake` and `ArenaHeader`                                                                                |
 | `0x03`  | `type_id` encoding: bits [31:16] = route_id (reserved for RPC), bits [15:0] = msg_type.                                                      |
 | `0x04`  | `TachyonHandshake` extended: `capacity_fwd/rev`, `shm_size_fwd/rev`, `flags`. `MessageHeader` extended: `correlation_id` added at offset 16. |
+
+---
+
+## RPC wire semantics
+
+### flags field
+
+`flags` in `TachyonHandshake` is a bitmask:
+
+| Bit | Name                | Meaning                                                                                                            |
+|-----|---------------------|--------------------------------------------------------------------------------------------------------------------|
+| 0   | `TACHYON_FLAGS_RPC` | Set by `tachyon_rpc_listen`. Two fds transferred via `SCM_RIGHTS`. `capacity_rev` and `shm_size_rev` are non-zero. |
+
+SPSC callers must have bit 0 clear. Connecting a SPSC to an RPC listener returns `TACHYON_ERR_ABI_MISMATCH`.
+
+### correlation_id wire layout
+
+`correlation_id` sits at offset 16 in `MessageHeader` (after `size`, `type_id`, `reserved_size`, and 4 bytes of implicit
+padding). Value `0` is the SPSC sentinel and is never written by `commit_tx_rpc`. RPC counters start at 1 and increment
+atomically per `tachyon_rpc_bus_t` instance.
+
+### shm_size_rev / capacity_rev
+
+For SPSC buses both fields are `0`. For RPC buses:
+
+- `capacity_rev` = size of `arena_rev` ring buffer (power of two, set by `cap_rev` argument to `tachyon_rpc_listen`).
+- `shm_size_rev` = `sizeof(MemoryLayout) + capacity_rev`.
+
+Both fds transferred in a single `sendmsg` call with `cmsg_len = CMSG_LEN(2 * sizeof(int))`.
 
 ---
 
