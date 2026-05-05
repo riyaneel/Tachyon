@@ -1,5 +1,0 @@
-# Tachyon TSan suppressions
-# Format: race:<exact_symbol>
-#
-# Example
-# race:tachyon::core::Arena::acquire_rx_blocking
