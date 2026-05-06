@@ -186,6 +186,27 @@ jobs:
       - name: Test
         run: ctest --test-dir build/test --output-on-failure --parallel 4
 
+  cpp_format_check:
+    name: C++ Format Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Kitware
+        uses: ./.github/actions/kitware-apt
+
+      - name: Install LLVM 21
+        run: bash ci/install_llvm.sh 21
+
+      - name: Install Clang Format
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clang-format-21
+
+      - name: Format Check
+        run: find core/ benchmark/ test/ fuzz/ tools/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format-21 --dry-run --Werror
+
   tachyon_top:
     name: Tachyon Top
     runs-on: ubuntu-24.04
