@@ -20,10 +20,19 @@ jobs:
       matrix:
         compiler: [ gcc, clang ]
         build_type: [ debug, release ]
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
+        with:
+          build_type: ${{ matrix.build_type }}
+          compiler: ${{ matrix.compiler }}
 
       - name: Setup Kitware
         uses: ./.github/actions/kitware-apt
@@ -51,9 +60,16 @@ jobs:
   cpp_aarch64:
     name: C++ (clang, release, aarch64)
     runs-on: ubuntu-24.04
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
 
       - name: Setup Kitware
         uses: ./.github/actions/kitware-apt
@@ -80,10 +96,16 @@ jobs:
   cpp_asan:
     name: C++ ASan (Clang 21, Debug, x86-64)
     runs-on: ubuntu-24.04
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
 
       - name: Setup Kitware
         uses: ./.github/actions/kitware-apt
@@ -106,10 +128,16 @@ jobs:
   cpp_msan:
     name: C++ MSan (Clang 21, Debug, x86-64)
     runs-on: ubuntu-24.04
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
 
       - name: Setup Kitware
         uses: ./.github/actions/kitware-apt
@@ -134,10 +162,16 @@ jobs:
   cpp_tsan:
     name: C++ TSan (Clang 21, Debug, x86-64)
     runs-on: ubuntu-24.04
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
 
       - name: Setup Kitware
         uses: ./.github/actions/kitware-apt
@@ -210,10 +244,16 @@ jobs:
   tachyon_top:
     name: Tachyon Top
     runs-on: ubuntu-24.04
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
 
       - name: Setup Kitware
         uses: ./.github/actions/kitware-apt
