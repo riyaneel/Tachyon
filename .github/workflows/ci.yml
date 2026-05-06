@@ -197,7 +197,7 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ macos-26, macos-26-intel ]
-        build_type: [ Debug, Release ]
+        build_type: [ debug, release ]
 
     steps:
       - name: Checkout
@@ -207,18 +207,13 @@ jobs:
         run: brew install googletest google-benchmark
 
       - name: Configure
-        run: |
-          cmake -S . -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix) \
-            -DTACHYON_SANITIZER=none
+        run: cmake --preset macos-${{ matrix.build_type }}
 
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build --preset macos-${{ matrix.build_type }} --parallel
 
       - name: Test
-        run: ctest --test-dir build/test --output-on-failure --parallel 4
+        run: ctest --test-dir build/macos-${{ matrix.build_type }}/test --output-on-failure --parallel 4
 
   cpp_format_check:
     name: C++ Format Check
@@ -503,9 +498,9 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/release --parallel
-          cmake --build build/release --target tachyon_java_resources
+          cmake --preset macos-release
+          cmake --build --preset macos-release --parallel
+          cmake --build --preset macos-release --target tachyon_java_resources
 
       - name: Gradle Test
         working-directory: bindings/java
@@ -577,9 +572,9 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/release --parallel
-          cmake --build build/release --target tachyon_java_resources
+          cmake --preset macos-release
+          cmake --build --preset macos-release --parallel
+          cmake --build --preset macos-release --target tachyon_java_resources
 
       - name: Gradle Test
         working-directory: bindings/kotlin
@@ -746,10 +741,10 @@ jobs:
       - name: Vendor C++ core
         run: bash ci/vendor.sh c#
 
-      - name: Build native library
+      - name: Build Native library
         run: |
-          cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DTACHYON_SANITIZER=none
-          cmake --build build/release --target tachyon --parallel
+          cmake --preset macos-release
+          cmake --build --preset macos-release --parallel
           ARCH=$(uname -m)
           if [ "$ARCH" = "arm64" ]; then 
             RID="osx-arm64"; 
@@ -757,7 +752,7 @@ jobs:
             RID="osx-x64";
           fi
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/${RID}/native
-          cp build/release/core/libtachyon.dylib bindings/csharp/src/TachyonIpc/runtimes/${RID}/native/
+          cp build/macos-release/core/libtachyon.dylib bindings/csharp/src/TachyonIpc/runtimes/${RID}/native/
 
       - name: Build
         working-directory: bindings/csharp

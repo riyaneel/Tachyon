@@ -217,8 +217,7 @@ jobs:
 
       - name: Install aarch64 cross toolchain
         if: matrix.arch == 'aarch64'
-        run: |
-          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
+        run: sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
 
       - name: Install LLVM 21
         run: bash ci/install_llvm.sh 21
@@ -267,10 +266,11 @@ jobs:
       - name: Vendor C++ core
         run: bash ci/vendor.sh java
 
-      - name: Build macOS FFM
+      - name: Build Native library
         run: |
-          cmake -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/release --target tachyon_java_resources
+          cmake --preset macos-release
+          cmake --build --preset macos-release --parallel
+          cmake --build --preset macos-release --target tachyon_java_resources
 
       - name: Upload macOS Native asset
         uses: actions/upload-artifact@v7
@@ -438,12 +438,14 @@ jobs:
         with:
           name: node-prebuild-${{ matrix.platform }}-${{ matrix.arch }}
           path: bindings/node/prebuilds/
+          if-no-files-found: 'error'
 
       - name: Upload Tarball Asset (GH Release)
         uses: actions/upload-artifact@v7
         with:
           name: node-tarball-${{ matrix.platform }}-${{ matrix.arch }}
           path: dist/*.tar.gz
+          if-no-files-found: 'error'
 
   nodejs_publish:
     name: Publish Node.js to NPM
@@ -506,9 +508,8 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install aarch64 cross toolchain
-        if: matrix.arch == 'arm64'
-        run: |
-          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
+        if: matrix.arch == 'aarch64'
+        run: sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
 
       - name: Install LLVM 21
         run: bash ci/install_llvm.sh 21
@@ -568,12 +569,10 @@ jobs:
 
       - name: Build libtachyon.dylib
         run: |
-          cmake -B build/release -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DTACHYON_SANITIZER=none
-          cmake --build build/release --target tachyon --parallel
+          cmake --preset macos-release
+          cmake --build --preset macos-release --parallel
           mkdir -p dist
-          cp build/release/core/libtachyon.dylib dist/libtachyon.dylib
+          cp build/macos-release/core/libtachyon.dylib dist/libtachyon.dylib
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v7
