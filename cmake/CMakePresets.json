@@ -52,6 +52,15 @@
       }
     },
     {
+      "name": "macos-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{HOMEBREW_PREFIX}",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
       "name": "clang-release",
       "displayName": "Clang 21 - Release",
       "inherits": "clang-base",
@@ -94,6 +103,22 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS - Release",
+      "inherits": "macos-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "displayName": "macOS - Debug",
+      "inherits": "macos-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
@@ -205,6 +230,16 @@
     {
       "name": "clang-aarch64-release",
       "configurePreset": "clang-aarch64-release",
+      "jobs": 0
+    },
+    {
+      "name": "macos-release",
+      "configurePreset": "macos-release",
+      "jobs": 0
+    },
+    {
+      "name": "macos-debug",
+      "configurePreset": "macos-debug",
       "jobs": 0
     },
     {
