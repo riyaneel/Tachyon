@@ -1,0 +1,29 @@
+name: Setup ccache
+description: Cache and configure ccache for C++ builds
+inputs:
+  compiler:
+    description: Compiler identifier
+    required: false
+    default: ''
+  build_type:
+    description: Build type
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Cache ccache
+      uses: actions/cache@v5
+      with:
+        key: ccache-${{ runner.os }}-${{ github.job }}-${{ inputs.compiler }}-${{ inputs.build_type }}-${{ github.sha }}
+        path: ~/.cache/ccache
+        restore-keys: |
+          ccache-${{ runner.os }}-${{ github.job }}-${{ inputs.compiler }}-${{ inputs.build_type }}-
+          ccache-${{ runner.os }}-${{ github.job }}-
+
+    - name: Install & Configure ccache
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends ccache
+        ccache --max-size=512M --set-config=compression=true
