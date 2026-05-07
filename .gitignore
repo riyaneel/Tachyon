@@ -160,3 +160,5 @@ Testing/
 *.bpf
 crash-
 .private/
+oss-fuzz/
+
