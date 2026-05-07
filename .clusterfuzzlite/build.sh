@@ -21,7 +21,7 @@ for target in $FUZZ_TARGETS; do
 
 	cp "fuzz/dict/tachyon.dict" "$OUT/$target.dict"
 
-	corpus_subdir=${target#fuzz_}
+	corpus_subdir=$target
 	if [ -d "fuzz/corpus/$corpus_subdir" ]; then
 		corpus_files=$(find "fuzz/corpus/$corpus_subdir" -maxdepth 1 -type f)
 		if [ -n "$corpus_files" ]; then
