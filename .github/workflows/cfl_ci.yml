@@ -1,0 +1,38 @@
+name: ClusterFuzzLite CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - development
+
+permissions:
+  contents: read
+
+jobs:
+  ci-fuzzing:
+    name: CI Fuzzing (${{ matrix.sanitizer }})
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: cfl-ci-${{ github.ref }}-${{ matrix.sanitizer }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [ address, memory, undefined ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build Fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+        with:
+          sanitizer: ${{ matrix.sanitizer }}
+
+      - name: Run Fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: '300'
+          mode: 'code-change'
+          sanitizer: ${{ matrix.sanitizer }}

@@ -1,0 +1,67 @@
+name: ClusterFuzzLite Maintenance
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+    - cron: '0 4 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-24.04
+    if: github.event.schedule == '0 4 * * 0'
+    concurrency:
+      group: cfl-coverage
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build Fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+        with:
+          sanitizer: 'coverage'
+
+      - name: Run Fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mode: 'coverage'
+          sanitizer: 'coverage'
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: 'coverage-report'
+          path: './out/report'
+          retention-days: 7
+
+  prune:
+    name: Prune Corpus (${{ matrix.sanitizer }})
+    runs-on: ubuntu-24.04
+    if: github.event.schedule == '0 3 * * 0'
+    concurrency:
+      group: cfl-prune-${{ matrix.sanitizer }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [ address, memory, undefined ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build Fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+        with:
+          sanitizer: ${{ matrix.sanitizer }}
+
+      - name: Run Fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mode: 'prune'
+          sanitizer: ${{ matrix.sanitizer }}
