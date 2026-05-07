@@ -183,6 +183,17 @@
       }
     },
     {
+      "name": "fuzz-msan",
+      "displayName": "libFuzzer + MSan - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "msan",
+        "TACHYON_ENABLE_FUZZING": "ON",
+        "TACHYON_FUZZ_SANITIZER": "msan"
+      }
+    },
+    {
       "name": "tachyon-top",
       "displayName": "Tachyon Top CLI",
       "inherits": "clang-base",
@@ -311,6 +322,20 @@
     {
       "name": "fuzz-tsan",
       "configurePreset": "fuzz-tsan",
+      "targets": [
+        "tachyon_fuzz_arena_rpc",
+        "tachyon_fuzz_arena_rx",
+        "tachyon_fuzz_arena_rx_batch",
+        "tachyon_fuzz_arena_tx",
+        "tachyon_fuzz_header_parser",
+        "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_toctou"
+      ],
+      "jobs": 0
+    },
+    {
+      "name": "fuzz-msan",
+      "configurePreset": "fuzz-msan",
       "targets": [
         "tachyon_fuzz_arena_rpc",
         "tachyon_fuzz_arena_rx",

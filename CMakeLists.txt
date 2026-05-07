@@ -92,12 +92,6 @@ if (TACHYON_ENABLE_FUZZING)
 		)
 	endif ()
 
-	if (TACHYON_SANITIZER STREQUAL "msan")
-		message(FATAL_ERROR
-				"TACHYON_ENABLE_FUZZING=ON is incompatible with TACHYON_SANITIZER=msan.\n"
-				"libFuzzer uses ASan internally; MSan instrumentation conflicts at link time.")
-	endif ()
-
 	message(STATUS "Tachyon: Fuzzing enabled (libFuzzer + ${TACHYON_FUZZ_SANITIZER})")
 	add_subdirectory(fuzz)
 endif ()
