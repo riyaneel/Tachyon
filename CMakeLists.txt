@@ -98,7 +98,7 @@ if (TACHYON_ENABLE_FUZZING)
 				"libFuzzer uses ASan internally; MSan instrumentation conflicts at link time.")
 	endif ()
 
-	message(STATUS "Tachyon: Fuzzing enabled (libFuzzer + ASan)")
+	message(STATUS "Tachyon: Fuzzing enabled (libFuzzer + ${TACHYON_FUZZ_SANITIZER})")
 	add_subdirectory(fuzz)
 endif ()
 

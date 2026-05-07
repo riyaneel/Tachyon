@@ -151,12 +151,35 @@
     },
     {
       "name": "fuzz",
-      "displayName": "libFuzzer - Clang 21",
+      "displayName": "libFuzzer + ASan - Clang 21",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "TACHYON_SANITIZER": "none",
-        "TACHYON_ENABLE_FUZZING": "ON"
+        "TACHYON_ENABLE_FUZZING": "ON",
+        "TACHYON_FUZZ_SANITIZER": "asan"
+      }
+    },
+    {
+      "name": "fuzz-ubsan",
+      "displayName": "libFuzzer + ASan + UBSan - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "asan_ubsan",
+        "TACHYON_ENABLE_FUZZING": "ON",
+        "TACHYON_FUZZ_SANITIZER": "asan_ubsan"
+      }
+    },
+    {
+      "name": "fuzz-tsan",
+      "displayName": "libFuzzer + TSan - Clang 21",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_SANITIZER": "tsan",
+        "TACHYON_ENABLE_FUZZING": "ON",
+        "TACHYON_FUZZ_SANITIZER": "tsan"
       }
     },
     {
@@ -260,6 +283,34 @@
     {
       "name": "fuzz",
       "configurePreset": "fuzz",
+      "targets": [
+        "tachyon_fuzz_arena_rpc",
+        "tachyon_fuzz_arena_rx",
+        "tachyon_fuzz_arena_rx_batch",
+        "tachyon_fuzz_arena_tx",
+        "tachyon_fuzz_header_parser",
+        "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_toctou"
+      ],
+      "jobs": 0
+    },
+    {
+      "name": "fuzz-ubsan",
+      "configurePreset": "fuzz-ubsan",
+      "targets": [
+        "tachyon_fuzz_arena_rpc",
+        "tachyon_fuzz_arena_rx",
+        "tachyon_fuzz_arena_rx_batch",
+        "tachyon_fuzz_arena_tx",
+        "tachyon_fuzz_header_parser",
+        "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_toctou"
+      ],
+      "jobs": 0
+    },
+    {
+      "name": "fuzz-tsan",
+      "configurePreset": "fuzz-tsan",
       "targets": [
         "tachyon_fuzz_arena_rpc",
         "tachyon_fuzz_arena_rx",
