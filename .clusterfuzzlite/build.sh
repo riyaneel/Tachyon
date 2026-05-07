@@ -12,9 +12,16 @@ cmake -B build -S . \
 	-DCMAKE_BUILD_TYPE=Release \
 	-G Ninja
 
-cmake --build build --parallel "$(nproc)"
-
 FUZZ_TARGETS="arena_rpc arena_rx arena_rx_batch arena_tx header_parser shm_attach toctou"
+
+cmake --build build --parallel "$(nproc)" \
+	--target tachyon_fuzz_arena_rpc \
+	--target tachyon_fuzz_arena_rx \
+	--target tachyon_fuzz_arena_rx_batch \
+	--target tachyon_fuzz_arena_tx \
+	--target tachyon_fuzz_header_parser \
+	--target tachyon_fuzz_shm_attach \
+	--target tachyon_fuzz_toctou
 
 for target in $FUZZ_TARGETS; do
 	cp "build/fuzz/tachyon_fuzz_$target" "$OUT/$target"
