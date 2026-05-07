@@ -81,3 +81,137 @@ libFuzzer prints recommended tokens at the end of a run. Add them in hex to `fuz
 3. Create `fuzz/corpus/<name>/` and add seeds to `ci/fuzz/gen_seeds.py`.
 4. Run `python3 ci/fuzz/gen_seeds.py` from the repo root to generate seed files.
 5. Commit corpus and updated dict.
+
+---
+
+## ClusterFuzzLite
+
+ClusterFuzzLite (CFL) runs the same libFuzzer harnesses in GitHub Actions using the OSS-Fuzz infrastructure. The
+configuration lives in `.clusterfuzzlite/`.
+
+### How CI fuzzing differs from regression mode
+
+The regular CI job (`fuzz.yml`) runs the harnesses with `-runs=0`: it replays the committed corpus and fails if any seed
+crashes. It never generates new inputs and never stores state between runs.
+
+CFL is different. It maintains a **persistent corpus** stored as a GitHub Actions cache keyed by sanitizer. Each run
+loads the previous corpus, fuzzes for a bounded time window, and writes new interesting inputs back. Crashes are
+surfaced as workflow failures with the reproducer uploaded as an artifact.
+
+### Workflow files
+
+| File                  | Trigger                                  | Purpose                                                     |
+|-----------------------|------------------------------------------|-------------------------------------------------------------|
+| `cfl_batch.yml`       | push to `development`, schedule every 6h | Fuzzes all 3 sanitizers for 600s each                       |
+| `cfl_ci.yml`          | pull_request to `main` / `development`   | Fuzzes all 3 sanitizers for 300s each in `code-change` mode |
+| `cfl_maintenance.yml` | schedule Sunday 03:00 + 04:00 UTC        | Prunes corpus (03:00) and generates coverage report (04:00) |
+
+### Sanitizers
+
+Three sanitizers run in parallel via a matrix:
+
+| Sanitizer   | Detects                                                                |
+|-------------|------------------------------------------------------------------------|
+| `address`   | Buffer overflows, use-after-free, heap/stack OOB                       |
+| `memory`    | Uninitialized reads (requires MSan-instrumented libc++)                |
+| `undefined` | UB: signed overflow, shift, null deref, misaligned access, vptr errors |
+
+Each sanitizer maintains its own independent corpus cache.
+
+### Modes
+
+- **`batch`**: primary fuzzing mode. Runs on every push to `development` and every 6 hours via schedule. Generates new
+  corpus entries and saves them. Cancel-in-progress is disabled, so a push mid-fuzz does not abort the current batch.
+
+- **`code-change`**: runs on pull requests. The same mechanism as batch but shorter (300s) and cancel-in-progress is
+  enabled, so a force-push cancels the stale run immediately.
+
+- **`prune`**: reduces the corpus by removing redundant inputs that cover the same edges. Runs weekly (Sunday 03:00
+  UTC). Should not be canceled mid-run to avoid corpus corruption.
+
+- **`coverage`**: builds with `-fsanitize=coverage`, fuzzes, and generates an HTML coverage report uploaded as a GitHub
+  Actions artifact (`coverage-report`, retained 7 days). Runs weekly (Sunday 04:00 UTC) after the prune has completed.
+
+### Retrieving a crash from CI
+
+When CFL detects a crash, the workflow fails and the reproducer is uploaded as a GitHub Actions artifact named
+`crash-<target>-<sanitizer>` on the failing run.
+
+```
+GitHub Actions -> failing run -> Summary -> Artifacts -> crash-<target>-<sanitizer>.zip
+```
+
+Download, extract, then reproduce locally:
+
+```bash
+# Build the fuzz target locally with the same sanitizer
+cmake --preset fuzz # ASan by default (preset: fuzz 
+cmake --build --preset fuzz --parallel
+
+# Reproduce
+./build/fuzz/fuzz/tachyon_fuzz_<target> <crash-file>
+
+# Minimize before committing as a regression seed
+./build/fuzz/fuzz/tachyon_fuzz_<target> -minimize_crash=1 \
+    -exact_artifact_path=fuzz/corpus/crashes/<crash-file>_min \
+    <crash-file>
+```
+
+### Adding a seed after fixing a crash
+
+Once the bug is fixed, add the minimized reproducer as a permanent regression seed so CFL never
+regresses on it:
+
+```bash
+# Copy the minimized input into the target's corpus directory
+cp fuzz/corpus/crashes/<crash-file>_min fuzz/corpus/<target>/
+
+# Verify it no longer crashes
+./build/fuzz/fuzz/tachyon_fuzz_<target> fuzz/corpus/<target>/<crash-file>_min
+
+# Commit
+git add fuzz/corpus/<target>/<crash-file>_min
+git commit -m "fuzz: add regression seed for <bug description>"
+```
+
+The seed will be included in `<target>_seed_corpus.zip` on the next CFL build and replayed in every subsequent run in
+regression mode.
+
+### Testing locally with infra/helper.py
+
+Local testing uses `infra/helper.py` from the OSS-Fuzz repository with the `--external` flag for CFL projects.
+
+```bash
+# Clone OSS-Fuzz once
+git clone --depth=1 https://github.com/google/oss-fuzz.git
+cd oss-fuzz
+
+# Build the Docker image (reads .clusterfuzzlite/Dockerfile)
+python3 infra/helper.py build_image --external /path/to/tachyon
+
+# Build fuzz targets for a given sanitizer
+python3 infra/helper.py build_fuzzers --external /path/to/tachyon --sanitizer address
+python3 infra/helper.py build_fuzzers --external /path/to/tachyon --sanitizer memory
+python3 infra/helper.py build_fuzzers --external /path/to/tachyon --sanitizer undefined
+
+# Validate the build
+python3 infra/helper.py check_build --external /path/to/tachyon --sanitizer address
+
+# Run a single fuzzer
+python3 infra/helper.py run_fuzzer --external /path/to/tachyon --sanitizer address arena_rpc
+
+# Reproduce a crash
+python3 infra/helper.py reproduce --external /path/to/tachyon arena_rpc /path/to/crash-file
+```
+
+Built binaries land in `oss-fuzz/build/out/tachyon/`. The `$PROJECT_NAME` is derived from the root directory name of
+your checkout.
+
+**Note on memory sanitizer**: MSan requires a libc++ instrumented with `-fsanitize=memory`. The CFL base image provides
+this automatically. Locally, build the instrumented libc++ first:
+
+```bash
+bash ci/build_msan_libcxx.sh 21
+```
+
+Then use `cmake --preset fuzz-msan`.
