@@ -1,0 +1,99 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #202124;
+  background: #f7f8fa;
+}
+
+main {
+  width: min(960px, calc(100vw - 32px));
+  margin: 40px auto;
+  display: grid;
+  gap: 24px;
+}
+
+section {
+  background: #fff;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 650;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+dt {
+  color: #5f6368;
+  font-size: 12px;
+}
+
+dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+label {
+  display: inline-grid;
+  gap: 6px;
+  max-width: 240px;
+  color: #5f6368;
+  margin-right: 12px;
+}
+
+input {
+  height: 34px;
+  border: 1px solid #c7ccd1;
+  border-radius: 6px;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+button {
+  height: 34px;
+  border: 1px solid #1a73e8;
+  border-radius: 6px;
+  padding: 0 14px;
+  color: #fff;
+  background: #1a73e8;
+  font: inherit;
+}
+
+button:disabled {
+  opacity: 0.55;
+}
+
+table {
+  width: 100%;
+  margin-top: 16px;
+  border-collapse: collapse;
+}
+
+td {
+  border-top: 1px solid #e8eaed;
+  padding: 8px 0;
+}
+
+td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

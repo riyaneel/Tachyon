@@ -1,0 +1,15 @@
+[package]
+name = "tachyon-native-messaging-host"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tachyon-ipc = { path = "../../../bindings/rust/tachyon" }
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+

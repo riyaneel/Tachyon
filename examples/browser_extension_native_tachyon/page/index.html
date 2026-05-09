@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Tachyon Native Messaging Bridge</title>
+<link rel="stylesheet" href="./style.css" />
+<main>
+  <section>
+    <h1>Tachyon Native Messaging Bridge</h1>
+    <dl>
+      <div>
+        <dt>Status</dt>
+        <dd id="status">waiting for extension</dd>
+      </div>
+      <div>
+        <dt>Mode</dt>
+        <dd>single in-flight</dd>
+      </div>
+    </dl>
+    <label>
+      Extension id
+      <input id="extension-id" placeholder="optional for direct port" />
+    </label>
+    <label>
+      Iterations
+      <input id="iterations" value="10000" inputmode="numeric" />
+    </label>
+    <div class="actions">
+      <button id="connect">Connect Direct</button>
+      <button id="bench">Run RTT Bench</button>
+    </div>
+  </section>
+  <section>
+    <table id="bench-table"></table>
+  </section>
+</main>
+<script type="module" src="./main.js"></script>

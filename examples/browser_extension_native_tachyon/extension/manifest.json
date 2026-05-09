@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Tachyon Native Messaging Bridge",
+  "version": "0.1.0",
+  "description": "Routes a browser page through a service worker to a Tachyon-backed native messaging host.",
+  "message_serialization": "structured_clone",
+  "permissions": ["nativeMessaging"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "externally_connectable": {
+    "matches": ["http://127.0.0.1:*/*", "http://localhost:*/*"]
+  },
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  }
+}
