@@ -117,12 +117,7 @@ FetchContent_Declare(tachyon
 		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
 		GIT_TAG v0.5.1
 )
-
-FetchContent_GetProperties(tachyon)
-if (NOT tachyon_POPULATED)
-	FetchContent_MakeAvailable(tachyon)
-	add_subdirectory(${tachyon_SOURCE_DIR}/core ${tachyon_BINARY_DIR}/tachyon-core)
-endif ()
+FetchContent_MakeAvailable(tachyon)
 
 target_link_libraries(my_app PRIVATE tachyon)
 ```
