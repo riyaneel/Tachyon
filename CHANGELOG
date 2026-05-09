@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.5.1] | 2026-05-09
+
+### Bug Fixes
+
+- `5dbf18c` | **cmake**: Update module paths to use `CMAKE_CURRENT_SOURCE_DIR`
+
+### Documentation
+
+- `1bc2b99` | **changelog**: Update for v0.5.0
+
+### Chores
+
+- `bddcf0f` | **version**: Bump version to 0.5.1
+
 ## [v0.5.0] | 2026-05-05
 
 ### Features
