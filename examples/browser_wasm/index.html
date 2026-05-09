@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tachyon WASM Browser Bus</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <div>
+          <h1>Tachyon WASM Browser Bus</h1>
+          <p>Rust WASM and page JavaScript exchanging binary messages through Tachyon rings in one browser page.</p>
+        </div>
+        <div class="status-grid">
+          <div>
+            <span>WASM</span>
+            <strong id="wasm-status">loading</strong>
+          </div>
+          <div>
+            <span>Capacity</span>
+            <strong id="capacity">-</strong>
+          </div>
+          <div>
+            <span>Last Reply</span>
+            <strong id="last-reply">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="toolbar">
+        <label>
+          Value
+          <input id="value" type="number" min="0" max="4294967295" value="41" />
+        </label>
+        <button id="send" type="button" disabled>Send To Rust</button>
+        <label>
+          Iterations
+          <input id="iterations" type="number" min="1000" step="1000" value="1000000" />
+        </label>
+        <button id="bench" type="button" disabled>Run Browser RTT Bench</button>
+      </section>
+
+      <section class="results">
+        <h2>Messages</h2>
+        <pre id="log"></pre>
+      </section>
+
+      <section class="results">
+        <h2>Browser RTT Profile</h2>
+        <table>
+          <tbody id="bench-table">
+            <tr><td>Not run yet</td><td></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

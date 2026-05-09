@@ -1,12 +1,22 @@
+#[cfg(not(target_arch = "wasm32"))]
 mod bus;
 mod error;
+#[cfg(not(target_arch = "wasm32"))]
 mod rpc;
 mod type_id;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use bus::{BatchIter, Bus, RxBatchGuard, RxGuard, RxMsgView, TxGuard};
 pub use error::TachyonError;
+#[cfg(not(target_arch = "wasm32"))]
 pub use rpc::{RpcBus, RpcRxGuard, RpcTxGuard};
 pub use type_id::{make_type_id, msg_type, route_id};
+#[cfg(target_arch = "wasm32")]
+pub use wasm::{
+    WasmBus, tachyon_browser_echo_once, wasm_make_type_id, wasm_msg_type, wasm_route_id,
+};
 
 #[cfg(test)]
 mod tests {

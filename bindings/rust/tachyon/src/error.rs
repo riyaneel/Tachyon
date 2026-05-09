@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use tachyon_sys::{
     tachyon_error_t_TACHYON_ERR_ABI_MISMATCH as ERR_ABI_MISMATCH,
     tachyon_error_t_TACHYON_ERR_CHMOD as ERR_CHMOD, tachyon_error_t_TACHYON_ERR_EMPTY as ERR_EMPTY,
@@ -61,6 +62,7 @@ impl std::fmt::Display for TachyonError {
 
 impl std::error::Error for TachyonError {}
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn from_raw(code: u32) -> Result<(), TachyonError> {
     match code {
         c if c == SUCCESS => Ok(()),

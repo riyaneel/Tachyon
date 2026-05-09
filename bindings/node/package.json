@@ -17,13 +17,18 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"browser": {
+		"./dist/index.js": "./dist/browser.js"
+	},
 	"engines": {
 		"node": ">=20.0.0"
 	},
 	"scripts": {
-		"build": "npm run build:native && npm run build:ts",
+		"build": "npm run build:native && npm run build:ts && npm run copy:wasm",
 		"build:native": "cmake-js compile",
+		"build:wasm": "PATH=$(dirname $(rustup which rustc)):$PATH RUSTC=$(rustup which rustc) wasm-pack build ../rust/tachyon --target bundler --release --out-dir ../../node/src/ts/wasm",
 		"build:ts": "tsc",
+		"copy:wasm": "mkdir -p dist/wasm && cp src/ts/wasm/tachyon_ipc.js src/ts/wasm/tachyon_ipc_bg.js src/ts/wasm/tachyon_ipc_bg.wasm src/ts/wasm/*.d.ts dist/wasm/",
 		"clean": "rm -rf build dist",
 		"format": "prettier --write src/ts test/",
 		"format:check": "prettier --check src/ts test/",
