@@ -1,11 +1,9 @@
 import { createRequire } from 'node:module';
 import { isMainThread } from 'node:worker_threads';
 
-import type { BatchController, RxMessage } from './batch.ts';
-import { RxBatch } from './batch.ts';
-import { AbiMismatchError, ErrorCode, PeerDeadError, isTachyonError } from './error.ts';
-import type { RxController, RxSlot, TxController } from './guards.ts';
-import { RxGuard, TxGuard } from './guards.ts';
+import { AbiMismatchError, ErrorCode, isTachyonError } from './error.ts';
+import type { BusHandle, RawRx } from './bus_core.ts';
+import { BusBase } from './bus_core.ts';
 
 const _require = createRequire(import.meta.url);
 
@@ -68,6 +66,70 @@ function loadNative(): NativeModule {
 
 const native = loadNative();
 
+class NativeBusHandle implements BusHandle {
+	#handle: NativeBinding;
+
+	public constructor(handle: NativeBinding) {
+		this.#handle = handle;
+	}
+
+	public close(): void {
+		this.#handle.close();
+	}
+
+	public send(data: Buffer | Uint8Array, typeId?: number): void {
+		this.#handle.send(data, typeId);
+	}
+
+	public acquireTx(maxSize: number): Buffer {
+		return this.#handle.acquireTx(maxSize);
+	}
+
+	public commitTx(actualSize: number, typeId: number): void {
+		this.#handle.commitTx(actualSize, typeId);
+	}
+
+	public commitTxUnflushed(actualSize: number, typeId: number): void {
+		this.#handle.commitTxUnflushed(actualSize, typeId);
+	}
+
+	public rollbackTx(): void {
+		this.#handle.rollbackTx();
+	}
+
+	public flush(): void {
+		this.#handle.flush();
+	}
+
+	public acquireRx(spinThreshold?: number): RawRx | null {
+		return this.#handle.acquireRxBlocking(spinThreshold);
+	}
+
+	public drainBatch(maxMsgs: number, spinThreshold?: number): { data: Buffer; typeId: number; size: number }[] {
+		return this.#handle.drainBatch(maxMsgs, spinThreshold);
+	}
+
+	public commitRx(): void {
+		this.#handle.commitRx();
+	}
+
+	public commitBatch(): void {
+		this.#handle.commitBatch();
+	}
+
+	public setPollingMode(spinMode: number): void {
+		this.#handle.setPollingMode(spinMode);
+	}
+
+	public setNumaNode(nodeId: number): void {
+		this.#handle.setNumaNode(nodeId);
+	}
+
+	public getState(): number {
+		return this.#handle.getState();
+	}
+}
+
 function warnMainThread(method: string): void {
 	if (isMainThread) {
 		console.warn(
@@ -98,12 +160,14 @@ function warnMainThread(method: string): void {
  * bus.send(Buffer.from('hello'), 1);
  * ```
  */
-export class Bus implements Disposable {
-	#handle: NativeBinding;
-	#closed = false;
-
+export class Bus extends BusBase<Buffer> {
 	private constructor(handle: NativeBinding) {
-		this.#handle = handle;
+		super(new NativeBusHandle(handle), {
+			defaultSpinThreshold: 10_000,
+			retryNullRecv: true,
+			nullRecvMessage: 'Bus.recv: interrupted while waiting for a message.',
+			copyData: (data) => Buffer.from(data),
+		});
 	}
 
 	/**
@@ -131,137 +195,5 @@ export class Bus implements Disposable {
 			if (isTachyonError(err) && err.code === ErrorCode.AbiMismatch) throw new AbiMismatchError();
 			throw err;
 		}
-	}
-
-	/**
-	 * Signals that the consumer will never sleep. The producer skips the seq_cst fence
-	 * and consumer_sleeping check on every flush. Use only on a dedicated SCHED_FIFO thread.
-	 * Call immediately after listen/connect, before the first message.
-	 */
-	public setPollingMode(spinMode: 0 | 1): void {
-		this.#assertOpen();
-		this.#handle.setPollingMode(spinMode);
-	}
-
-	/**
-	 * Binds the SHM pages to a specific NUMA node (MPOL_PREFERRED + MPOL_MF_MOVE).
-	 * No-op on non-Linux platforms. Call immediately after listen/connect.
-	 */
-	public setNumaNode(nodeId: number): void {
-		this.#assertOpen();
-		this.#handle.setNumaNode(nodeId);
-	}
-
-	/** Publishes all pending unflushed TX messages to the consumer. */
-	public flush(): void {
-		this.#assertOpen();
-		this.#handle.flush();
-	}
-
-	/** Copies `data` into the ring buffer, commits, and flushes. */
-	public send(data: Buffer | Uint8Array, typeId = 0): void {
-		this.#assertOpen();
-		this.#handle.send(data, typeId);
-	}
-
-	/**
-	 * Blocks until a message is available, copies the payload, and returns it.
-	 * Retries transparently on EINTR.
-	 *
-	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
-	 */
-	public recv(spinThreshold = 10_000): { data: Buffer; typeId: number } {
-		this.#assertOpen();
-		for (;;) {
-			if (this.#handle.getState() === 4) throw new PeerDeadError();
-			const result = this.#handle.acquireRxBlocking(spinThreshold);
-			if (result === null) continue; // EINTR - retry
-			const copy = Buffer.from(result.data);
-			this.#handle.commitRx();
-			return { data: copy, typeId: result.typeId };
-		}
-	}
-
-	/**
-	 * Acquires an exclusive TX slot of `maxSize` bytes.
-	 * Write into the slot via {@link TxGuard.bytes}, then commit or rollback.
-	 *
-	 * @throws {TachyonError} code `ERR_TACHYON_FULL` if the ring buffer is full.
-	 */
-	public acquireTx(maxSize: number): TxGuard {
-		this.#assertOpen();
-		const buf = this.#handle.acquireTx(maxSize);
-		const ctrl: TxController = {
-			commitTx: (s, t) => {
-				this.#handle.commitTx(s, t);
-			},
-			commitTxUnflushed: (s, t) => {
-				this.#handle.commitTxUnflushed(s, t);
-			},
-			rollbackTx: () => {
-				this.#handle.rollbackTx();
-			},
-		};
-		return new TxGuard(ctrl, buf);
-	}
-
-	/**
-	 * Blocks until a message is available and returns a zero-copy read lease.
-	 * Returns `null` on EINTR caller decides whether to retry.
-	 *
-	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
-	 */
-	public acquireRx(spinThreshold = 10_000): RxGuard | null {
-		this.#assertOpen();
-		if (this.#handle.getState() === 4) throw new PeerDeadError();
-		const result = this.#handle.acquireRxBlocking(spinThreshold);
-		if (result === null) return null;
-		const ctrl: RxController = {
-			commitRx: () => {
-				this.#handle.commitRx();
-			},
-			getState: () => this.#handle.getState(),
-		};
-		return new RxGuard(ctrl, result.data, result.typeId, result.actualSize);
-	}
-
-	/**
-	 * Blocks until at least one message is available, then drains up to `maxMsgs`
-	 * in a single native call. One native crossing amortizes per-message FFI cost.
-	 *
-	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
-	 */
-	public drainBatch(maxMsgs: number, spinThreshold = 10_000): RxBatch {
-		this.#assertOpen();
-		if (this.#handle.getState() === 4) throw new PeerDeadError();
-		const raw = this.#handle.drainBatch(maxMsgs, spinThreshold);
-		const messages: RxMessage[] = raw.map((m) => ({
-			data: m.data as unknown as RxSlot,
-			typeId: m.typeId,
-			size: m.size,
-		}));
-		const ctrl: BatchController = {
-			commitBatch: () => {
-				this.#handle.commitBatch();
-			},
-			getState: () => this.#handle.getState(),
-		};
-		return new RxBatch(ctrl, messages);
-	}
-
-	/** Closes the bus and unmaps shared memory. Safe to call multiple times. */
-	public close(): void {
-		if (this.#closed) return;
-		this.#closed = true;
-		this.#handle.close();
-	}
-
-	/** Called automatically by the `using` keyword. */
-	public [Symbol.dispose](): void {
-		this.close();
-	}
-
-	#assertOpen(): void {
-		if (this.#closed) throw new Error('Bus: this bus has been closed.');
 	}
 }

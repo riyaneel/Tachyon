@@ -103,16 +103,6 @@ impl WasmBus {
         self.commit_tx(data.len() as u32, type_id)
     }
 
-    #[wasm_bindgen(js_name = sendU32)]
-    pub fn send_u32(&mut self, value: u32, type_id: u32) -> Result<(), JsValue> {
-        self.send_u32_inner(value, type_id, true)
-    }
-
-    #[wasm_bindgen(js_name = sendU32Unflushed)]
-    pub fn send_u32_unflushed(&mut self, value: u32, type_id: u32) -> Result<(), JsValue> {
-        self.send_u32_inner(value, type_id, false)
-    }
-
     /// Reserve a TX slot and return a pointer to its payload bytes in WASM memory.
     ///
     /// JavaScript can create a zero-copy view with:
@@ -241,31 +231,9 @@ impl WasmBus {
 
         Ok(())
     }
-
-    #[wasm_bindgen(js_name = recvU32)]
-    pub fn recv_u32(&mut self) -> Result<u32, JsValue> {
-        if !self.acquire_rx()? {
-            return Err(js_error("no u32 message available"));
-        }
-        if self.rx_actual_size != 4 {
-            return Err(js_error("pending message is not a u32 payload"));
-        }
-
-        let mut bytes = [0u8; 4];
-        bytes.copy_from_slice(&self.arena[self.rx_payload_offset..self.rx_payload_offset + 4]);
-        let value = u32::from_le_bytes(bytes);
-        self.commit_rx()?;
-        Ok(value)
-    }
 }
 
 impl WasmBus {
-    fn send_u32_inner(&mut self, value: u32, type_id: u32, flush: bool) -> Result<(), JsValue> {
-        let payload_offset = self.acquire_tx_offset(4)?;
-        self.arena[payload_offset..payload_offset + 4].copy_from_slice(&value.to_le_bytes());
-        self.commit_tx_inner(4, type_id, flush)
-    }
-
     fn acquire_tx_offset(&mut self, max_size: usize) -> Result<usize, JsValue> {
         if self.fatal {
             return Err(js_error("WasmBus is in fatal state"));
@@ -344,44 +312,6 @@ impl WasmBus {
     fn write_u32(&mut self, offset: usize, value: u32) {
         self.arena[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
     }
-}
-
-/// Tiny Rust-side browser program used by the example page.
-///
-/// It polls `inbound`, increments a little-endian `u32` payload, and publishes
-/// the result to `outbound`. Non-`u32` payloads are echoed unchanged.
-#[wasm_bindgen]
-pub fn tachyon_browser_echo_once(
-    inbound: &mut WasmBus,
-    outbound: &mut WasmBus,
-) -> Result<bool, JsValue> {
-    if !inbound.acquire_rx()? {
-        return Ok(false);
-    }
-
-    let type_id = inbound.rx_type_id;
-    let actual_size = inbound.rx_actual_size;
-    let inbound_offset = inbound.rx_payload_offset;
-    let outbound_offset = outbound.acquire_tx_offset(actual_size)?;
-
-    if actual_size == 4 {
-        let mut bytes = [0u8; 4];
-        bytes.copy_from_slice(&inbound.arena[inbound_offset..inbound_offset + 4]);
-        let value = u32::from_le_bytes(bytes).wrapping_add(1);
-        outbound.arena[outbound_offset..outbound_offset + 4].copy_from_slice(&value.to_le_bytes());
-    } else {
-        outbound.arena[outbound_offset..outbound_offset + actual_size]
-            .copy_from_slice(&inbound.arena[inbound_offset..inbound_offset + actual_size]);
-    }
-
-    outbound.commit_tx_inner(
-        actual_size,
-        make_type_id(route_id(type_id).wrapping_add(1), msg_type(type_id)),
-        true,
-    )?;
-    inbound.commit_rx()?;
-
-    Ok(true)
 }
 
 #[wasm_bindgen(js_name = makeTypeId)]

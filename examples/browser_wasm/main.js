@@ -4,7 +4,7 @@ import init, {
   msgType,
   routeId,
   tachyon_browser_echo_once,
-} from "./pkg/tachyon_ipc.js";
+} from "./pkg/tachyon_browser_wasm_example.js";
 
 const CAPACITY = 1 << 20;
 const BATCH_SIZE = 4096;
@@ -36,7 +36,9 @@ function appendLog(line) {
 }
 
 function writeU32ToBus(bus, value, typeId) {
-  bus.sendU32(value >>> 0, typeId);
+  const ptr = bus.acquireTx(4);
+  new DataView(memory().buffer, ptr, 4).setUint32(0, value >>> 0, true);
+  bus.commitTx(4, typeId);
 }
 
 function readU32FromBus(bus) {
@@ -44,7 +46,10 @@ function readU32FromBus(bus) {
   const ptr = bus.rxPtr();
   const size = bus.rxSize();
   const typeId = bus.rxTypeId();
-  const value = size === 4 ? new DataView(memory().buffer, ptr, 4).getUint32(0, true) : null;
+  const value =
+    size === 4
+      ? new DataView(memory().buffer, ptr, 4).getUint32(0, true)
+      : null;
   bus.commitRx();
   return { value, size, typeId };
 }
@@ -65,15 +70,22 @@ function pingRust(value) {
 }
 
 function pingRustFast(value) {
-  jsToRust.sendU32(value >>> 0, typeCounter);
+  writeU32ToBus(jsToRust, value, typeCounter);
   if (!tachyon_browser_echo_once(jsToRust, rustToJs)) {
     throw new Error("Rust WASM program did not receive the JS message");
   }
-  return rustToJs.recvU32();
+  const reply = readU32FromBus(rustToJs);
+  if (!reply) {
+    throw new Error("JS did not receive the Rust WASM reply");
+  }
+  return reply.value;
 }
 
 function percentile(sorted, pct) {
-  const idx = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * pct));
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.floor((sorted.length - 1) * pct),
+  );
   return sorted[idx];
 }
 
@@ -97,7 +109,10 @@ function setBenchRows(rows) {
 }
 
 async function runBench() {
-  const iterations = Math.max(1000, Number.parseInt(els.iterations.value, 10) || 1000000);
+  const iterations = Math.max(
+    1000,
+    Number.parseInt(els.iterations.value, 10) || 1000000,
+  );
   const warmup = Math.min(10000, Math.floor(iterations / 10));
 
   els.bench.disabled = true;
@@ -124,14 +139,19 @@ async function runBench() {
   const throughput = iterations / (totalMs / 1000);
   setBenchRows([
     ["Payload", "4 bytes u32"],
-    ["Samples", `${samples.length.toLocaleString()} batch averages x ${BATCH_SIZE}`],
+    [
+      "Samples",
+      `${samples.length.toLocaleString()} batch averages x ${BATCH_SIZE}`,
+    ],
     ["Direct doorbell p50", formatNs(percentile(samples, 0.5))],
     ["Direct doorbell p90", formatNs(percentile(samples, 0.9))],
     ["Direct doorbell p99", formatNs(percentile(samples, 0.99))],
     ["Direct doorbell mean", formatNs((totalMs * 1_000_000) / iterations)],
     ["Throughput", `${(throughput / 1000).toFixed(1)} K RTT/sec`],
   ]);
-  appendLog(`browser bench completed: ${(throughput / 1000).toFixed(1)} K RTT/sec`);
+  appendLog(
+    `browser bench completed: ${(throughput / 1000).toFixed(1)} K RTT/sec`,
+  );
   els.bench.disabled = false;
 }
 

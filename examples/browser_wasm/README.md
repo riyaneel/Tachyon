@@ -5,6 +5,9 @@ binary payloads directly into a `WasmBus` TX slot in WebAssembly memory, a small
 Rust WASM function polls the inbound ring and replies on a second ring, and
 JavaScript reads the reply from WASM memory.
 
+The Rust echo function lives in `examples/browser_wasm/rust`; the reusable
+browser transport stays in the Tachyon bindings.
+
 The browser build does not use POSIX shared memory or UNIX sockets. Those APIs
 are unavailable in browsers, so the WASM path is a page-local Tachyon ring with
 the same 64-byte message header, alignment, `type_id`, and skip-marker rules.

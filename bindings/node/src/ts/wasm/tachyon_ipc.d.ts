@@ -39,7 +39,6 @@ export class WasmBus {
     freeBytes(): number;
     isFatal(): boolean;
     constructor(capacity: number);
-    recvU32(): number;
     rollbackTx(): void;
     rxPtr(): number;
     rxSize(): number;
@@ -48,8 +47,6 @@ export class WasmBus {
      * Copy-based send. Prefer `acquireTx` + direct JS view writes for hot paths.
      */
     send(data: Uint8Array, type_id: number): void;
-    sendU32(value: number, type_id: number): void;
-    sendU32Unflushed(value: number, type_id: number): void;
 }
 
 export function makeTypeId(route: number, ty: number): number;
@@ -58,10 +55,55 @@ export function msgType(type_id: number): number;
 
 export function routeId(type_id: number): number;
 
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+    readonly memory: WebAssembly.Memory;
+    readonly __wbg_wasmbus_free: (a: number, b: number) => void;
+    readonly makeTypeId: (a: number, b: number) => number;
+    readonly msgType: (a: number) => number;
+    readonly routeId: (a: number) => number;
+    readonly wasmbus_acquireRx: (a: number) => [number, number, number];
+    readonly wasmbus_acquireTx: (a: number, b: number) => [number, number, number];
+    readonly wasmbus_availableBytes: (a: number) => number;
+    readonly wasmbus_capacity: (a: number) => number;
+    readonly wasmbus_commitRx: (a: number) => [number, number];
+    readonly wasmbus_commitTx: (a: number, b: number, c: number) => [number, number];
+    readonly wasmbus_commitTxUnflushed: (a: number, b: number, c: number) => [number, number];
+    readonly wasmbus_dataPtr: (a: number) => number;
+    readonly wasmbus_flush: (a: number) => void;
+    readonly wasmbus_freeBytes: (a: number) => number;
+    readonly wasmbus_isFatal: (a: number) => number;
+    readonly wasmbus_new: (a: number) => [number, number, number];
+    readonly wasmbus_rollbackTx: (a: number) => [number, number];
+    readonly wasmbus_rxPtr: (a: number) => number;
+    readonly wasmbus_rxSize: (a: number) => number;
+    readonly wasmbus_rxTypeId: (a: number) => number;
+    readonly wasmbus_send: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_start: () => void;
+}
+
+export type SyncInitInput = BufferSource | WebAssembly.Module;
+
 /**
- * Tiny Rust-side browser program used by the example page.
+ * Instantiates the given `module`, which can either be bytes or
+ * a precompiled `WebAssembly.Module`.
  *
- * It polls `inbound`, increments a little-endian `u32` payload, and publishes
- * the result to `outbound`. Non-`u32` payloads are echoed unchanged.
+ * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ *
+ * @returns {InitOutput}
  */
-export function tachyon_browser_echo_once(inbound: WasmBus, outbound: WasmBus): boolean;
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+
+/**
+ * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+ * for everything else, calls `WebAssembly.instantiate` directly.
+ *
+ * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ *
+ * @returns {Promise<InitOutput>}
+ */
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;

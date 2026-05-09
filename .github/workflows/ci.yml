@@ -344,6 +344,12 @@ jobs:
         run: cargo test
         working-directory: bindings/rust
 
+      - name: Check WASM target
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check -p tachyon-ipc --target wasm32-unknown-unknown
+        working-directory: bindings/rust
+
   rust_macos:
     name: Rust bindings (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
@@ -668,6 +674,35 @@ jobs:
       - name: Tests
         working-directory: bindings/node
         run: npm test
+
+  nodejs_browser_wasm:
+    name: Browser WASM tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          # Node only serves files and drives CDP here; Chromium is the target under test.
+          # Use Node 24 for the built-in WebSocket client.
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: bindings/node/package-lock.json
+
+      - name: Install dependencies
+        working-directory: bindings/node
+        run: npm install --ignore-scripts
+
+      - name: Check Chromium
+        run: /usr/bin/chromium --version
+
+      - name: Browser WASM tests
+        working-directory: bindings/node
+        env:
+          CHROMIUM_BIN: /usr/bin/chromium
+        run: npm run test:browser
 
   nodejs_macos:
     name: Node.js bindings ${{ matrix.runner }} (Node ${{ matrix.node-version }})
