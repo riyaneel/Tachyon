@@ -1,13 +1,14 @@
-import { RxBatch, type RxMessage } from './batch.ts';
-import { PeerDeadError } from './error.ts';
-import type { BatchController } from './batch.ts';
-import type { RxController, TxController } from './guards.ts';
-import { RxGuard, TxGuard } from './guards.ts';
-import { makeTypeId, msgType, routeId, tachyon_browser_echo_once, WasmBus } from './wasm/tachyon_ipc.js';
-// @ts-expect-error Bundlers load the generated wasm module through this import.
-import * as wasmRaw from './wasm/tachyon_ipc_bg.wasm';
+import type { BusHandle, RawRx } from './bus_core.ts';
+import { BusBase } from './bus_core.ts';
+import initWasm, { makeTypeId, msgType, routeId, WasmBus } from './wasm/tachyon_ipc.ts';
 
-const wasmMemory = (wasmRaw as unknown as { readonly memory: { readonly buffer: ArrayBuffer } }).memory;
+interface WasmRuntime {
+	readonly memory: {
+		readonly buffer: ArrayBuffer;
+	};
+}
+
+const wasm = (await initWasm()) as unknown as WasmRuntime;
 
 interface BrowserEndpoint {
 	handle: WasmBus;
@@ -17,7 +18,77 @@ interface BrowserEndpoint {
 const endpoints = new Map<string, BrowserEndpoint>();
 
 function slot(ptr: number, len: number): Uint8Array {
-	return new Uint8Array(wasmMemory.buffer, ptr, len);
+	return new Uint8Array(wasm.memory.buffer, ptr, len);
+}
+
+class BrowserBusHandle implements BusHandle {
+	#endpoint: BrowserEndpoint;
+	#path: string;
+
+	public constructor(path: string, endpoint: BrowserEndpoint) {
+		this.#path = path;
+		this.#endpoint = endpoint;
+	}
+
+	public close(): void {
+		this.#endpoint.refs -= 1;
+		if (this.#endpoint.refs <= 0) {
+			endpoints.delete(this.#path);
+			this.#endpoint.handle.free();
+		}
+	}
+
+	public send(data: Buffer | Uint8Array, typeId?: number): void {
+		this.#endpoint.handle.send(data, typeId ?? 0);
+	}
+
+	public acquireTx(maxSize: number): Uint8Array {
+		const ptr = this.#endpoint.handle.acquireTx(maxSize);
+		return slot(ptr, maxSize);
+	}
+
+	public commitTx(actualSize: number, typeId: number): void {
+		this.#endpoint.handle.commitTx(actualSize, typeId);
+	}
+
+	public commitTxUnflushed(actualSize: number, typeId: number): void {
+		this.#endpoint.handle.commitTxUnflushed(actualSize, typeId);
+	}
+
+	public rollbackTx(): void {
+		this.#endpoint.handle.rollbackTx();
+	}
+
+	public flush(): void {
+		this.#endpoint.handle.flush();
+	}
+
+	public acquireRx(): RawRx | null {
+		if (!this.#endpoint.handle.acquireRx()) return null;
+		const ptr = this.#endpoint.handle.rxPtr();
+		const actualSize = this.#endpoint.handle.rxSize();
+		return {
+			data: slot(ptr, actualSize),
+			typeId: this.#endpoint.handle.rxTypeId(),
+			actualSize,
+		};
+	}
+
+	public commitRx(): void {
+		this.#endpoint.handle.commitRx();
+	}
+
+	public setPollingMode(_spinMode: number): void {
+		// Browser delivery is direct and non-blocking; there is no futex polling mode.
+	}
+
+	public setNumaNode(_nodeId: number): void {
+		// WASM memory is page-local and cannot be NUMA-bound from browser JS.
+	}
+
+	public getState(): number {
+		return this.#endpoint.handle.isFatal() ? 4 : 2;
+	}
 }
 
 /**
@@ -28,14 +99,14 @@ function slot(ptr: number, len: number): Uint8Array {
  * `Bus.listen(path, capacity)` creates a page-local ring and
  * `Bus.connect(path)` attaches to it.
  */
-export class Bus implements Disposable {
-	#endpoint: BrowserEndpoint;
-	#path: string;
-	#closed = false;
-
+export class Bus extends BusBase<Uint8Array> {
 	private constructor(path: string, endpoint: BrowserEndpoint) {
-		this.#path = path;
-		this.#endpoint = endpoint;
+		super(new BrowserBusHandle(path, endpoint), {
+			defaultSpinThreshold: 0,
+			retryNullRecv: false,
+			nullRecvMessage: 'Bus.recv: no browser message is available. Use a direct doorbell after send().',
+			copyData: (data) => new Uint8Array(data),
+		});
 	}
 
 	public static listen(socketPath: string, capacity: number): Bus {
@@ -57,124 +128,6 @@ export class Bus implements Disposable {
 		endpoint.refs += 1;
 		return new Bus(socketPath, endpoint);
 	}
-
-	public setPollingMode(_spinMode: 0 | 1): void {
-		this.#assertOpen();
-	}
-
-	public setNumaNode(_nodeId: number): void {
-		this.#assertOpen();
-	}
-
-	public flush(): void {
-		this.#assertOpen();
-		this.#endpoint.handle.flush();
-	}
-
-	public send(data: Uint8Array, typeId = 0): void {
-		this.#assertOpen();
-		this.#endpoint.handle.send(data, typeId);
-	}
-
-	public sendU32(value: number, typeId = 0): void {
-		this.#assertOpen();
-		this.#endpoint.handle.sendU32(value, typeId);
-	}
-
-	public recv(): { data: Uint8Array; typeId: number } {
-		this.#assertOpen();
-		const guard = this.acquireRx();
-		if (guard === null) {
-			throw new Error('Bus.recv: no browser message is available. Use a direct doorbell after send().');
-		}
-
-		const data = new Uint8Array(guard.data());
-		const typeId = guard.typeId;
-		guard.commit();
-		return { data, typeId };
-	}
-
-	public recvU32(): number {
-		this.#assertOpen();
-		return this.#endpoint.handle.recvU32();
-	}
-
-	public acquireTx(maxSize: number): TxGuard {
-		this.#assertOpen();
-		const ptr = this.#endpoint.handle.acquireTx(maxSize);
-		const ctrl: TxController = {
-			commitTx: (s, t) => {
-				this.#endpoint.handle.commitTx(s, t);
-			},
-			commitTxUnflushed: (s, t) => {
-				this.#endpoint.handle.commitTxUnflushed(s, t);
-			},
-			rollbackTx: () => {
-				this.#endpoint.handle.rollbackTx();
-			},
-		};
-		return new TxGuard(ctrl, slot(ptr, maxSize) as unknown as Buffer);
-	}
-
-	public acquireRx(_spinThreshold = 0): RxGuard | null {
-		this.#assertOpen();
-		if (this.#endpoint.handle.isFatal()) throw new PeerDeadError();
-		if (!this.#endpoint.handle.acquireRx()) return null;
-
-		const ptr = this.#endpoint.handle.rxPtr();
-		const actualSize = this.#endpoint.handle.rxSize();
-		const typeId = this.#endpoint.handle.rxTypeId();
-		const ctrl: RxController = {
-			commitRx: () => {
-				this.#endpoint.handle.commitRx();
-			},
-			getState: () => (this.#endpoint.handle.isFatal() ? 4 : 2),
-		};
-		return new RxGuard(ctrl, slot(ptr, actualSize) as unknown as Buffer, typeId, actualSize);
-	}
-
-	public drainBatch(maxMsgs: number, _spinThreshold = 0): RxBatch {
-		this.#assertOpen();
-		if (this.#endpoint.handle.isFatal()) throw new PeerDeadError();
-
-		const messages: RxMessage[] = [];
-		for (let i = 0; i < maxMsgs; i += 1) {
-			const guard = this.acquireRx();
-			if (guard === null) break;
-			messages.push({
-				data: new Uint8Array(guard.data()) as unknown as RxMessage['data'],
-				typeId: guard.typeId,
-				size: guard.actualSize,
-			});
-			guard.commit();
-		}
-
-		const ctrl: BatchController = {
-			commitBatch: () => {
-				// Browser batches are copied and committed while draining.
-			},
-			getState: () => (this.#endpoint.handle.isFatal() ? 4 : 2),
-		};
-		return new RxBatch(ctrl, messages);
-	}
-
-	public close(): void {
-		if (this.#closed) return;
-		this.#closed = true;
-		this.#endpoint.refs -= 1;
-		if (this.#endpoint.refs <= 0) {
-			endpoints.delete(this.#path);
-			this.#endpoint.handle.free();
-		}
-	}
-
-	public [Symbol.dispose](): void {
-		this.close();
-	}
-
-	#assertOpen(): void {
-		if (this.#closed) throw new Error('Bus: this bus has been closed.');
-	}
 }
 
 export {
@@ -192,4 +145,4 @@ export { RxBatch } from './batch.ts';
 export type { RxMessage } from './batch.ts';
 export { TxGuard, RxGuard } from './guards.ts';
 export type { TxSlot, RxSlot } from './guards.ts';
-export { makeTypeId, msgType, routeId, tachyon_browser_echo_once, WasmBus };
+export { makeTypeId, msgType, routeId };

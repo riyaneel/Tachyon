@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:wasm": "PATH=$(dirname $(rustup which rustc)):$PATH RUSTC=$(rustup which rustc) wasm-pack build ../../bindings/rust/tachyon --target web --release --out-dir ../../../examples/browser_wasm/pkg",
+    "build:wasm": "PATH=$(dirname $(rustup which rustc)):$PATH RUSTC=$(rustup which rustc) wasm-pack build rust --target web --release --out-dir ../pkg",
     "dev": "vite --host 127.0.0.1",
     "build": "npm run build:wasm && vite build",
     "bench:native": "PATH=$(dirname $(rustup which rustc)):$PATH RUSTC=$(rustup which rustc) cargo run --release --manifest-path ../../bindings/rust/tachyon/Cargo.toml --example bench_ipc"
