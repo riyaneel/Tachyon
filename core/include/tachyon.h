@@ -52,6 +52,8 @@ typedef struct tachyon_bus tachyon_bus_t;
 
 typedef struct tachyon_rpc_bus tachyon_rpc_bus_t;
 
+typedef struct tachyon_star tachyon_star_t;
+
 typedef struct {
 	const void *ptr;
 	size_t		actual_size;
@@ -159,6 +161,30 @@ TACHYON_ABI void tachyon_rpc_rollback_reply(tachyon_rpc_bus_t *rpc) TACHYON_NOEX
 TACHYON_ABI void tachyon_rpc_set_polling_mode(const tachyon_rpc_bus_t *rpc, int pure_spin) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_rpc_get_state(const tachyon_rpc_bus_t *rpc) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t
+tachyon_star_create(tachyon_bus_t **buses, size_t n, const int *node_ids, tachyon_star_t **out) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void tachyon_star_destroy(tachyon_star_t *star) TACHYON_NOEXCEPT;
+
+TACHYON_ABI size_t tachyon_star_poll(
+	tachyon_star_t *star, tachyon_msg_view_t *out_views, size_t max_total, uint64_t budget_us, size_t *out_spoke_indices
+) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_star_commit(tachyon_star_t *star) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void *tachyon_star_acquire_tx(tachyon_star_t *star, size_t spoke_idx, size_t max_size) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t
+tachyon_star_commit_tx(tachyon_star_t *star, size_t spoke_idx, size_t actual_size, uint32_t type_id) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t tachyon_star_rollback_tx(tachyon_star_t *star, size_t spoke_idx) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void tachyon_star_flush(tachyon_star_t *star, size_t spoke_idx) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_state_t tachyon_star_get_state(const tachyon_star_t *star, size_t spoke_idx) TACHYON_NOEXCEPT;
+
+TACHYON_ABI size_t tachyon_star_n_spokes(const tachyon_star_t *star) TACHYON_NOEXCEPT;
 
 #ifdef __cplusplus
 }
