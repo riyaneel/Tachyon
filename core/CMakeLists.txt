@@ -3,6 +3,7 @@ add_library(tachyon SHARED
 		src/shm.cpp
 		src/tachyon_c.cpp
 		src/tachyon_rpc.cpp
+		src/tachyon_star.cpp
 		src/transport_uds.cpp
 )
 
