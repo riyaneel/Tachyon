@@ -81,14 +81,14 @@ npm install @tachyon-ipc/core
 <dependency>
     <groupId>dev.tachyon-ipc</groupId>
     <artifactId>tachyon-java</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
 </dependency>
 ```
 
 **Kotlin (Gradle):**
 
 ```kotlin
-implementation("dev.tachyon-ipc:tachyon-kotlin:0.5.0")
+implementation("dev.tachyon-ipc:tachyon-kotlin:0.5.1")
 ```
 
 **Rust:**
@@ -100,7 +100,7 @@ cargo add tachyon-ipc
 **Go:**
 
 ```bash
-go get github.com/riyaneel/tachyon/bindings/go@v0.5.0
+go get github.com/riyaneel/tachyon/bindings/go@v0.5.1
 ```
 
 **C#:**
@@ -113,14 +113,14 @@ dotnet add package TachyonIpc
 
 ```cmake
 include(FetchContent)
-
 FetchContent_Declare(tachyon
 		GIT_REPOSITORY https://github.com/riyaneel/tachyon.git
-		GIT_TAG v0.5.0
+		GIT_TAG v0.5.1
 )
+
 FetchContent_GetProperties(tachyon)
 if (NOT tachyon_POPULATED)
-	FetchContent_Populate(tachyon)
+	FetchContent_MakeAvailable(tachyon)
 	add_subdirectory(${tachyon_SOURCE_DIR}/core ${tachyon_BINARY_DIR}/tachyon-core)
 endif ()
 
@@ -343,7 +343,7 @@ returns to the host runtime to process signals.
 the buffer protocol (`memoryview`) and DLPack (`__dlpack__`), allowing PyTorch, JAX, and NumPy to consume payloads
 directly from shared memory without copying.
 
-**Bidirectional RPC.** v0.5.0 adds a native request/reply layer on top of the SPSC primitives. Each
+**Bidirectional RPC.** v0.5.1 adds a native request/reply layer on top of the SPSC primitives. Each
 `tachyon_rpc_bus_t` owns two independent arenas (fwd: caller → callee, rev: callee → caller) transferred as a pair of
 `memfd` descriptors in a single `sendmsg` call. Every message carries a `correlation_id` in the `MessageHeader`,
 eliminating the need for a separate tracking structure on the caller side. The callee writes replies directly into the

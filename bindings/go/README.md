@@ -37,7 +37,7 @@ CGO must be enabled (`CGO_ENABLED=1`, the default). The C++ compiler is selected
 ## Install
 
 ```bash
-go get github.com/riyaneel/tachyon/bindings/go@v0.5.0
+go get github.com/riyaneel/tachyon/bindings/go@v0.5.1
 ```
 
 Set `CXX` before building so CGO selects a compatible compiler:

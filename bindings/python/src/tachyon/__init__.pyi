@@ -24,7 +24,7 @@ __all__ = [
 	"route_id",
 	"msg_type",
 ]
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 MSG_TYPE_ERROR: int
 
