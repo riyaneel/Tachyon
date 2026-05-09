@@ -24,9 +24,9 @@
 		"node": ">=20.0.0"
 	},
 	"scripts": {
-		"build": "npm run build:native && npm run build:ts && npm run copy:wasm",
+		"build": "npm run build:wasm && npm run build:native && npm run build:ts && npm run copy:wasm",
 		"build:native": "cmake-js compile",
-		"build:wasm": "PATH=$(dirname $(rustup which rustc)):$PATH RUSTC=$(rustup which rustc) wasm-pack build ../rust/tachyon --target web --release --out-dir ../../node/src/ts/wasm",
+		"build:wasm": "PATH=$(dirname $(rustup which rustc)):$PATH RUSTC=$(rustup which rustc) wasm-pack build ../rust/tachyon --target web --release --out-dir ../../node/src/ts/wasm && node scripts/stamp-wasm-bindings.mjs",
 		"build:ts": "tsc",
 		"copy:wasm": "mkdir -p dist/wasm && cp src/ts/wasm/tachyon_ipc.js src/ts/wasm/tachyon_ipc_bg.js src/ts/wasm/tachyon_ipc_bg.wasm src/ts/wasm/*.d.ts dist/wasm/",
 		"clean": "rm -rf build dist",
@@ -50,6 +50,7 @@
 		"prettier": "^3.8.1",
 		"tsx": "^4.21.0",
 		"typescript": "^6.0.2",
-		"typescript-eslint": "^8.58.1"
+		"typescript-eslint": "^8.58.1",
+		"wasm-pack": "^0.14.0"
 	}
 }

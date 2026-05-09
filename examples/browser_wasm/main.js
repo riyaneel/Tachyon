@@ -1,8 +1,5 @@
 import init, {
   WasmBus,
-  makeTypeId,
-  msgType,
-  routeId,
   tachyon_browser_echo_once,
 } from "./pkg/tachyon_browser_wasm_example.js";
 
@@ -25,6 +22,18 @@ let wasm;
 let jsToRust;
 let rustToJs;
 let typeCounter;
+
+function makeTypeId(route, msgType) {
+  return ((route & 0xffff) << 16) | (msgType & 0xffff);
+}
+
+function routeId(typeId) {
+  return (typeId >>> 16) & 0xffff;
+}
+
+function msgType(typeId) {
+  return typeId & 0xffff;
+}
 
 function memory() {
   return wasm.memory;

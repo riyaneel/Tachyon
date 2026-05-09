@@ -1,6 +1,6 @@
 import type { BusHandle, RawRx } from './bus_core.ts';
 import { BusBase } from './bus_core.ts';
-import initWasm, { makeTypeId, msgType, routeId, WasmBus } from './wasm/tachyon_ipc.ts';
+import initWasm, { WasmBus } from './wasm/tachyon_ipc.ts';
 
 interface WasmRuntime {
 	readonly memory: {
@@ -145,4 +145,4 @@ export { RxBatch } from './batch.ts';
 export type { RxMessage } from './batch.ts';
 export { TxGuard, RxGuard } from './guards.ts';
 export type { TxSlot, RxSlot } from './guards.ts';
-export { makeTypeId, msgType, routeId };
+export { makeTypeId, msgType, routeId } from './type_id.ts';

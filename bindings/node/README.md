@@ -104,6 +104,8 @@ Browser differences:
 - `setNumaNode()` and `setPollingMode()` are no-ops in browsers.
 - `Buffer` is not a browser primitive; returned data is a `Uint8Array`.
 - Native cross-process IPC still requires Node.js or another native binding.
+- The browser build uses wasm32 for now, so WASM pointers, capacities, and slot sizes are `u32`-bounded; it can move to
+  wasm64/Memory64 later if a single linear-memory arena above 4 GiB becomes necessary.
 
 ## API
 

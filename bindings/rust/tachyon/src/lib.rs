@@ -14,7 +14,7 @@ pub use error::TachyonError;
 pub use rpc::{RpcBus, RpcRxGuard, RpcTxGuard};
 pub use type_id::{make_type_id, msg_type, route_id};
 #[cfg(target_arch = "wasm32")]
-pub use wasm::{WasmBus, wasm_make_type_id, wasm_msg_type, wasm_route_id};
+pub use wasm::WasmBus;
 
 #[cfg(test)]
 mod tests {
