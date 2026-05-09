@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.31)
 
 project(Tachyon LANGUAGES CXX)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(TachyonCompileOptions)
 include(TachyonSanitizers)
-include("${CMAKE_SOURCE_DIR}/cmake/deps.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/deps.cmake")
 
 set(TACHYON_LINK_OPTIONS
 		$<$<CONFIG:Release>:-flto>
