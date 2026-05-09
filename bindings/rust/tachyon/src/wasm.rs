@@ -1,7 +1,5 @@
 use wasm_bindgen::prelude::*;
 
-use crate::type_id::{make_type_id, msg_type, route_id};
-
 const MSG_ALIGNMENT: usize = 64;
 const HEADER_SIZE: usize = MSG_ALIGNMENT;
 const ALIGN_MASK: usize = MSG_ALIGNMENT - 1;
@@ -69,26 +67,6 @@ impl WasmBus {
             rx_type_id: 0,
             fatal: false,
         })
-    }
-
-    pub fn capacity(&self) -> u32 {
-        self.capacity as u32
-    }
-
-    #[wasm_bindgen(js_name = dataPtr)]
-    pub fn data_ptr(&self) -> u32 {
-        self.arena.as_ptr() as u32
-    }
-
-    #[wasm_bindgen(js_name = availableBytes)]
-    pub fn available_bytes(&self) -> u32 {
-        self.published_head.saturating_sub(self.tail) as u32
-    }
-
-    #[wasm_bindgen(js_name = freeBytes)]
-    pub fn free_bytes(&self) -> u32 {
-        self.capacity
-            .saturating_sub(self.head.saturating_sub(self.tail)) as u32
     }
 
     #[wasm_bindgen(js_name = isFatal)]
@@ -312,19 +290,4 @@ impl WasmBus {
     fn write_u32(&mut self, offset: usize, value: u32) {
         self.arena[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
     }
-}
-
-#[wasm_bindgen(js_name = makeTypeId)]
-pub fn wasm_make_type_id(route: u16, ty: u16) -> u32 {
-    make_type_id(route, ty)
-}
-
-#[wasm_bindgen(js_name = routeId)]
-pub fn wasm_route_id(type_id: u32) -> u16 {
-    route_id(type_id)
-}
-
-#[wasm_bindgen(js_name = msgType)]
-pub fn wasm_msg_type(type_id: u32) -> u16 {
-    msg_type(type_id)
 }
