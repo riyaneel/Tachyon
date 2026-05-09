@@ -1,4 +1,4 @@
-use tachyon_ipc::{WasmBus, make_type_id, msg_type, route_id};
+use tachyon_ipc::WasmBus;
 use wasm_bindgen::prelude::*;
 
 /// Tiny Rust-side browser program used by this example page.
@@ -24,20 +24,15 @@ pub fn tachyon_browser_echo_once(
         ));
     }
 
-    let inbound_ptr = inbound.rx_ptr() as *const u8;
-    let outbound_ptr = outbound.acquire_tx(actual_size)? as *mut u8;
+    let inbound_ptr = inbound.rx_ptr() as *const u32;
+    let outbound_ptr = outbound.acquire_tx(actual_size)? as *mut u32;
 
     unsafe {
-        let inbound_bytes = std::slice::from_raw_parts(inbound_ptr, actual_size as usize);
-        let outbound_bytes = std::slice::from_raw_parts_mut(outbound_ptr, actual_size as usize);
-        let value = u32::from_le_bytes(inbound_bytes.try_into().unwrap()).wrapping_add(1);
-        outbound_bytes.copy_from_slice(&value.to_le_bytes());
+        let value = inbound_ptr.read_unaligned().wrapping_add(1);
+        outbound_ptr.write_unaligned(value);
     }
 
-    outbound.commit_tx(
-        actual_size,
-        make_type_id(route_id(type_id).wrapping_add(1), msg_type(type_id)),
-    )?;
+    outbound.commit_tx(actual_size, type_id.wrapping_add(1 << 16))?;
     inbound.commit_rx()?;
 
     Ok(true)

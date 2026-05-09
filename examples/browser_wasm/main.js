@@ -19,6 +19,7 @@ const els = {
 };
 
 let wasm;
+let memoryView;
 let jsToRust;
 let rustToJs;
 let typeCounter;
@@ -46,7 +47,7 @@ function appendLog(line) {
 
 function writeU32ToBus(bus, value, typeId) {
   const ptr = bus.acquireTx(4);
-  new DataView(memory().buffer, ptr, 4).setUint32(0, value >>> 0, true);
+  memoryView.setUint32(ptr, value >>> 0, true);
   bus.commitTx(4, typeId);
 }
 
@@ -55,10 +56,7 @@ function readU32FromBus(bus) {
   const ptr = bus.rxPtr();
   const size = bus.rxSize();
   const typeId = bus.rxTypeId();
-  const value =
-    size === 4
-      ? new DataView(memory().buffer, ptr, 4).getUint32(0, true)
-      : null;
+  const value = size === 4 ? memoryView.getUint32(ptr, true) : null;
   bus.commitRx();
   return { value, size, typeId };
 }
@@ -79,15 +77,19 @@ function pingRust(value) {
 }
 
 function pingRustFast(value) {
-  writeU32ToBus(jsToRust, value, typeCounter);
+  let ptr = jsToRust.acquireTx(4);
+  memoryView.setUint32(ptr, value >>> 0, true);
+  jsToRust.commitTx(4, typeCounter);
   if (!tachyon_browser_echo_once(jsToRust, rustToJs)) {
     throw new Error("Rust WASM program did not receive the JS message");
   }
-  const reply = readU32FromBus(rustToJs);
-  if (!reply) {
+  if (!rustToJs.acquireRx()) {
     throw new Error("JS did not receive the Rust WASM reply");
   }
-  return reply.value;
+  ptr = rustToJs.rxPtr();
+  const replyValue = memoryView.getUint32(ptr, true);
+  rustToJs.commitRx();
+  return replyValue;
 }
 
 function percentile(sorted, pct) {
@@ -169,6 +171,7 @@ async function main() {
   typeCounter = makeTypeId(0, 7);
   jsToRust = new WasmBus(CAPACITY);
   rustToJs = new WasmBus(CAPACITY);
+  memoryView = new DataView(memory().buffer);
 
   els.status.textContent = "ready";
   els.capacity.textContent = `${CAPACITY / 1024} KiB x 2`;

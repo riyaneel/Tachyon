@@ -266,10 +266,6 @@ impl WasmBus {
         self.write_u32(physical_idx, actual_size as u32);
         self.write_u32(physical_idx + 4, type_id);
         self.write_u32(physical_idx + 8, self.tx_reserved_size as u32);
-        self.write_u32(physical_idx + 12, 0);
-        self.write_u32(physical_idx + 16, 0);
-        self.write_u32(physical_idx + 20, 0);
-
         self.head += self.tx_reserved_size;
         self.tx_reserved_size = 0;
         self.pending_tx += 1;
@@ -282,12 +278,16 @@ impl WasmBus {
     }
 
     fn read_u32(&self, offset: usize) -> u32 {
-        let mut bytes = [0u8; 4];
-        bytes.copy_from_slice(&self.arena[offset..offset + 4]);
-        u32::from_le_bytes(bytes)
+        unsafe {
+            let ptr = self.arena.as_ptr().add(offset) as *const u32;
+            u32::from_le(ptr.read_unaligned())
+        }
     }
 
     fn write_u32(&mut self, offset: usize, value: u32) {
-        self.arena[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        unsafe {
+            let ptr = self.arena.as_mut_ptr().add(offset) as *mut u32;
+            ptr.write_unaligned(value.to_le());
+        }
     }
 }

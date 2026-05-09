@@ -100,7 +100,11 @@ latency and keeps sub-microsecond round trips possible for in-page JS/Rust commu
 
 Browser differences:
 
+- Repeated browser `connect()` calls return aliases to the same page-local ring; they are not independent subscribers,
+  and multiple consumers compete for the same ordered SPSC stream.
 - `recv()` and `acquireRx()` are non-blocking because the main browser thread cannot park like a native futex wait.
+- Browser `drainBatch()` preserves order but copies batch entries before returning, so ring slots are released
+  immediately; use `acquireRx()` for a direct WASM memory view.
 - `setNumaNode()` and `setPollingMode()` are no-ops in browsers.
 - `Buffer` is not a browser primitive; returned data is a `Uint8Array`.
 - Native cross-process IPC still requires Node.js or another native binding.

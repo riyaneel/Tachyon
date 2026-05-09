@@ -146,9 +146,11 @@ record("drainBatch returns ordered messages", () => {
   const batch = consumer.drainBatch(8);
   assert.equal(batch.length, 3);
   assert.equal(batch.at(0).typeId, 100);
+  const cached = batch.at(0).data;
   assert.deepEqual([...batch.at(1).data], [1, 2, 3, 4]);
   assert.deepEqual([...batch].map((msg) => msg.typeId), [100, 101, 102]);
   batch.commit();
+  assert.equal(cached.byteLength, 0);
   assert.throws(() => batch.at(0), /already been committed/);
 
   producer.close();

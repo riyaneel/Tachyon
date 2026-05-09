@@ -22,7 +22,7 @@ export interface RxMessage {
  * `using` commits automatically.
  *
  * All `RxMessage.data` references are invalidated on commit. Any cached reference
- * will throw `TypeError` (underlying ArrayBuffers are detached by the C++ side).
+ * will throw `TypeError` where the platform can detach the underlying ArrayBuffers.
  *
  * @example
  * ```ts

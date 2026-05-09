@@ -1,4 +1,4 @@
-import type { BusHandle, RawRx } from './bus_core.ts';
+import type { BusHandle, RawBatchMessage, RawRx } from './bus_core.ts';
 import { BusBase } from './bus_core.ts';
 import initWasm, { WasmBus } from './wasm/tachyon_ipc.ts';
 
@@ -21,9 +21,15 @@ function slot(ptr: number, len: number): Uint8Array {
 	return new Uint8Array(wasm.memory.buffer, ptr, len);
 }
 
+function detachArrayBuffer(buffer: ArrayBuffer): void {
+	if (buffer.byteLength === 0) return;
+	structuredClone(buffer, { transfer: [buffer] });
+}
+
 class BrowserBusHandle implements BusHandle {
 	#endpoint: BrowserEndpoint;
 	#path: string;
+	#batchBuffers: ArrayBuffer[] = [];
 
 	public constructor(path: string, endpoint: BrowserEndpoint) {
 		this.#path = path;
@@ -74,8 +80,34 @@ class BrowserBusHandle implements BusHandle {
 		};
 	}
 
+	public drainBatch(maxMsgs: number): RawBatchMessage[] {
+		this.#batchBuffers = [];
+		const messages: RawBatchMessage[] = [];
+		for (let i = 0; i < maxMsgs; i += 1) {
+			const result = this.acquireRx();
+			if (result === null) break;
+
+			const data = new Uint8Array(result.data);
+			this.#batchBuffers.push(data.buffer);
+			messages.push({
+				data,
+				typeId: result.typeId,
+				size: result.actualSize,
+			});
+			this.commitRx();
+		}
+		return messages;
+	}
+
 	public commitRx(): void {
 		this.#endpoint.handle.commitRx();
+	}
+
+	public commitBatch(): void {
+		for (const buffer of this.#batchBuffers) {
+			detachArrayBuffer(buffer);
+		}
+		this.#batchBuffers = [];
 	}
 
 	public setPollingMode(_spinMode: number): void {
