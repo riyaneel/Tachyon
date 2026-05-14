@@ -10,15 +10,23 @@
 
 #include <tachyon/arena.hpp>
 
-#if defined(__has_feature) && __has_feature(thread_sanitizer)
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define TACHYON_TSAN_ENABLED 1
+#endif							   // # if __has_feature(thread_sanitizer)
+#elif defined(__SANITIZE_THREAD__) // #if defined(__has_feature)
+#define TACHYON_TSAN_ENABLED 1
+#endif // #elif defined(__SANITIZE_THREAD__)
+
+#if defined(TACHYON_TSAN_ENABLED)
 extern "C" void __tsan_acquire(void *addr);
 extern "C" void __tsan_release(void *addr);
 #define TACHYON_TSAN_ACQUIRE(p) __tsan_acquire(p)
 #define TACHYON_TSAN_RELEASE(p) __tsan_release(p)
-#else // #if defined(__has_feature) && __has_feature(thread_sanitizer)
+#else // #if defined(TACHYON_TSAN_ENABLED)
 #define TACHYON_TSAN_ACQUIRE(p) (void)(p)
 #define TACHYON_TSAN_RELEASE(p) (void)(p)
-#endif // #if defined(__has_feature) && __has_feature(thread_sanitizer) # else
+#endif // #if defined(TACHYON_TSAN_ENABLED) # else
 
 namespace tachyon::core {
 	namespace {
