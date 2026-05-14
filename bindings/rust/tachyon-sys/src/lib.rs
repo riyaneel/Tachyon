@@ -13,7 +13,7 @@ mod layout_tests {
     #[test]
     fn tachyon_msg_view_layout() {
         assert_eq!(mem::size_of::<tachyon_msg_view_t>(), 32);
-        assert_eq!(mem::align_of::<tachyon_msg_view_t>(), 8);
+        assert_eq!(mem::align_of::<tachyon_msg_view_t>(), 32);
         let base = mem::offset_of!(tachyon_msg_view_t, ptr);
         assert_eq!(base, 0);
         assert_eq!(mem::offset_of!(tachyon_msg_view_t, actual_size), 8);
