@@ -15,20 +15,13 @@
 #endif // #if defined(__linux__)
 
 #include "abi_utils.h"
+#include "bus_impl.h"
 #include <tachyon.h>
 #include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
 #include <tachyon/transport.hpp>
 
 using namespace tachyon::core;
-
-struct alignas(64) tachyon_bus {
-	SharedMemory		  shm;
-	Arena				  arena;
-	std::atomic<uint32_t> ref_count{1};
-
-	tachyon_bus(SharedMemory &&s, Arena &&a) : shm(std::move(s)), arena(std::move(a)) {}
-};
 
 extern "C" {
 
