@@ -2,6 +2,8 @@
 
 #include <tachyon/arena.hpp>
 
+using namespace tachyon::core;
+
 struct alignas(64) tachyon_bus {
 	SharedMemory		  shm;
 	Arena				  arena;
