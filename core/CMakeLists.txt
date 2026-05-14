@@ -1,6 +1,7 @@
 add_library(tachyon SHARED
 		src/arena.cpp
 		src/shm.cpp
+		src/star.cpp
 		src/tachyon_c.cpp
 		src/tachyon_rpc.cpp
 		src/tachyon_star.cpp
