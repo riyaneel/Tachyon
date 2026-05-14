@@ -20,6 +20,7 @@ include(GoogleTest)
 gtest_discover_tests(tachyon_tests DISCOVERY_MODE PRE_TEST)
 
 target_include_directories(tachyon_tests
-		PRIVATE
+		BEFORE PRIVATE
 		${CMAKE_SOURCE_DIR}/core/src
+		${googletest_SOURCE_DIR}/googletest/include
 )
