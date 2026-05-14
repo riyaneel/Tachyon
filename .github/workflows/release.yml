@@ -53,6 +53,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install Compiler
+        uses: ./.github/actions/gcc-installer
+        with:
+          version: '16'
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -61,15 +66,15 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-14 g++-14 python3-dev
+          sudo apt-get install -y --no-install-recommends python3-dev
           sudo mkdir -p /usr/local/include/dlpack
           sudo curl -fsSL -o /usr/local/include/dlpack/dlpack.h \
             https://raw.githubusercontent.com/dmlc/dlpack/main/include/dlpack/dlpack.h
 
       - name: Build sdist
         env:
-          CXX: g++-14
-          CC: gcc-14
+          CXX: g++-16
+          CC: gcc-16
         working-directory: bindings/python
         run: |
           pip install build
@@ -108,10 +113,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-14 g++-14
+      - name: Install Compiler
+        uses: ./.github/actions/gcc-installer
+        with:
+          version: '16'
 
       - name: Vendor C++ core
         run: bash ci/vendor.sh rust
@@ -119,8 +124,8 @@ jobs:
       - name: Publish tachyon-sys
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          CXX: g++-14
-          CC: gcc-14
+          CXX: g++-16
+          CC: gcc-16
         working-directory: bindings/rust
         run: cargo publish -p tachyon-sys --allow-dirty
 
@@ -130,8 +135,8 @@ jobs:
       - name: Publish tachyon-ipc
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          CXX: g++-14
-          CC: gcc-14
+          CXX: g++-16
+          CC: gcc-16
         working-directory: bindings/rust
         run: cargo publish -p tachyon-ipc --allow-dirty
 
