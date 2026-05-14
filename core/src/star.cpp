@@ -70,6 +70,10 @@ namespace tachyon::core {
 			return std::unexpected(TACHYON_ERR_NULL_PTR);
 		}
 
+		if (n > 65535) [[unlikely]] {
+			return std::unexpected(TACHYON_ERR_INVALID_SZ);
+		}
+
 		auto **owned_buses = new (std::nothrow) tachyon_bus_t *[n];
 		if (!owned_buses) [[unlikely]] {
 			return std::unexpected(TACHYON_ERR_MEM);
