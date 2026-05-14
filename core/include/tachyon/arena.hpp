@@ -94,7 +94,12 @@ namespace tachyon::core {
 
 		explicit Arena(MemoryLayout *layout, size_t capacity) noexcept;
 
-		void do_flush_tx() noexcept;
+		TACHYON_INLINE void do_flush_rx() noexcept {
+			layout_->indices.tail.store(local_tail_, std::memory_order_release);
+			pending_rx_ = 0;
+		}
+
+		TACHYON_INLINE void do_flush_tx() noexcept;
 
 	public:
 		~Arena() = default;
@@ -136,6 +141,8 @@ namespace tachyon::core {
 		[[nodiscard]] const std::byte *
 		acquire_rx_rpc(uint32_t &out_type_id, size_t &out_actual_size, uint64_t &out_correlation_id) noexcept;
 
+		[[nodiscard]] bool advance_tail_batch(std::size_t total_reserved_bytes, std::size_t count) noexcept;
+
 		void flush() noexcept;
 
 		void flush_tx() noexcept;
@@ -150,7 +157,7 @@ namespace tachyon::core {
 
 		void set_fatal_error() const noexcept;
 
-		[[nodiscard]] inline BusState get_state() const noexcept {
+		[[nodiscard]] TACHYON_INLINE BusState get_state() const noexcept {
 			return layout_->header.state.load(std::memory_order_acquire);
 		}
 	};

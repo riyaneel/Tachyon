@@ -288,8 +288,7 @@ namespace tachyon::core {
 		pending_rx_++;
 
 		if (pending_rx_ >= BATCH_SIZE) [[unlikely]] {
-			layout_->indices.tail.store(local_tail_, std::memory_order_release);
-			pending_rx_ = 0;
+			do_flush_rx();
 		}
 
 		return true;
@@ -370,8 +369,7 @@ namespace tachyon::core {
 		pending_rx_ += count;
 
 		if (pending_rx_ >= BATCH_SIZE) {
-			layout_->indices.tail.store(local_tail_, std::memory_order_release);
-			pending_rx_ = 0;
+			do_flush_rx();
 		}
 
 		return true;
@@ -492,14 +490,28 @@ namespace tachyon::core {
 		);
 	}
 
+	bool Arena::advance_tail_batch(std::size_t total_reserved_bytes, std::size_t count) noexcept {
+		if (count == 0) [[unlikely]] {
+			return true;
+		}
+
+		local_tail_ += total_reserved_bytes;
+		pending_rx_ += count;
+
+		if (pending_rx_ >= BATCH_SIZE) {
+			do_flush_rx();
+		}
+
+		return true;
+	}
+
 	void Arena::flush() noexcept {
 		if (pending_tx_ > 0) {
 			do_flush_tx();
 		}
 
 		if (pending_rx_ > 0) {
-			layout_->indices.tail.store(local_tail_, std::memory_order_release);
-			pending_rx_ = 0;
+			do_flush_rx();
 		}
 	}
 
