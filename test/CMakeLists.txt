@@ -4,6 +4,7 @@ add_executable(tachyon_tests
 		src/test_arena.cpp
 		src/test_rpc.cpp
 		src/test_shm.cpp
+		src/test_star.cpp
 )
 
 tachyon_set_compile_options(tachyon_tests)
