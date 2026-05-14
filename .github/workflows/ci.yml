@@ -39,9 +39,9 @@ jobs:
 
       - name: Install Toolchain (GCC)
         if: matrix.compiler == 'gcc'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-14 g++-14
+        uses: ./.github/actions/gcc-installer
+        with:
+          version: '15'
 
       - name: Install Toolchain (Clang)
         if: matrix.compiler == 'clang'
@@ -281,11 +281,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install Compiler
+        uses: ./.github/actions/gcc-installer
+        with:
+          version: '15'
+
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            gcc-14 g++-14 python3-dev python3-venv
+          sudo apt-get install -y --no-install-recommends python3-dev python3-venv
           sudo mkdir -p /usr/local/include/dlpack
           sudo curl -fsSL -o /usr/local/include/dlpack/dlpack.h \
             https://raw.githubusercontent.com/dmlc/dlpack/main/include/dlpack/dlpack.h
@@ -293,7 +297,7 @@ jobs:
       - name: Install and test
         run: |
           python3 -m venv .venv
-          CXX=g++-14 CC=gcc-14 .venv/bin/pip install ./bindings/python pytest
+          CXX=g++-15 CC=gcc-15 .venv/bin/pip install ./bindings/python pytest
           .venv/bin/pytest bindings/python/tests/ -v
 
   python_macos:
@@ -327,18 +331,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install Compiler
+        uses: ./.github/actions/gcc-installer
+        with:
+          version: '15'
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-14 g++-14
-
       - name: Test
         env:
-          CXX: g++-14
-          CC: gcc-14
+          CXX: g++-15
+          CC: gcc-15
         run: cargo test
         working-directory: bindings/rust
 
@@ -369,10 +373,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-14 g++-14
+      - name: Install Compiler
+        uses: ./.github/actions/gcc-installer
+        with:
+          version: '15'
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -385,16 +389,16 @@ jobs:
 
       - name: Go Test
         env:
-          CXX: g++-14
-          CC: gcc-14
+          CXX: g++-15
+          CC: gcc-15
           CGO_ENABLED: "1"
         working-directory: bindings/go
         run: go test -v -count=1 -timeout=120s ./tachyon/...
 
       - name: Go Vet
         env:
-          CXX: g++-14
-          CC: gcc-14
+          CXX: g++-15
+          CC: gcc-15
           CGO_ENABLED: "1"
         working-directory: bindings/go
         run: go vet ./tachyon/...

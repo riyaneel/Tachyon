@@ -1,0 +1,22 @@
+name: Install GCC
+description: Install GCC specific version
+inputs:
+  version:
+    description: GCC Version
+    required: false
+    default: '15'
+runs:
+  using: composite
+  steps:
+    - name: Install repository helper
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends software-properties-common
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+
+    - name: Install GCC
+      shell: bash
+      run: |
+        sudo apt-get update -qq        
+        sudo apt install gcc-${{ inputs.version }} g++-${{ inputs.version }}
