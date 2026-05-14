@@ -6,9 +6,11 @@
 
 #ifdef __cplusplus
 #define TACHYON_NOEXCEPT noexcept
+#define TACHYON_ALIGNAS(n) alignas(n)
 extern "C" {
 #else // #ifdef __cplusplus
 #define TACHYON_NOEXCEPT
+#define TACHYON_ALIGNAS(n) _Alignas(n)
 #endif // #ifdef __cplusplus #else
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -55,11 +57,11 @@ typedef struct tachyon_rpc_bus tachyon_rpc_bus_t;
 typedef struct tachyon_star tachyon_star_t;
 
 typedef struct {
-	const void *ptr;
-	size_t		actual_size;
-	size_t		reserved_;
-	uint32_t	type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
-	uint32_t	padding_;
+	TACHYON_ALIGNAS(32) const void *ptr;
+	size_t	 actual_size;
+	size_t	 reserved_;
+	uint32_t type_id; /* bits [0:15] = msg_type, bits [16:31] = route_id */
+	uint32_t padding_;
 } tachyon_msg_view_t;
 
 TACHYON_ABI void tachyon_memory_barrier_acquire(void) TACHYON_NOEXCEPT;
