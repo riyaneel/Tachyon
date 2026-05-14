@@ -41,7 +41,7 @@ jobs:
         if: matrix.compiler == 'gcc'
         uses: ./.github/actions/gcc-installer
         with:
-          version: '15'
+          version: '16'
 
       - name: Install Toolchain (Clang)
         if: matrix.compiler == 'clang'
@@ -284,7 +284,7 @@ jobs:
       - name: Install Compiler
         uses: ./.github/actions/gcc-installer
         with:
-          version: '15'
+          version: '16'
 
       - name: Install system dependencies
         run: |
@@ -297,7 +297,7 @@ jobs:
       - name: Install and test
         run: |
           python3 -m venv .venv
-          CXX=g++-15 CC=gcc-15 .venv/bin/pip install ./bindings/python pytest
+          CXX=g++-16 CC=gcc-16 .venv/bin/pip install ./bindings/python pytest
           .venv/bin/pytest bindings/python/tests/ -v
 
   python_macos:
@@ -334,15 +334,15 @@ jobs:
       - name: Install Compiler
         uses: ./.github/actions/gcc-installer
         with:
-          version: '15'
+          version: '16'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Test
         env:
-          CXX: g++-15
-          CC: gcc-15
+          CXX: g++-16
+          CC: gcc-16
         run: cargo test
         working-directory: bindings/rust
 
@@ -376,7 +376,7 @@ jobs:
       - name: Install Compiler
         uses: ./.github/actions/gcc-installer
         with:
-          version: '15'
+          version: '16'
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -389,16 +389,16 @@ jobs:
 
       - name: Go Test
         env:
-          CXX: g++-15
-          CC: gcc-15
+          CXX: g++-16
+          CC: gcc-16
           CGO_ENABLED: "1"
         working-directory: bindings/go
         run: go test -v -count=1 -timeout=120s ./tachyon/...
 
       - name: Go Vet
         env:
-          CXX: g++-15
-          CC: gcc-15
+          CXX: g++-16
+          CC: gcc-16
           CGO_ENABLED: "1"
         working-directory: bindings/go
         run: go vet ./tachyon/...
