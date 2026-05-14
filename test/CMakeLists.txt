@@ -12,15 +12,17 @@ target_link_options(tachyon_tests PRIVATE ${TACHYON_LINK_OPTIONS})
 target_link_libraries(tachyon_tests
 		PRIVATE
 		tachyon
-		GTest::gtest
-		GTest::gtest_main
+		gtest
+		gtest_main
 )
 
 include(GoogleTest)
 gtest_discover_tests(tachyon_tests DISCOVERY_MODE PRE_TEST)
 
-target_include_directories(tachyon_tests
-		BEFORE PRIVATE
+target_include_directories(tachyon_tests BEFORE PRIVATE
 		${CMAKE_SOURCE_DIR}/core/src
+)
+
+target_include_directories(tachyon_tests SYSTEM BEFORE PRIVATE
 		${googletest_SOURCE_DIR}/googletest/include
 )
