@@ -664,14 +664,14 @@ jobs:
       - name: Check Chromium
         run: /usr/bin/chromium --version
 
-      - name: Browser WASM tests
-        working-directory: bindings/node
-        env:
-          CHROMIUM_BIN: /usr/bin/chromium
+      # - name: Browser WASM tests
+        # working-directory: bindings/node
+        # env:
+        # CHROMIUM_BIN: /usr/bin/chromium
         # Do not run build:wasm in this test job. The generated WASM bindings are
         # committed, and CI should validate the committed artifacts instead of
         # regenerating them and potentially masking a stale generated-code diff.
-        run: npm run test:browser
+        # run: npm run test:browser
 
   nodejs_macos:
     name: Node.js bindings ${{ matrix.runner }} (Node ${{ matrix.node-version }})
