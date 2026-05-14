@@ -34,7 +34,7 @@
       "cacheVariables": {
         "GCC_VERSION": {
           "type": "STRING",
-          "value": "14"
+          "value": "15"
         }
       }
     },
@@ -62,7 +62,7 @@
     },
     {
       "name": "clang-release",
-      "displayName": "Clang 21 - Release",
+      "displayName": "Clang - Release",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -71,7 +71,7 @@
     },
     {
       "name": "gcc-release",
-      "displayName": "GCC 14 - Release",
+      "displayName": "GCC - Release",
       "inherits": "gcc-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -80,7 +80,7 @@
     },
     {
       "name": "clang-debug",
-      "displayName": "Clang 21 - Debug",
+      "displayName": "Clang - Debug",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -89,7 +89,7 @@
     },
     {
       "name": "gcc-debug",
-      "displayName": "GCC 14 - Debug",
+      "displayName": "GCC - Debug",
       "inherits": "gcc-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -98,7 +98,7 @@
     },
     {
       "name": "clang-aarch64-release",
-      "displayName": "Clang 21 - Release (aarch64 cross)",
+      "displayName": "Clang - Release (aarch64 cross)",
       "inherits": "clang-aarch64-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -123,7 +123,7 @@
     },
     {
       "name": "asan",
-      "displayName": "ASan + UBSan - Clang 21",
+      "displayName": "ASan + UBSan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -132,7 +132,7 @@
     },
     {
       "name": "msan",
-      "displayName": "MSan - Clang 21",
+      "displayName": "MSan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -142,7 +142,7 @@
     },
     {
       "name": "tsan",
-      "displayName": "TSan - Clang 21",
+      "displayName": "TSan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -151,7 +151,7 @@
     },
     {
       "name": "fuzz",
-      "displayName": "libFuzzer + ASan - Clang 21",
+      "displayName": "libFuzzer + ASan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -162,7 +162,7 @@
     },
     {
       "name": "fuzz-ubsan",
-      "displayName": "libFuzzer + ASan + UBSan - Clang 21",
+      "displayName": "libFuzzer + ASan + UBSan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -173,7 +173,7 @@
     },
     {
       "name": "fuzz-tsan",
-      "displayName": "libFuzzer + TSan - Clang 21",
+      "displayName": "libFuzzer + TSan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -184,7 +184,7 @@
     },
     {
       "name": "fuzz-msan",
-      "displayName": "libFuzzer + MSan - Clang 21",
+      "displayName": "libFuzzer + MSan - Clang",
       "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",

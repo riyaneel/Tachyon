@@ -9,11 +9,13 @@ set(TACHYON_FLAGS
 )
 
 set(TACHYON_RELEASE_FLAGS
-		-O3
-		-funroll-loops
+		-O3 -funroll-loops
 		-fno-exceptions -fno-rtti
-		-fno-plt
 )
+
+if (NOT APPLE)
+	list(APPEND TACHYON_RELEASE_FLAGS -fno-plt)
+endif ()
 
 if (NOT TACHYON_PORTABLE_BUILD)
 	list(APPEND TACHYON_RELEASE_FLAGS "-march=native" "-mtune=native")
