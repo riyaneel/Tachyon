@@ -14,7 +14,7 @@ namespace tachyon::core {
 		std::size_t total_reserved_bytes;
 	};
 
-	class alignas(TACHYON_MSG_ALIGNMENT) StarBus {
+	class TACHYON_API alignas(TACHYON_MSG_ALIGNMENT) StarBus {
 		tachyon_bus_t **buses_{nullptr};
 		std::size_t		n_{0};
 		double			tsc_per_us_{0.0};
@@ -41,13 +41,13 @@ namespace tachyon::core {
 
 		[[nodiscard]] bool commit() noexcept;
 
-		[[nodiscard]] bool commit_tx(std::size_t spoke_idx, std::size_t actual_size, uint32_t type_id) noexcept;
+		[[nodiscard]] bool commit_tx(std::size_t spoke_idx, std::size_t actual_size, uint32_t type_id) const noexcept;
 
-		[[nodiscard]] void *acquire_tx(std::size_t spoke_idx, std::size_t max_size) noexcept;
+		[[nodiscard]] void *acquire_tx(std::size_t spoke_idx, std::size_t max_size) const noexcept;
 
-		[[nodiscard]] bool rollback_tx(std::size_t spoke_idx) noexcept;
+		[[nodiscard]] bool rollback_tx(std::size_t spoke_idx) const noexcept;
 
-		void flush(std::size_t spoke_idx) noexcept;
+		void flush(std::size_t spoke_idx) const noexcept;
 
 		[[nodiscard]] TACHYON_INLINE tachyon_state_t get_state(const std::size_t spoke_idx) const noexcept {
 			if (spoke_idx >= n_) [[unlikely]] {

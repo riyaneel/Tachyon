@@ -166,8 +166,9 @@ namespace tachyon::core {
 		return true;
 	}
 
-	bool
-	StarBus::commit_tx(const std::size_t spoke_idx, const std::size_t actual_size, const uint32_t type_id) noexcept {
+	bool StarBus::commit_tx(
+		const std::size_t spoke_idx, const std::size_t actual_size, const uint32_t type_id
+	) const noexcept {
 		if (spoke_idx >= n_) [[unlikely]] {
 			return false;
 		}
@@ -180,7 +181,7 @@ namespace tachyon::core {
 		return true;
 	}
 
-	void *StarBus::acquire_tx(const std::size_t spoke_idx, const std::size_t max_size) noexcept {
+	void *StarBus::acquire_tx(const std::size_t spoke_idx, const std::size_t max_size) const noexcept {
 		if (spoke_idx >= n_) [[unlikely]] {
 			return nullptr;
 		}
@@ -188,7 +189,7 @@ namespace tachyon::core {
 		return buses_[spoke_idx]->arena.acquire_tx(max_size);
 	}
 
-	bool StarBus::rollback_tx(const std::size_t spoke_idx) noexcept {
+	bool StarBus::rollback_tx(const std::size_t spoke_idx) const noexcept {
 		if (spoke_idx >= n_) [[unlikely]] {
 			return false;
 		}
@@ -196,7 +197,7 @@ namespace tachyon::core {
 		return buses_[spoke_idx]->arena.rollback_tx();
 	}
 
-	void StarBus::flush(const std::size_t spoke_idx) noexcept {
+	void StarBus::flush(const std::size_t spoke_idx) const noexcept {
 		if (spoke_idx >= n_) [[unlikely]] {
 			return;
 		}
