@@ -49,7 +49,7 @@ jobs:
 
       - name: Configure (${{ matrix.compiler }}-${{ matrix.build_type}})
         run: |
-          cmake --preset ${{ matrix.compiler }}-${{ matrix.build_type}}
+          cmake --preset ${{ matrix.compiler }}-${{ matrix.build_type}} -DTACHYON_ENABLE_BENCH=OFF
 
       - name: Build (${{ matrix.compiler }}-${{ matrix.build_type}})
         run: cmake --build --preset ${{ matrix.compiler }}-${{ matrix.build_type}}
@@ -83,7 +83,7 @@ jobs:
         run: bash ci/install_llvm.sh 21
 
       - name: Configure
-        run: cmake --preset clang-aarch64-release
+        run: cmake --preset clang-aarch64-release -DTACHYON_ENABLE_BENCH=OFF
 
       - name: Build
         run: cmake --build --preset clang-aarch64-release --target tachyon --parallel
@@ -114,7 +114,7 @@ jobs:
         run: bash ci/install_llvm.sh 21
 
       - name: Configure
-        run: cmake --preset asan
+        run: cmake --preset asan -DTACHYON_ENABLE_BENCH=OFF
 
       - name: Build
         run: cmake --build --preset asan --parallel
@@ -149,7 +149,7 @@ jobs:
         run: bash ci/build_msan_libcxx.sh 21
 
       - name: Configure
-        run: cmake --preset msan
+        run: cmake --preset msan -DTACHYON_ENABLE_BENCH=OFF
 
       - name: Build
         run: cmake --build --preset msan --parallel
@@ -180,7 +180,7 @@ jobs:
         run: bash ci/install_llvm.sh 21
 
       - name: Configure
-        run: cmake --preset tsan
+        run: cmake --preset tsan -DTACHYON_ENABLE_BENCH=OFF
 
       - name: Build
         run: cmake --build --preset tsan --parallel
@@ -204,7 +204,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Configure
-        run: cmake --preset macos-${{ matrix.build_type }}
+        run: cmake --preset macos-${{ matrix.build_type }} -DTACHYON_ENABLE_BENCH=OFF
 
       - name: Build
         run: cmake --build --preset macos-${{ matrix.build_type }} --parallel
@@ -465,7 +465,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release
+          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-release --parallel
           cmake --build --preset clang-release --target tachyon_java_resources
 
@@ -499,7 +499,7 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release
+          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset macos-release --parallel
           cmake --build --preset macos-release --target tachyon_java_resources
 
@@ -539,7 +539,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release
+          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-release --parallel
           cmake --build --preset clang-release --target tachyon_java_resources
 
@@ -573,7 +573,7 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release
+          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset macos-release --parallel
           cmake --build --preset macos-release --target tachyon_java_resources
 
@@ -709,7 +709,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release
+          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-release --parallel
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
           cp build/clang-release/core/libtachyon.so bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native/
@@ -744,7 +744,7 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release
+          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset macos-release --parallel
           ARCH=$(uname -m)
           if [ "$ARCH" = "arm64" ]; then 

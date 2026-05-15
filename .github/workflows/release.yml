@@ -235,7 +235,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset ${{ matrix.preset }}
+          cmake --preset ${{ matrix.preset }} -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset ${{ matrix.preset }} --target tachyon_java_resources
 
       - name: Upload Linux Native asset
@@ -273,7 +273,7 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release
+          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset macos-release --parallel
           cmake --build --preset macos-release --target tachyon_java_resources
 
@@ -528,7 +528,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release
+          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-release --target tachyon --parallel
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
           cp build/clang-release/core/libtachyon.so \
@@ -540,7 +540,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-aarch64-release
+          cmake --preset clang-aarch64-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-aarch64-release --target tachyon --parallel
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-arm64/native
           cp build/clang-aarch64-release/core/libtachyon.so \
@@ -574,7 +574,7 @@ jobs:
 
       - name: Build libtachyon.dylib
         run: |
-          cmake --preset macos-release
+          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset macos-release --parallel
           mkdir -p dist
           cp build/macos-release/core/libtachyon.dylib dist/libtachyon.dylib
