@@ -212,6 +212,44 @@ jobs:
       - name: Test
         run: ctest --test-dir build/macos-${{ matrix.build_type }}/test --output-on-failure --parallel 4
 
+  cpp_wasm:
+    name: C++ (Emscripten, ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [ debug, release ]
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
+
+      - name: Setup Kitware
+        uses: ./.github/actions/kitware-apt
+
+      - name: Install LLVM 21
+        run: bash ci/setup/install_llvm.sh 21
+
+      - name: Setup Emscripten
+        uses: ./github/actions/setup-emsdk
+
+      - name: Configure
+        run: cmake --preset emscripten-${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build --preset emscripten-${{ matrix.build_type }}
+
+      - name: Check WASM artefacts
+        run: |
+          ls -lh build/emscripten-${{ matrix.build_type }}/core/libtachyon.a || exit 1
+          ls -lh build/emscripten-${{ matrix.build_type }}/core/tachyon.js || exit 1
+          ls -lh build/emscripten-${{ matrix.build_type }}/core/tachyon.wasm || exit 1
+
   cpp_format_check:
     name: C++ Format Check
     runs-on: ubuntu-24.04
@@ -664,7 +702,7 @@ jobs:
       - name: Check Chromium
         run: /usr/bin/chromium --version
 
-      # - name: Browser WASM tests
+        # - name: Browser WASM tests
         # working-directory: bindings/node
         # env:
         # CHROMIUM_BIN: /usr/bin/chromium
