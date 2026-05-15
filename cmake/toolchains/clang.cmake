@@ -1,5 +1,3 @@
-set(LLVM_VERSION "21" CACHE STRING "LLVM version to use")
-
 find_program(CLANG_C_BIN NAMES clang-${LLVM_VERSION} clang REQUIRED DOC "Clang C compiler (version ${LLVM_VERSION})")
 find_program(CLANG_CXX_BIN NAMES clang++-${LLVM_VERSION} clang++ REQUIRED DOC "Clang CXX compiler (version ${LLVM_VERSION})")
 
@@ -26,7 +24,5 @@ if (LLVM_AR_BIN)
 	set(CMAKE_RANLIB "${LLVM_RANLIB_BIN}" CACHE FILEPATH "")
 	message(STATUS "[toolchain/clang] AR: ${LLVM_AR_BIN}")
 endif ()
-
-set(TACHYON_LTO "fat" CACHE STRING "LTO mode: fat | thin | off")
 
 message(STATUS "[toolchain/clang] Clang ${LLVM_VERSION} - LTO=${TACHYON_LTO}")

@@ -1,5 +1,3 @@
-set(GCC_VERSION "14" CACHE STRING "GCC version to use")
-
 find_program(GCC_C_BIN NAMES gcc-${GCC_VERSION} gcc REQUIRED)
 find_program(GCC_CXX_BIN NAMES g++-${GCC_VERSION} g++ REQUIRED)
 
@@ -23,7 +21,5 @@ if (GOLD_BIN)
 else ()
 	message(WARNING "[toolchain/gcc] GOLD not found, falling back to system linker.")
 endif ()
-
-set(TACHYON_LTO "fat" CACHE STRING "LTO mode: fat | thin | off")
 
 message(STATUS "[toolchain/gcc] GCC ${GCC_VERSION} - LTO=${TACHYON_LTO}")

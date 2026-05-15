@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(TachyonOptions)
 include(TachyonCompileOptions)
 include(TachyonSanitizers)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/deps.cmake")
@@ -18,8 +19,6 @@ set(TACHYON_LINK_OPTIONS
 		$<$<CONFIG:Release>:-flto>
 		${TACHYON_SAN_LINK_FLAGS}
 )
-
-option(TACHYON_PORTABLE_BUILD "Disable -march=native for redistributable binaries" OFF)
 
 set(TACHYON_PGO_PHASE "" CACHE STRING "PGO phase: GENERATE or USE (empty = disabled)")
 set(TACHYON_PGO_DIR "${CMAKE_BINARY_DIR}/pgo-data" CACHE PATH "Directory for PGO profile data")
@@ -70,10 +69,11 @@ endif ()
 
 add_subdirectory(core)
 add_subdirectory(test)
-add_subdirectory(benchmark)
 add_subdirectory(bindings)
 
-option(TACHYON_ENABLE_FUZZING "Build libFuzzer harnesses (Clang only)" OFF)
+if (TACHYON_ENABLE_BENCH)
+	add_subdirectory(benchmark)
+endif ()
 
 if (TACHYON_ENABLE_FUZZING)
 	if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -96,7 +96,6 @@ if (TACHYON_ENABLE_FUZZING)
 	add_subdirectory(fuzz)
 endif ()
 
-option(TACHYON_ENABLE_TOP "Build tachyon-top CLI" OFF)
 if (TACHYON_ENABLE_TOP)
 	if (NOT TACHYON_SANITIZER STREQUAL "none" AND NOT TACHYON_SANITIZER STREQUAL "")
 		add_subdirectory(tools/tachyon-top EXCLUDE_FROM_ALL)
@@ -105,7 +104,6 @@ if (TACHYON_ENABLE_TOP)
 	endif ()
 endif ()
 
-option(TACHYON_ENABLE_SECCOMP "Build seccomp BPF generators (Linux + libseccomp)" OFF)
 if (TACHYON_ENABLE_SECCOMP)
 	add_subdirectory(contrib/seccomp)
 endif ()

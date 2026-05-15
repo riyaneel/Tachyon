@@ -3,6 +3,7 @@ include(FetchContent)
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
+# Google Test
 FetchContent_Declare(
 		googletest
 		GIT_REPOSITORY https://github.com/google/googletest.git
@@ -28,26 +29,30 @@ if (TARGET gtest)
 	target_compile_options(gtest_main PRIVATE -w)
 endif ()
 
-FetchContent_Declare(
-		benchmark
-		GIT_REPOSITORY https://github.com/google/benchmark.git
-		GIT_TAG v1.9.5
-		GIT_SHALLOW TRUE
-		GIT_PROGRESS FALSE
-		SYSTEM
-		OVERRIDE_FIND_PACKAGE
-)
+# Google Benchmark
+if (TACHYON_ENABLE_BENCH)
+	FetchContent_Declare(
+			benchmark
+			GIT_REPOSITORY https://github.com/google/benchmark.git
+			GIT_TAG v1.9.5
+			GIT_SHALLOW TRUE
+			GIT_PROGRESS FALSE
+			SYSTEM
+			OVERRIDE_FIND_PACKAGE
+	)
 
-set(BENCHMARK_ENABLE_TESTING OFF CACHE INTERNAL "")
-set(BENCHMARK_ENABLE_INSTALL OFF CACHE INTERNAL "")
-set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE INTERNAL "")
-set(BENCHMARK_DOWNLOAD_DEPENDENCIES ON CACHE INTERNAL "")
-FetchContent_MakeAvailable(benchmark)
+	set(BENCHMARK_ENABLE_TESTING OFF CACHE INTERNAL "")
+	set(BENCHMARK_ENABLE_INSTALL OFF CACHE INTERNAL "")
+	set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE INTERNAL "")
+	set(BENCHMARK_DOWNLOAD_DEPENDENCIES ON CACHE INTERNAL "")
+	FetchContent_MakeAvailable(benchmark)
 
-if (TARGET benchmark)
-	target_compile_options(benchmark PRIVATE -w)
+	if (TARGET benchmark)
+		target_compile_options(benchmark PRIVATE -w)
+	endif ()
 endif ()
 
+# DLPack
 FetchContent_Declare(
 		dlpack
 		GIT_REPOSITORY https://github.com/dmlc/dlpack.git
@@ -60,6 +65,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(dlpack)
 set(TACHYON_DLPACK_INCLUDE_DIR "${dlpack_SOURCE_DIR}/include" CACHE PATH "DLPack include dir")
 
+# FTXUI
 if (TACHYON_ENABLE_TOP)
 	FetchContent_Declare(
 			ftxui

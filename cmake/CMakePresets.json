@@ -157,7 +157,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "TACHYON_SANITIZER": "none",
         "TACHYON_ENABLE_FUZZING": "ON",
-        "TACHYON_FUZZ_SANITIZER": "asan"
+        "TACHYON_FUZZ_SANITIZER": "asan",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
@@ -168,7 +169,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "TACHYON_SANITIZER": "asan_ubsan",
         "TACHYON_ENABLE_FUZZING": "ON",
-        "TACHYON_FUZZ_SANITIZER": "asan_ubsan"
+        "TACHYON_FUZZ_SANITIZER": "asan_ubsan",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
@@ -179,7 +181,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "TACHYON_SANITIZER": "tsan",
         "TACHYON_ENABLE_FUZZING": "ON",
-        "TACHYON_FUZZ_SANITIZER": "tsan"
+        "TACHYON_FUZZ_SANITIZER": "tsan",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
@@ -190,7 +193,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "TACHYON_SANITIZER": "msan",
         "TACHYON_ENABLE_FUZZING": "ON",
-        "TACHYON_FUZZ_SANITIZER": "msan"
+        "TACHYON_FUZZ_SANITIZER": "msan",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
@@ -200,7 +204,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "TACHYON_SANITIZER": "none",
-        "TACHYON_ENABLE_TOP": "ON"
+        "TACHYON_ENABLE_TOP": "ON",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
@@ -211,7 +216,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "TACHYON_SANITIZER": "none",
         "TACHYON_ENABLE_TOP": "ON",
-        "TACHYON_PORTABLE_BUILD": "ON"
+        "TACHYON_PORTABLE_BUILD": "ON",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
