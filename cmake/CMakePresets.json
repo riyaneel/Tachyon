@@ -66,6 +66,7 @@
       "inherits": "base",
       "toolchainFile": "${sourceDir}/cmake/toolchains/emscripten.cmake",
       "cacheVariables": {
+        "TACHYON_ENABLE_TESTS": "OFF",
         "TACHYON_ENABLE_BENCH": "OFF",
         "TACHYON_ENABLE_TOP": "OFF",
         "TACHYON_ENABLE_FUZZING": "OFF",
