@@ -752,7 +752,7 @@ jobs:
         run: npm run build:ts
 
       - name: Tests
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm test
 
   csharp_linux:
