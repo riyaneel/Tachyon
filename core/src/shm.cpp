@@ -6,6 +6,10 @@
 #include <unistd.h>
 #include <utility>
 
+#if defined(__EMSCRIPTEN__)
+#include <cstdlib>
+#endif // #if defined(__EMSCRIPTEN__)
+
 #include <tachyon/shm.hpp>
 
 #ifndef MFD_ALLOW_SEALING
@@ -39,6 +43,15 @@ namespace tachyon::core {
 			return std::unexpected(ShmError::InvalidSize);
 
 		std::string path(name);
+
+#if defined(__EMSCRIPTEN__)
+		void *ptr = std::aligned_alloc(64, size);
+		if (!ptr) [[unlikely]] {
+			return std::unexpected(ShmError::MapFailed);
+		}
+
+		return SharedMemory(ptr, size, std::move(path), -1, true);
+#else // #if defined(__EMSCRIPTEN__)
 
 #if defined(__linux__)
 		const int fd = ::memfd_create(path.c_str(), MFD_ALLOW_SEALING | MFD_CLOEXEC);
@@ -87,14 +100,22 @@ namespace tachyon::core {
 
 #if defined(__linux__)
 		::madvise(ptr, size, MADV_DONTFORK); // CoW safety
-#endif										 // #if defined(__linux__)
+#endif // #if defined(__linux__)
 
 		return SharedMemory(ptr, size, std::move(path), fd, true);
+#endif // #if defined(__EMSCRIPTEN__) #else
 	}
 
 	auto SharedMemory::join(const int fd, const size_t size) -> std::expected<SharedMemory, ShmError> {
-		if (fd == -1 || size == 0) [[unlikely]]
+#if defined(__EMSCRIPTEN__)
+		(void)fd;
+		(void)size;
+		return std::unexpected(ShmError::OpenFailed);
+
+#else
+		if (fd == -1 || size == 0) [[unlikely]] {
 			return std::unexpected(ShmError::OpenFailed);
+		}
 
 		int flags = MAP_SHARED;
 #if defined(__linux__)
@@ -111,16 +132,27 @@ namespace tachyon::core {
 #endif										 // #if defined(__linux__)
 
 		return SharedMemory(ptr, size, "", fd, false);
+#endif
 	}
 
 	void SharedMemory::release() noexcept {
+#if defined(__EMSCRIPTEN__)
+		if (ptr_ && owner_) [[likely]] {
+			std::free(ptr_);
+			ptr_ = nullptr;
+		}
+
+#else // #if defined(__EMSCRIPTEN__)
 		if (ptr_ && ptr_ != MAP_FAILED) [[likely]] {
 			::munmap(ptr_, size_);
 			ptr_ = nullptr;
 		}
+
 		if (fd_ != -1) [[likely]] {
 			::close(fd_);
 			fd_ = -1;
 		}
+
+#endif // #if defined(__EMSCRIPTEN__) #else
 	}
 } // namespace tachyon::core

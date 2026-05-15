@@ -8,6 +8,10 @@
 #include <unistd.h>
 #endif // #if defined(__linux__)
 
+#if !defined(__linux__) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+#include <thread>
+#endif // #if	!defined(__linux__) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+
 #include <tachyon/arena.hpp>
 
 #if defined(__has_feature)
@@ -30,10 +34,10 @@ extern "C" void __tsan_release(void *addr);
 
 namespace tachyon::core {
 	namespace {
-		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
-		constexpr uint32_t WATCHDOG_TIMEOUT_US = 200'000;
-		constexpr uint32_t HDR_SIZE			   = TACHYON_MSG_ALIGNMENT;
-		constexpr uint32_t ALIGN_MASK		   = TACHYON_MSG_ALIGNMENT - 1U;
+		constexpr uint32_t					SKIP_MARKER			= 0xFFFFFFFF;
+		[[maybe_unused]] constexpr uint32_t WATCHDOG_TIMEOUT_US = 200'000;
+		constexpr uint32_t					HDR_SIZE			= TACHYON_MSG_ALIGNMENT;
+		constexpr uint32_t					ALIGN_MASK			= TACHYON_MSG_ALIGNMENT - 1U;
 
 		static_assert(
 			sizeof(MessageHeader) == TACHYON_MSG_ALIGNMENT,
@@ -65,7 +69,10 @@ namespace tachyon::core {
 #endif // #if defined(__APPLE__)
 
 		inline WaitResult platform_wait(std::atomic<uint32_t> *addr) noexcept {
-#if defined(__linux__)
+#if defined(__EMSCRIPTEN__)
+			(void)addr;
+			return WaitResult::Timeout;
+#elif defined(__linux__)
 			struct timespec ts = {
 				.tv_sec	 = static_cast<time_t>(WATCHDOG_TIMEOUT_US / 1'000'000),
 				.tv_nsec = static_cast<long>((WATCHDOG_TIMEOUT_US % 1'000'000) * 1000)
@@ -88,8 +95,6 @@ namespace tachyon::core {
 			TACHYON_TSAN_ACQUIRE(addr);
 			return WaitResult::Woken;
 #else
-#include <thread>
-
 			std::this_thread::yield();
 			return WaitResult::Woken;
 #endif
@@ -97,7 +102,8 @@ namespace tachyon::core {
 
 		inline void platform_wake(std::atomic<uint32_t> *addr) noexcept {
 			TACHYON_TSAN_RELEASE(addr);
-#if defined(__linux__)
+#if defined(__EMSCRIPTEN__)
+#elif defined(__linux__)
 			syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
 #elif defined(__APPLE__)
 			__ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, addr, 0);
