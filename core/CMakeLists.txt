@@ -1,4 +1,4 @@
-add_library(tachyon SHARED
+set(TACHYON_CORE_SRCS
 		src/arena.cpp
 		src/shm.cpp
 		src/star.cpp
@@ -8,10 +8,16 @@ add_library(tachyon SHARED
 		src/transport_uds.cpp
 )
 
+if (NOT EMSCRIPTEN)
+	add_library(tachyon SHARED TACHYON_CORE_SRCS)
+else ()
+	add_library(tachyon STATIC ${TACHYON_CORE_SRCS})
+endif ()
+
 tachyon_set_compile_options(tachyon)
-target_link_options(tachyon PRIVATE
-		${TACHYON_LINK_OPTIONS}
-)
+if (NOT EMSCRIPTEN)
+	target_link_options(tachyon PRIVATE ${TACHYON_LINK_OPTIONS})
+endif ()
 
 set_target_properties(tachyon PROPERTIES
 		CXX_VISIBILITY_PRESET hidden
@@ -20,10 +26,21 @@ set_target_properties(tachyon PROPERTIES
 		OUTPUT_NAME "tachyon"
 )
 
-if (APPLE)
-	set_target_properties(tachyon PROPERTIES INSTALL_RPATH "@loader_path")
-else ()
-	set_target_properties(tachyon PROPERTIES INSTALL_RPATH "$ORIGIN")
+if (NOT EMSCRIPTEN)
+	if (APPLE)
+		set_target_properties(tachyon PROPERTIES INSTALL_RPATH "@loader_path")
+	else ()
+		set_target_properties(tachyon PROPERTIES INSTALL_RPATH "$ORIGIN")
+	endif ()
+
+	if (UNIX AND NOT APPLE)
+		target_link_libraries(tachyon PRIVATE rt)
+		target_link_options(tachyon PRIVATE
+				$<$<NOT:$<CONFIG:Debug>>:-Wl,-z,defs>
+				"-Wl,-z,now"
+				"-Wl,-z,relro"
+		)
+	endif ()
 endif ()
 
 target_include_directories(tachyon
@@ -31,13 +48,25 @@ target_include_directories(tachyon
 		PRIVATE src
 )
 
-if (UNIX AND NOT APPLE)
-	target_link_libraries(tachyon PRIVATE rt)
-	target_link_options(tachyon PRIVATE
-			$<$<NOT:$<CONFIG:Debug>>:-Wl,-z,defs>
-			"-Wl,-z,now"
-			"-Wl,-z,relro"
+set(TACHYON_LIBRARY tachyon PARENT_SCOPE)
+
+if (EMSCRIPTEN)
+	file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/wasm_entry.cpp "")
+	add_executable(tachyon_wasm ${CMAKE_CURRENT_BINARY_DIR}/wasm_entry.cpp)
+
+	target_link_libraries(tachyon_wasm PRIVATE tachyon)
+	target_link_options(tachyon_wasm PRIVATE
+			"-sALLOW_MEMORY_GROWTH=1"
+			"-sMODULARIZE=1"
+			"-sEXPORT_NAME='TachyonCore'"
+			"-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
+			"-sSTRICT=1"
+			"-sNO_EXIT_RUNTIME=1"
+			"--no-entry"
+	)
+
+	set_target_properties(tachyon_wasm PROPERTIES
+			OUTPUT_NAME "tachyon"
+			SUFFIX ".js"
 	)
 endif ()
-
-set(TACHYON_LIBRARY tachyon PARENT_SCOPE)
