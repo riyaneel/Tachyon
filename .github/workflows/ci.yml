@@ -647,36 +647,36 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: bindings/js/package-lock.json
 
       - name: Vendor C++ core
         run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies & build native library
-        working-directory: bindings/node
+        working-directory: bindings/js
         env:
           CC: clang-21
           CXX: clang++-21
         run: npm install && npm run build:native
 
       - name: Type check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npx tsc --noEmit
 
       - name: Format check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run format:check
 
       - name: Lint check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run lint
 
       - name: Build TypeScript
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run build:ts
 
       - name: Tests
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm test
 
   nodejs_browser_wasm:
@@ -689,21 +689,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          # Node only serves files and drives CDP here; Chromium is the target under test.
-          # Use Node 24 for the built-in WebSocket client.
           node-version: 24
           cache: 'npm'
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: bindings/js/package-lock.json
 
       - name: Install dependencies
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm install --ignore-scripts
 
       - name: Check Chromium
         run: /usr/bin/chromium --version
 
-        # - name: Browser WASM tests
-        # working-directory: bindings/node
+      # - name: Browser WASM tests
+        # working-directory: bindings/js
         # env:
         # CHROMIUM_BIN: /usr/bin/chromium
         # Do not run build:wasm in this test job. The generated WASM bindings are
@@ -728,29 +726,29 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: bindings/js/package-lock.json
 
       - name: Vendor C++ core
         run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies & build native library
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm install && npm run build:native
 
       - name: Type check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npx tsc --noEmit
 
       - name: Format check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run format:check
 
       - name: Lint check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run lint
 
       - name: Build TypeScript
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run build:ts
 
       - name: Tests
