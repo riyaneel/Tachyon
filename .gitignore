@@ -161,4 +161,4 @@ Testing/
 crash-
 .private/
 oss-fuzz/
-
+.emsdk/
