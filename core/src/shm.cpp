@@ -129,7 +129,7 @@ namespace tachyon::core {
 
 #if defined(__linux__)
 		::madvise(ptr, size, MADV_DONTFORK); // CoW safety
-#endif										 // #if defined(__linux__)
+#endif // #if defined(__linux__)
 
 		return SharedMemory(ptr, size, "", fd, false);
 #endif
