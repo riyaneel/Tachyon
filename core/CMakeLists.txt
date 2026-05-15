@@ -54,15 +54,20 @@ if (EMSCRIPTEN)
 	file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/wasm_entry.cpp "")
 	add_executable(tachyon_wasm ${CMAKE_CURRENT_BINARY_DIR}/wasm_entry.cpp)
 
-	target_link_libraries(tachyon_wasm PRIVATE tachyon)
+	target_link_libraries(tachyon_wasm PRIVATE -Wl,--whole-archive tachyon -Wl,--no-whole-archive)
 	target_link_options(tachyon_wasm PRIVATE
 			"-sALLOW_MEMORY_GROWTH=1"
 			"-sMODULARIZE=1"
-			"-sEXPORT_NAME='TachyonCore'"
-			"-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
+			"-sEXPORT_NAME=TachyonCore"
 			"-sSTRICT=1"
 			"-sNO_EXIT_RUNTIME=1"
+			"-sWASM_BIGINT=1"
+			"-sFILESYSTEM=0"
 			"--no-entry"
+			"--minify=0"
+			"--profiling-funcs"
+			"-sEXPORTED_FUNCTIONS=_malloc,_free"
+			"-sEXPORTED_RUNTIME_METHODS=ccall,cwrap,getValue,setValue,UTF8ToString"
 	)
 
 	set_target_properties(tachyon_wasm PROPERTIES
