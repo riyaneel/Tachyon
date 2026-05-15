@@ -203,9 +203,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install dependencies
-        run: brew install googletest google-benchmark
-
       - name: Configure
         run: cmake --preset macos-${{ matrix.build_type }}
 
