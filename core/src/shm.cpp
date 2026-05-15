@@ -45,6 +45,10 @@ namespace tachyon::core {
 		std::string path(name);
 
 #if defined(__EMSCRIPTEN__)
+		if (size > static_cast<size_t>(INT32_MAX)) [[unlikely]] {
+			return std::unexpected(ShmError::InvalidSize);
+		}
+
 		void *ptr = std::aligned_alloc(64, size);
 		if (!ptr) [[unlikely]] {
 			return std::unexpected(ShmError::MapFailed);
