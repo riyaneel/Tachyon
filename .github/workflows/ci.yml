@@ -236,7 +236,7 @@ jobs:
         run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Emscripten
-        uses: ./github/actions/setup-emsdk
+        uses: ./.github/actions/setup-emsdk
 
       - name: Configure
         run: cmake --preset emscripten-${{ matrix.build_type }}
