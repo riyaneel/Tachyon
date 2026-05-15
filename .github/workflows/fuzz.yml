@@ -24,7 +24,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Build fuzz targets
         run: |

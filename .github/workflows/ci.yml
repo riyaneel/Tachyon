@@ -45,7 +45,7 @@ jobs:
 
       - name: Install Toolchain (Clang)
         if: matrix.compiler == 'clang'
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure (${{ matrix.compiler }}-${{ matrix.build_type}})
         run: |
@@ -80,7 +80,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset clang-aarch64-release -DTACHYON_ENABLE_BENCH=OFF
@@ -111,7 +111,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset asan -DTACHYON_ENABLE_BENCH=OFF
@@ -143,10 +143,10 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Build Instrumented libc++
-        run: bash ci/build_msan_libcxx.sh 21
+        run: bash ci/setup/build_msan_libcxx.sh 21
 
       - name: Configure
         run: cmake --preset msan -DTACHYON_ENABLE_BENCH=OFF
@@ -177,7 +177,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset tsan -DTACHYON_ENABLE_BENCH=OFF
@@ -223,7 +223,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Install Clang Format
         run: |
@@ -251,7 +251,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset tachyon-top
@@ -388,7 +388,7 @@ jobs:
           cache-dependency-path: 'bindings/go'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh go
+        run: bash ci/setup/vendor.sh go
 
       - name: Go Test
         env:
@@ -425,7 +425,7 @@ jobs:
           cache-dependency-path: 'bindings/go'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh go
+        run: bash ci/setup/vendor.sh go
 
       - name: Go Test
         env:
@@ -451,7 +451,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -464,7 +464,7 @@ jobs:
             bindings/java/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         env:
@@ -501,7 +501,7 @@ jobs:
             bindings/java/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         run: |
@@ -525,7 +525,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -538,7 +538,7 @@ jobs:
             bindings/kotlin/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         env:
@@ -575,7 +575,7 @@ jobs:
             bindings/kotlin/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         run: |
@@ -602,7 +602,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -612,7 +612,7 @@ jobs:
           cache-dependency-path: bindings/node/package-lock.json
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh node
+        run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies & build native library
         working-directory: bindings/node
@@ -693,7 +693,7 @@ jobs:
           cache-dependency-path: bindings/node/package-lock.json
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh node
+        run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies & build native library
         working-directory: bindings/node
@@ -730,7 +730,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -740,7 +740,7 @@ jobs:
             10.x
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh c#
+        run: bash ci/setup/vendor.sh c#
 
       - name: Build native library
         env:
@@ -778,7 +778,7 @@ jobs:
             10.x
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh c#
+        run: bash ci/setup/vendor.sh c#
 
       - name: Build Native library
         run: |

@@ -48,7 +48,7 @@ jobs:
 
       - name: Install LLVM 21
         if: matrix.language == 'c-cpp' || matrix.language == 'csharp' || matrix.language == 'java-kotlin'
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Java
         if: matrix.language == 'java-kotlin'
@@ -92,7 +92,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          bash ci/vendor.sh c#
+          bash ci/setup/vendor.sh c#
           cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-release --parallel
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
@@ -105,7 +105,7 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          bash ci/vendor.sh java
+          bash ci/setup/vendor.sh java
           cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
           cmake --build --preset clang-release --parallel
           cmake --build --preset clang-release --target tachyon_java_resources
