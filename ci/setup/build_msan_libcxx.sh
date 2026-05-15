@@ -4,7 +4,7 @@ set -euo pipefail
 
 LLVM_VERSION="${1:-21}"
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INSTALL_DIR="${PROJECT_ROOT}/.msan_toolchain/llvm-${LLVM_VERSION}"
 
 if [[ -d "${INSTALL_DIR}/include/c++/v1" ]]; then
