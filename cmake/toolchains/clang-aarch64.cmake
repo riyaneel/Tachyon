@@ -5,8 +5,11 @@ if (NOT DEFINED LLVM_VERSION)
 	set(LLVM_VERSION 21)
 endif ()
 
-set(CMAKE_C_COMPILER clang-${LLVM_VERSION})
-set(CMAKE_CXX_COMPILER clang++-${LLVM_VERSION})
+find_program(CMAKE_C_COMPILER NAMES clang-${LLVM_VERSION} clang)
+find_program(CMAKE_CXX_COMPILER NAMES clang++-${LLVM_VERSION} clang++)
+if (NOT CMAKE_C_COMPILER OR NOT CMAKE_CXX_COMPILER)
+	message(FATAL_ERROR "[toolchain/clang-aarch64] Clang not found. Please install clang/clang++.")
+endif ()
 
 set(CMAKE_C_COMPILER_TARGET aarch64-linux-gnu)
 set(CMAKE_CXX_COMPILER_TARGET aarch64-linux-gnu)
@@ -16,24 +19,24 @@ if (NOT AARCH64_GCC)
 	message(FATAL_ERROR "[toolchain/clang-aarch64] aarch64-linux-gnu-gcc not found.")
 endif ()
 
-execute_process(
-		COMMAND ${AARCH64_GCC} --print-sysroot
-		OUTPUT_VARIABLE _GCC_SYSROOT
-		OUTPUT_STRIP_TRAILING_WHITESPACE
-		ERROR_QUIET
-)
-
-if (EXISTS "/usr/aarch64-redhat-linux/sys-root/fc43/usr/include")
-	set(_GCC_SYSROOT "/usr/aarch64-redhat-linux/sys-root/fc43")
+if (NOT CMAKE_SYSROOT)
+	execute_process(
+			COMMAND ${AARCH64_GCC} --print-sysroot
+			OUTPUT_VARIABLE _GCC_SYSROOT
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+			ERROR_QUIET
+	)
+	if (_GCC_SYSROOT AND NOT "${_GCC_SYSROOT}" STREQUAL "/")
+		set(CMAKE_SYSROOT "${_GCC_SYSROOT}")
+	endif ()
 endif ()
 
-if (_GCC_SYSROOT AND EXISTS "${_GCC_SYSROOT}/usr/include")
-	set(CMAKE_SYSROOT "${_GCC_SYSROOT}")
+if (CMAKE_SYSROOT)
+	set(CMAKE_FIND_ROOT_PATH "${CMAKE_SYSROOT}")
 else ()
-	message(FATAL_ERROR "[toolchain/clang-aarch64] Sysroot not found: (${AARCH64_GCC} --print-sysroot -> '${_GCC_SYSROOT}')")
+	set(CMAKE_FIND_ROOT_PATH "/usr/aarch64-linux-gnu")
 endif ()
 
-set(CMAKE_FIND_ROOT_PATH "${CMAKE_SYSROOT}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
