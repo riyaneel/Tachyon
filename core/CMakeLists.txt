@@ -9,7 +9,7 @@ set(TACHYON_CORE_SRCS
 )
 
 if (NOT EMSCRIPTEN)
-	add_library(tachyon SHARED TACHYON_CORE_SRCS)
+	add_library(tachyon SHARED ${TACHYON_CORE_SRCS})
 else ()
 	add_library(tachyon STATIC ${TACHYON_CORE_SRCS})
 endif ()
