@@ -113,6 +113,8 @@ TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
+TACHYON_ABI void *tachyon_bus_get_shm_ptr(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
 TACHYON_ABI tachyon_error_t tachyon_rpc_listen(
 	const char *socket_path, size_t cap_fwd, size_t cap_rev, tachyon_rpc_bus_t **out_rpc
 ) TACHYON_NOEXCEPT;

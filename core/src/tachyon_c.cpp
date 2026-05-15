@@ -281,4 +281,12 @@ tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 		return TACHYON_STATE_UNKNOWN;
 	return static_cast<tachyon_state_t>(bus->arena.get_state());
 }
+
+void *tachyon_bus_get_shm_ptr(const tachyon_bus_t *bus) TACHYON_NOEXCEPT {
+	if (!bus) [[unlikely]] {
+		return nullptr;
+	}
+
+	return bus->shm.get_ptr();
+}
 } // extern "C"
