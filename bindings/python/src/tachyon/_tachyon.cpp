@@ -1036,14 +1036,10 @@ static PyObject *TachyonBus_stats(const TachyonBus *self, PyObject *Py_UNUSED(ar
 	}
 
 	return Py_BuildValue(
-		"{s:K,s:K,s:I,s:i}",
-		"ring_capacity",
+		"KKii",
 		static_cast<unsigned long long>(stats.ring_capacity),
-		"ring_occupancy",
 		static_cast<unsigned long long>(stats.ring_occupancy),
-		"consumer_sleeping",
-		static_cast<unsigned int>(stats.consumer_sleeping),
-		"state",
+		static_cast<unsigned int>(stats.consumer_state),
 		static_cast<int>(stats.state)
 	);
 }

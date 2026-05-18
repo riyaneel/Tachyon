@@ -1,5 +1,5 @@
 import types
-from typing import Callable, Iterator, Generator, Optional, Type, Any
+from typing import Callable, Iterator, Generator, Optional, Type, Any, NamedTuple
 from . import _tachyon
 
 __all__ = [
@@ -155,15 +155,15 @@ class Bus:
 		...
 
 	def stats(self) -> "BusStats":
-		"""Returns a read-only snapshot of bus state."""
+		"""Returns a read-only snapshot of the bus state."""
 		...
 
 
-class BusStats:
-	"""Read-only snapshot of bus state. NamedTuple."""
+class BusStats(NamedTuple):
+	"""Read-only snapshot of bus state."""
 	ring_capacity: int
 	ring_occupancy: int
-	consumer_sleeping: int  # 0 = awake, 1 = sleeping on futex, 2 = pure-spin
+	consumer_state: int  # 0 = awake, 1 = sleeping on futex, 2 = pure-spin
 	state: int
 
 

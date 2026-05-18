@@ -153,13 +153,10 @@ class TachyonBus:
         """
         ...
 
-    def stats(self) -> dict:
+    def stats(self) -> :
         """
         Returns a read-only snapshot of bus state as a dict with keys:
-        ring_capacity, ring_occupancy, consumer_sleeping, state.
-
-        Cheap (relaxed atomic loads only). Per-field consistent, not
-        struct-consistent — fine for monitoring, not for synchronization.
+        ring_capacity, ring_occupancy, consumer_state, state.
         """
         ...
 
