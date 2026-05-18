@@ -48,7 +48,12 @@ interface NativeModule {
 }
 
 function loadNative(): NativeModule {
+	// Resolves correctly both when executed from compiled `dist/bus.js` (one level
+	// above the file is the package root) and from source `src/ts/bus.ts` (two
+	// levels above the file is the package root).
 	const candidates = [
+		new URL('../build/Release/tachyon_node.node', import.meta.url).pathname,
+		new URL('../build/Debug/tachyon_node.node', import.meta.url).pathname,
 		new URL('../../build/Release/tachyon_node.node', import.meta.url).pathname,
 		new URL('../../build/Debug/tachyon_node.node', import.meta.url).pathname,
 	];
