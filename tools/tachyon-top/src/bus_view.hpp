@@ -26,8 +26,6 @@ namespace tachyon::top {
 		double				   msg_per_sec;
 		double				   mb_per_sec;
 		bool				   consumer_sleeping;
-		uint64_t			   producer_hb_age_us;
-		uint64_t			   consumer_hb_age_us;
 		core::BusState		   state;
 		std::array<double, 60> sparkline;
 	};
@@ -112,20 +110,18 @@ namespace tachyon::top {
 
 		[[nodiscard]] BusUIData sample() noexcept {
 			BusUIData data{
-				.pid				= handle_.pid,
-				.comm				= handle_.comm,
-				.capacity			= capacity_,
-				.used_bytes			= 0,
-				.head				= 0,
-				.tail				= 0,
-				.fill_pct			= 0.0,
-				.msg_per_sec		= 0.0,
-				.mb_per_sec			= 0.0,
-				.consumer_sleeping	= false,
-				.producer_hb_age_us = 0,
-				.consumer_hb_age_us = 0,
-				.state				= core::BusState::Unknown,
-				.sparkline			= sparkline_
+				.pid			   = handle_.pid,
+				.comm			   = handle_.comm,
+				.capacity		   = capacity_,
+				.used_bytes		   = 0,
+				.head			   = 0,
+				.tail			   = 0,
+				.fill_pct		   = 0.0,
+				.msg_per_sec	   = 0.0,
+				.mb_per_sec		   = 0.0,
+				.consumer_sleeping = false,
+				.state			   = core::BusState::Unknown,
+				.sparkline		   = sparkline_
 			};
 
 			if (!layout_) [[unlikely]] {
@@ -135,8 +131,6 @@ namespace tachyon::top {
 			const size_t cur_head = layout_->indices.head.load(std::memory_order_relaxed);
 			const size_t cur_tail = layout_->indices.tail.load(std::memory_order_relaxed);
 			const auto	 c_sleep  = layout_->indices.consumer_sleeping.load(std::memory_order_relaxed);
-			const auto	 p_hb	  = layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
-			const auto	 c_hb	  = layout_->indices.consumer_heartbeat.load(std::memory_order_relaxed);
 			const auto	 b_state  = layout_->header.state.load(std::memory_order_relaxed);
 
 			const auto	 now	   = std::chrono::steady_clock::now();
@@ -164,12 +158,6 @@ namespace tachyon::top {
 
 			data.consumer_sleeping = (c_sleep == 1);
 			data.state			   = b_state;
-
-			const uint64_t now_tsc = rdtsc();
-			data.producer_hb_age_us =
-				(now_tsc > p_hb) ? static_cast<uint64_t>(static_cast<double>(now_tsc - p_hb) / tsc_ticks_per_us_) : 0;
-			data.consumer_hb_age_us =
-				(now_tsc > c_hb) ? static_cast<uint64_t>(static_cast<double>(now_tsc - c_hb) / tsc_ticks_per_us_) : 0;
 
 			sparkline_[sparkline_idx_ % 60] = data.mb_per_sec;
 			sparkline_idx_++;

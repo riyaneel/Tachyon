@@ -67,8 +67,6 @@ typedef struct {
 typedef struct {
 	uint64_t		ring_capacity;
 	uint64_t		ring_occupancy;
-	uint64_t		producer_heartbeat;
-	uint64_t		consumer_heartbeat;
 	uint32_t		consumer_sleeping; /* 0=awake, 1=sleeping, 2=pure-spin */
 	tachyon_state_t state;
 } tachyon_bus_stats_t;

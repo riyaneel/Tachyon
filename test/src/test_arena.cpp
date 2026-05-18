@@ -370,8 +370,6 @@ namespace tachyon::core::test {
 		EXPECT_EQ(producer.get_capacity(), arena_capacity);
 		EXPECT_EQ(producer.get_ring_occupancy(), 0U);
 		EXPECT_EQ(producer.get_consumer_sleeping_raw(), CONSUMER_AWAKE);
-		EXPECT_EQ(producer.get_producer_heartbeat(), 0U);
-		EXPECT_EQ(producer.get_consumer_heartbeat(), 0U);
 		EXPECT_EQ(producer.get_state(), BusState::Ready);
 
 		for (int i = 0; i < 3; ++i) {

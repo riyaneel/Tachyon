@@ -113,9 +113,8 @@ Both fds transferred in a single `sendmsg` call with `cmsg_len = CMSG_LEN(2 * si
   wake checks on the producer flush path. No wire format change.
 - Removal or signature change: requires a major version bump.
 - `TACHYON_TYPE_ID`, `TACHYON_ROUTE_ID`, `TACHYON_MSG_TYPE` macros added in v0.4.0.
-- `tachyon_bus_stats()` and `tachyon_bus_stats_t` added in v0.5.2 — read-only snapshot of ring capacity/occupancy,
-  producer/consumer heartbeats, consumer sleeping state, and bus state. Reads existing atomics with
-  `memory_order_relaxed`; no new fields in `MemoryLayout`, no hot-path writes, no wire format change.
+- `tachyon_bus_stats()` and `tachyon_bus_stats_t` added in v0.6.0. Reads existing atomics with `memory_order_relaxed`;
+  no new fields in `MemoryLayout`, no hot-path writes, no wire format change.
 
 Visibility: `TACHYON_ABI` on all exported symbols. Internals: `-fvisibility=hidden`.
 
@@ -125,6 +124,4 @@ Visibility: `TACHYON_ABI` on all exported symbols. Internals: `-fvisibility=hidd
 
 - Endianness: assumed identical between producer and consumer. Not detected.
 - Version check is strict equality. No forward compatibility.
-- Heartbeat fields: `producer_heartbeat` and `consumer_heartbeat` in `SPSCIndices` are present in the layout but are
-  not currently incremented by `Arena`. They are exposed via `tachyon_bus_stats()` for forward compatibility but
-  always read `0` until wiring lands in a future release. No IPC correctness impact.
+
