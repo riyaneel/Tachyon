@@ -547,18 +547,18 @@ namespace tachyon::core {
 		return static_cast<int>(platform_wait(&layout_->indices.consumer_sleeping));
 	}
 
-	uint32_t Arena::get_consumer_sleeping_raw() const noexcept {
-		return layout_->indices.consumer_sleeping.load(std::memory_order_relaxed);
+	uint32_t Arena::get_consumer_state() const noexcept {
+		return layout_->indices.consumer_sleeping.load(std::memory_order_acquire);
 	}
 
 	size_t Arena::get_capacity() const noexcept {
-		return capacity_mask_ + 1;
+		return layout_->header.capacity;
 	}
 
 	size_t Arena::get_ring_occupancy() const noexcept {
-		const size_t head = layout_->indices.head.load(std::memory_order_relaxed);
-		const size_t tail = layout_->indices.tail.load(std::memory_order_relaxed);
-		return head - tail;
+		const size_t head = layout_->indices.head.load(std::memory_order_acquire);
+		const size_t tail = layout_->indices.tail.load(std::memory_order_acquire);
+		return head >= tail ? head - tail : 0;
 	}
 
 	void Arena::set_fatal_error() const noexcept {

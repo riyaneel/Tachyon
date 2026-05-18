@@ -282,14 +282,15 @@ tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	return static_cast<tachyon_state_t>(bus->arena.get_state());
 }
 
-tachyon_error_t tachyon_bus_stats(const tachyon_bus_t *bus, tachyon_bus_stats_t *out) TACHYON_NOEXCEPT {
-	if (!bus || !out) [[unlikely]]
+tachyon_error_t tachyon_bus_stats(const tachyon_bus_t *bus, tachyon_bus_stats_t *out_stats) TACHYON_NOEXCEPT {
+	if (!bus || !out_stats) [[unlikely]] {
 		return TACHYON_ERR_NULL_PTR;
+	}
 
-	out->ring_capacity	   = bus->arena.get_capacity();
-	out->ring_occupancy	   = bus->arena.get_ring_occupancy();
-	out->consumer_sleeping = bus->arena.get_consumer_sleeping_raw();
-	out->state			   = static_cast<tachyon_state_t>(bus->arena.get_state());
+	out_stats->ring_capacity  = bus->arena.get_capacity();
+	out_stats->ring_occupancy = bus->arena.get_ring_occupancy();
+	out_stats->consumer_state = bus->arena.get_consumer_state();
+	out_stats->state		  = static_cast<tachyon_state_t>(bus->arena.get_state());
 	return TACHYON_SUCCESS;
 }
 } // extern "C"

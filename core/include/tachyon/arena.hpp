@@ -151,7 +151,7 @@ namespace tachyon::core {
 
 		int wait_consumer_sleeping() const noexcept;
 
-		uint32_t get_consumer_sleeping_raw() const noexcept;
+		uint32_t get_consumer_state() const noexcept;
 
 		size_t get_capacity() const noexcept;
 
