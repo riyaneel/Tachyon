@@ -15,7 +15,10 @@ jobs:
   regression:
     name: libFuzzer corpus regression
     runs-on: ubuntu-24.04
-
+    strategy:
+      fail-fast: true
+      matrix:
+        preset: [fuzz, fuzz-msan, fuzz-tsan, fuzz-ubsan]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -26,15 +29,19 @@ jobs:
       - name: Install LLVM 21
         run: bash ci/install_llvm.sh 21
 
+      - name: Build Instrumented libc++
+        if: matrix.preset == 'fuzz-msan'
+        run: bash ci/build_msan_libcxx.sh 21
+
       - name: Build fuzz targets
         run: |
-          cmake --preset fuzz
-          cmake --build --preset fuzz --parallel
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Regression - arena_rpc
         run: |
           mkdir -p fuzz/corpus/crashes
-          ./build/fuzz/fuzz/tachyon_fuzz_arena_rpc \
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_arena_rpc \
             fuzz/corpus/arena_rpc \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
@@ -42,14 +49,15 @@ jobs:
       - name: Regression - arena_rx
         run: |
           mkdir -p fuzz/corpus/crashes
-          ./build/fuzz/fuzz/tachyon_fuzz_arena_rx \
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_arena_rx \
             fuzz/corpus/arena_rx \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression - arena_rx_batch
         run: |
-          ./build/fuzz/fuzz/tachyon_fuzz_arena_rx_batch \
+          mkdir -p fuzz/corpus/crashes
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_arena_rx_batch \
             fuzz/corpus/arena_rx_batch \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
@@ -57,14 +65,15 @@ jobs:
       - name: Regression - arena_tx
         run: |
           mkdir -p fuzz/corpus/crashes
-          ./build/fuzz/fuzz/tachyon_fuzz_arena_tx \
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_arena_tx \
             fuzz/corpus/arena_tx \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression - header_parser
         run: |
-          ./build/fuzz/fuzz/tachyon_fuzz_header_parser \
+          mkdir -p fuzz/corpus/crashes
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_header_parser \
             fuzz/corpus/header_parser \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
@@ -72,14 +81,23 @@ jobs:
       - name: Regression - shared memory attach
         run: |
           mkdir -p fuzz/corpus/crashes
-          ./build/fuzz/fuzz/tachyon_fuzz_shm_attach \
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_shm_attach \
             fuzz/corpus/shm_attach \
+            -runs=0 \
+            -artifact_prefix=fuzz/corpus/crashes/
+
+      - name: Regression - star topology
+        run: |
+          mkdir -p fuzz/corpus/crashes
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_star \
+            fuzz/corpus/star \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
 
       - name: Regression - toctou
         run: |
-          ./build/fuzz/fuzz/tachyon_fuzz_toctou \
+          mkdir -p fuzz/corpus/crashes
+          ./build/${{ matrix.preset }}/fuzz/tachyon_fuzz_toctou \
             fuzz/corpus/toctou \
             -runs=0 \
             -artifact_prefix=fuzz/corpus/crashes/
