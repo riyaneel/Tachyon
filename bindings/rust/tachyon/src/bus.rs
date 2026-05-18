@@ -202,6 +202,10 @@ impl Bus {
     pub fn flush(&self) {
         unsafe { tachyon_flush(self.inner.as_ptr()) };
     }
+
+    pub(crate) fn as_ptr(&self) -> *mut tachyon_bus_t {
+        self.inner.as_ptr()
+    }
 }
 
 pub struct TxGuard<'bus> {
