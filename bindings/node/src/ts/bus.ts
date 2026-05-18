@@ -9,6 +9,18 @@ import { RxGuard, TxGuard } from './guards.ts';
 
 const _require = createRequire(import.meta.url);
 
+/**
+ * Read-only snapshot of bus state. Returned by {@link Bus.stats}.
+ * `consumerSleeping`: 0 = awake, 1 = sleeping on futex, 2 = pure-spin mode.
+ * `state`: same numeric values as {@link Bus.getState} / tachyon_state_t.
+ */
+export interface BusStats {
+	ringCapacity: number;
+	ringOccupancy: number;
+	consumerSleeping: number;
+	state: number;
+}
+
 // Raw shape of a native instance returned by TachyonBusNode.listen / .connect.
 interface NativeBinding {
 	close(): void;
@@ -38,6 +50,8 @@ interface NativeBinding {
 	setNumaNode(nodeId: number): void;
 
 	getState(): number;
+
+	stats(): BusStats;
 }
 
 interface NativeModule {
@@ -252,6 +266,16 @@ export class Bus implements Disposable {
 			getState: () => this.#handle.getState(),
 		};
 		return new RxBatch(ctrl, messages);
+	}
+
+	/**
+	 * Returns a read-only snapshot of bus state. Cheap (relaxed atomic loads only)
+	 * and safe to call from either side of the bus. Per-field consistent, not
+	 * struct-consistent — fine for monitoring, not for synchronization.
+	 */
+	public stats(): BusStats {
+		this.#assertOpen();
+		return this.#handle.stats();
 	}
 
 	/** Closes the bus and unmaps shared memory. Safe to call multiple times. */

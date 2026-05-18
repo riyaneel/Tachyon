@@ -153,6 +153,16 @@ class TachyonBus:
         """
         ...
 
+    def stats(self) -> dict:
+        """
+        Returns a read-only snapshot of bus state as a dict with keys:
+        ring_capacity, ring_occupancy, consumer_sleeping, state.
+
+        Cheap (relaxed atomic loads only). Per-field consistent, not
+        struct-consistent — fine for monitoring, not for synchronization.
+        """
+        ...
+
 
 class RpcTxGuard:
     """Tachyon RPC TX Guard Context Manager.

@@ -14,6 +14,7 @@ __all__ = [
 	"RpcTxGuard",
 	"RpcRxGuard",
 	"Bus",
+	"BusStats",
 	"RpcBus",
 	"RpcDispatcher",
 	"RpcEndpoint",
@@ -152,6 +153,18 @@ class Bus:
 	def drain_batch(self, max_msgs: int = 1024, spin_threshold: int = 10000) -> RxBatchGuard:
 		"""Batch RX. Blocks until ≥1 message, drains up to max_msgs."""
 		...
+
+	def stats(self) -> "BusStats":
+		"""Returns a read-only snapshot of bus state."""
+		...
+
+
+class BusStats:
+	"""Read-only snapshot of bus state. NamedTuple."""
+	ring_capacity: int
+	ring_occupancy: int
+	consumer_sleeping: int  # 0 = awake, 1 = sleeping on futex, 2 = pure-spin
+	state: int
 
 
 class RpcBus:

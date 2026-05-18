@@ -50,6 +50,8 @@ describe('Tachyon Bus - SPSC Integration Suite', function () {
 
 	it('should support batch draining with iterator and indexed access', () => runSpsc('batch'));
 
+	it('should expose ring capacity, occupancy, and bus state via stats()', () => runSpsc('stats'));
+
 	it('should correctly identify internal errors via type guards', () => {
 		const abiErr = new AbiMismatchError();
 		assert.ok(isAbiMismatch(abiErr));

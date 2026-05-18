@@ -41,6 +41,15 @@ public unsafe struct TachyonMsgView
     public uint Padding;
 }
 
+[StructLayout(LayoutKind.Sequential)]
+public struct TachyonBusStats
+{
+    public ulong RingCapacity;
+    public ulong RingOccupancy;
+    public uint ConsumerSleeping; // 0 = awake, 1 = sleeping, 2 = pure-spin
+    public TachyonState State;
+}
+
 internal static unsafe partial class TachyonNative
 {
     private const string Lib = "tachyon";
@@ -130,6 +139,9 @@ internal static unsafe partial class TachyonNative
 
     [LibraryImport(Lib)]
     internal static partial TachyonState tachyon_get_state(nint bus);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_bus_stats(nint bus, TachyonBusStats* outStats);
 
     [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial TachyonError tachyon_rpc_listen(

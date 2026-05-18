@@ -2,9 +2,22 @@ from __future__ import annotations
 
 import types
 from contextlib import contextmanager
-from typing import Iterator, Generator, Optional, Type
+from typing import Iterator, Generator, NamedTuple, Optional, Type
 from . import _tachyon
 from .message import Message
+
+
+class BusStats(NamedTuple):
+    """Read-only snapshot of bus state. Returned by :meth:`Bus.stats`.
+
+    Cheap (relaxed atomic loads only) and safe to call from either side of
+    the bus. Per-field consistent, not struct-consistent — fine for
+    monitoring, not for synchronization.
+    """
+    ring_capacity: int
+    ring_occupancy: int
+    consumer_sleeping: int  # 0 = awake, 1 = sleeping on futex, 2 = pure-spin
+    state: int  # same numeric values as tachyon_state_t
 
 
 class Bus:
@@ -115,3 +128,7 @@ class Bus:
         Returns a context manager yielding a sequence of messages.
         """
         return self._bus.drain_batch(max_msgs, spin_threshold)
+
+    def stats(self) -> BusStats:
+        """Returns a read-only snapshot of bus state."""
+        return BusStats(**self._bus.stats())

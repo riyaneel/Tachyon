@@ -5,6 +5,20 @@ use tachyon_sys::*;
 
 const STATE_FATAL_ERROR: u32 = tachyon_state_t_TACHYON_STATE_FATAL_ERROR as u32;
 
+/// Read-only snapshot of bus state. Returned by [`Bus::stats`].
+///
+/// Cheap (relaxed atomic loads only) and safe to call from either side of the bus.
+/// Per-field consistent, not struct-consistent — fine for monitoring, not for synchronization.
+#[derive(Debug, Clone, Copy)]
+pub struct BusStats {
+    pub ring_capacity: u64,
+    pub ring_occupancy: u64,
+    /// 0 = awake, 1 = sleeping on futex, 2 = pure-spin mode.
+    pub consumer_sleeping: u32,
+    /// Same numeric values as `tachyon_state_t`.
+    pub state: u32,
+}
+
 /// SPSC IPC bus. `Send` but not `Sync`, one `Bus` per thread.
 pub struct Bus {
     inner: NonNull<tachyon_bus_t>,
@@ -90,6 +104,23 @@ impl Bus {
     pub fn set_polling_mode(&self, spin_mode: i32) {
         unsafe {
             tachyon_bus_set_polling_mode(self.inner.as_ptr(), spin_mode);
+        }
+    }
+
+    /// Returns a read-only snapshot of bus state.
+    pub fn stats(&self) -> BusStats {
+        let mut raw: tachyon_bus_stats_t = unsafe { std::mem::zeroed() };
+        // SAFETY: self.inner is a valid bus pointer; raw is a stack-allocated
+        // output struct of the right layout. The call only reads from shared
+        // memory with relaxed atomics — cannot fail given a non-null bus.
+        unsafe {
+            tachyon_bus_stats(self.inner.as_ptr(), &mut raw as *mut _);
+        }
+        BusStats {
+            ring_capacity: raw.ring_capacity,
+            ring_occupancy: raw.ring_occupancy,
+            consumer_sleeping: raw.consumer_sleeping,
+            state: raw.state as u32,
         }
     }
 

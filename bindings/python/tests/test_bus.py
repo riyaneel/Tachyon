@@ -66,6 +66,44 @@ def test_bus_zero_copy_api(clean_socket):
     server_thread.join(timeout=2.0)
 
 
+def test_bus_stats(clean_socket):
+    """Bus.stats() returns a BusStats with sensible values; producer sends become visible in occupancy."""
+    observed = {}
+
+    def run_server():
+        with tachyon.Bus.listen(clean_socket, CAPACITY) as server:
+            initial = server.stats()
+            assert isinstance(initial, tachyon.BusStats)
+            assert initial.ring_capacity == CAPACITY
+            assert initial.ring_occupancy == 0
+            # 2 == TACHYON_STATE_READY
+            assert initial.state == 2
+
+            # Wait for the producer's send to land without draining.
+            for _ in range(200):
+                snap = server.stats()
+                if snap.ring_occupancy > 0:
+                    observed["after"] = snap
+                    break
+                time.sleep(0.005)
+
+            # Drain so the bus can shut down cleanly.
+            next(iter(server))
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.start()
+
+    time.sleep(0.1)
+
+    with tachyon.Bus.connect(clean_socket) as client:
+        client.send(b"s", type_id=1)
+
+    server_thread.join(timeout=2.0)
+
+    assert "after" in observed, "producer send should be visible in occupancy"
+    assert 0 < observed["after"].ring_occupancy <= CAPACITY
+
+
 def test_type_id_encoding():
     assert tachyon.make_type_id(0, 42) == 42
     assert tachyon.route_id(42) == 0

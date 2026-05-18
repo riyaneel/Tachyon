@@ -3,7 +3,7 @@ mod error;
 mod rpc;
 mod type_id;
 
-pub use bus::{BatchIter, Bus, RxBatchGuard, RxGuard, RxMsgView, TxGuard};
+pub use bus::{BatchIter, Bus, BusStats, RxBatchGuard, RxGuard, RxMsgView, TxGuard};
 pub use error::TachyonError;
 pub use rpc::{RpcBus, RpcRxGuard, RpcTxGuard};
 pub use type_id::{make_type_id, msg_type, route_id};
@@ -161,6 +161,47 @@ mod tests {
         bus.flush();
 
         bus.send(b"committed", 99).unwrap();
+
+        srv.join().unwrap();
+        cleanup(&path);
+    }
+
+    #[test]
+    fn test_stats_snapshot() {
+        let path = sock("stats");
+        cleanup(&path);
+
+        let path_srv = path.clone();
+        let srv = thread::spawn(move || {
+            let bus = Bus::listen(&path_srv, CAPACITY).unwrap();
+
+            let initial = bus.stats();
+            assert_eq!(initial.ring_capacity as usize, CAPACITY);
+            assert_eq!(initial.ring_occupancy, 0);
+            // 2 = TACHYON_STATE_READY
+            assert_eq!(initial.state, 2);
+
+            // Wait for the producer's send(s) to land without draining.
+            let mut observed = initial;
+            for _ in 0..200 {
+                observed = bus.stats();
+                if observed.ring_occupancy > 0 {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
+            assert!(observed.ring_occupancy > 0, "producer send should be visible");
+            assert!(observed.ring_occupancy <= initial.ring_capacity);
+
+            // Drain so the bus can shut down cleanly.
+            let guard = bus.acquire_rx(10_000).unwrap();
+            guard.commit().unwrap();
+        });
+
+        thread::sleep(Duration::from_millis(20));
+
+        let bus = Bus::connect(&path).unwrap();
+        bus.send(b"s", 1).unwrap();
 
         srv.join().unwrap();
         cleanup(&path);

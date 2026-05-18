@@ -136,6 +136,31 @@ final class TachyonABI {
 			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
 	/**
+	 * Layout of {@code tachyon_bus_stats_t}: two u64, two u32. 24 bytes, no implicit padding.
+	 */
+	static final java.lang.foreign.StructLayout STATS_LAYOUT = java.lang.foreign.MemoryLayout.structLayout(
+			ValueLayout.JAVA_LONG.withName("ring_capacity"),
+			ValueLayout.JAVA_LONG.withName("ring_occupancy"),
+			ValueLayout.JAVA_INT.withName("consumer_sleeping"),
+			ValueLayout.JAVA_INT.withName("state")
+	);
+
+	private static final java.lang.invoke.VarHandle STATS_VH_RING_CAPACITY =
+			STATS_LAYOUT.varHandle(java.lang.foreign.MemoryLayout.PathElement.groupElement("ring_capacity"));
+	private static final java.lang.invoke.VarHandle STATS_VH_RING_OCCUPANCY =
+			STATS_LAYOUT.varHandle(java.lang.foreign.MemoryLayout.PathElement.groupElement("ring_occupancy"));
+	private static final java.lang.invoke.VarHandle STATS_VH_CONSUMER_SLEEPING =
+			STATS_LAYOUT.varHandle(java.lang.foreign.MemoryLayout.PathElement.groupElement("consumer_sleeping"));
+	private static final java.lang.invoke.VarHandle STATS_VH_STATE =
+			STATS_LAYOUT.varHandle(java.lang.foreign.MemoryLayout.PathElement.groupElement("state"));
+
+	/**
+	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_bus_stats(const tachyon_bus_t*, tachyon_bus_stats_t*)}
+	 */
+	private static final MethodHandle MH_BUS_STATS = downcall("tachyon_bus_stats",
+			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+
+	/**
 	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_rpc_listen(const char*, size_t, size_t, tachyon_rpc_bus_t**)}
 	 */
 	private static final MethodHandle MH_RPC_LISTEN = downcall("tachyon_rpc_listen",
@@ -499,6 +524,27 @@ final class TachyonABI {
 			return (int) MH_GET_STATE.invokeExact(handle);
 		} catch (Throwable t) {
 			throw handleException(t, "tachyon_get_state");
+		}
+	}
+
+	/**
+	 * Reads a {@code tachyon_bus_stats_t} snapshot from the native arena.
+	 *
+	 * @param handle The native bus pointer.
+	 * @return An immutable {@link BusStats} record.
+	 */
+	static BusStats busStats(MemorySegment handle) {
+		try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+			MemorySegment out = arena.allocate(STATS_LAYOUT);
+			checkError((int) MH_BUS_STATS.invokeExact(handle, out));
+			return new BusStats(
+					(long) STATS_VH_RING_CAPACITY.get(out, 0L),
+					(long) STATS_VH_RING_OCCUPANCY.get(out, 0L),
+					(int) STATS_VH_CONSUMER_SLEEPING.get(out, 0L),
+					(int) STATS_VH_STATE.get(out, 0L)
+			);
+		} catch (Throwable t) {
+			throw handleException(t, "tachyon_bus_stats");
 		}
 	}
 

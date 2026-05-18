@@ -10,7 +10,7 @@ from ._tachyon import (
 	RpcTxGuard,
 	RpcRxGuard,
 )
-from .bus import Bus
+from .bus import Bus, BusStats
 from .rpc import RpcBus
 from .rpc_decorator import RpcDispatcher, RpcEndpoint, tachyon_rpc, MSG_TYPE_ERROR, _decode_error
 from .message import Message
@@ -28,6 +28,7 @@ __all__ = [
 	"RpcTxGuard",
 	"RpcRxGuard",
 	"Bus",
+	"BusStats",
 	"RpcBus",
 	"RpcDispatcher",
 	"RpcEndpoint",

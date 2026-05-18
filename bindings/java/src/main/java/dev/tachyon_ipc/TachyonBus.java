@@ -82,6 +82,19 @@ public final class TachyonBus implements AutoCloseable {
 	}
 
 	/**
+	 * Returns a read-only snapshot of bus state: ring capacity / occupancy,
+	 * consumer-sleeping state, and bus state.
+	 *
+	 * @return Immutable {@link BusStats} record.
+	 * @apiNote Cheap (relaxed atomic loads only); per-field consistent, not struct-consistent.
+	 * Suitable for monitoring, not synchronization.
+	 */
+	public BusStats stats() {
+		checkOpen();
+		return TachyonABI.busStats(busHandle);
+	}
+
+	/**
 	 * Pins the memory policy of the underlying shared memory file to a specific NUMA node.
 	 *
 	 * @param nodeId The target NUMA node index.
