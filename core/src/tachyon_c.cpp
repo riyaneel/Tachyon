@@ -34,6 +34,12 @@ tachyon_bus_listen(const char *socket_path, const size_t capacity, tachyon_bus_t
 	if (!socket_path || !out_bus || capacity == 0)
 		return TACHYON_ERR_INVALID_SZ;
 
+#if defined(__EMSCRIPTEN__)
+	if (capacity > static_cast<size_t>(INT32_MAX)) [[unlikely]] {
+		return TACHYON_ERR_INVALID_SZ;
+	}
+#endif // #if defined(__EMSCRIPTEN__)
+
 	const size_t required_shm_size = sizeof(MemoryLayout) + capacity;
 	auto		 shm_res		   = SharedMemory::create(socket_path, required_shm_size);
 	if (!shm_res.has_value())
@@ -280,5 +286,13 @@ tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT {
 	if (!bus) [[unlikely]]
 		return TACHYON_STATE_UNKNOWN;
 	return static_cast<tachyon_state_t>(bus->arena.get_state());
+}
+
+void *tachyon_bus_get_shm_ptr(const tachyon_bus_t *bus) TACHYON_NOEXCEPT {
+	if (!bus) [[unlikely]] {
+		return nullptr;
+	}
+
+	return bus->shm.get_ptr();
 }
 } // extern "C"

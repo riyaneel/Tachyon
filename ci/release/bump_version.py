@@ -70,7 +70,7 @@ def build_entries(old: str, new: str) -> list[Entry]:
 		),
 		# Node.js
 		Entry(
-			"bindings/node/package.json",
+			"bindings/js/package.json",
 			rf'("version"\s*:\s*"){ov}(")',
 			rf"\g<1>{new}\g<2>",
 		),

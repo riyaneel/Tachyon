@@ -9,7 +9,7 @@ Infrastructure scripts for building, testing, releasing, and measuring Tachyon.
 | `release/`             | Changelog generator                                | Release workflow on `v*` tags                       |
 | `build_msan_libcxx.sh` | Build MSan instrumented libcxx                     | Development or CI build jobs before compilation     | 
 | `install_llvm.sh`      | Install llvm toolchain                             | Development cfg or CI build jobs before compilation |
-| `vendor.sh`            | Core C++ vendoring per binding                     | CI build jobs before compilation                    |
+| `setup/`               | Toolchains installation and core vendoring         | Development or CI build jobs before compilation     |
 
 ## Quick reference
 
@@ -29,12 +29,15 @@ python3 ci/fuzz/gen_seeds.py
 # Generate CHANGELOG section for a release tag
 python3 ci/release/gen_changelog.py v0.2.0
 
-# Vendor C++ core into a language binding
-bash ci/vendor.sh <target> # targets: go, java, rust
-
 # Build MSan instrumented libcxx
-bash ci/build_msan_libcxx.sh [version] # default: 21
+bash ci/setup/build_msan_libcxx.sh [version] # default: 21
 
 # Install llvm toolchain
-bash ci/install_llvm.sh [version] # default: 21
+bash ci/setup/install_llvm.sh [version] # default: 21
+
+# Install Emscripten SDK (WASM toolchain)
+bash ci/setup/install_emsdk.sh [version] # default: latest
+
+# Vendor C++ core into a language binding
+bash ci/setup/vendor.sh <target> # targets: go, java, rust
 ```

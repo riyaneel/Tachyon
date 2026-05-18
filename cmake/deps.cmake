@@ -4,29 +4,31 @@ include(FetchContent)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 # Google Test
-FetchContent_Declare(
-		googletest
-		GIT_REPOSITORY https://github.com/google/googletest.git
-		GIT_TAG v1.17.0
-		GIT_SHALLOW TRUE
-		GIT_PROGRESS FALSE
-		SYSTEM
-		OVERRIDE_FIND_PACKAGE
-)
+if (TACHYON_ENABLE_TESTS)
+	FetchContent_Declare(
+			googletest
+			GIT_REPOSITORY https://github.com/google/googletest.git
+			GIT_TAG v1.17.0
+			GIT_SHALLOW TRUE
+			GIT_PROGRESS FALSE
+			SYSTEM
+			OVERRIDE_FIND_PACKAGE
+	)
 
-set(BUILD_MOCK OFF CACHE INTERNAL "")
-set(INSTALL_GTEST OFF CACHE INTERNAL "")
-set(gtest_force_shared_crt ON CACHE INTERNAL "")
-FetchContent_MakeAvailable(googletest)
+	set(BUILD_MOCK OFF CACHE INTERNAL "")
+	set(INSTALL_GTEST OFF CACHE INTERNAL "")
+	set(gtest_force_shared_crt ON CACHE INTERNAL "")
+	FetchContent_MakeAvailable(googletest)
 
-if (TACHYON_SANITIZER STREQUAL "msan" AND TARGET gtest)
-	target_compile_options(gtest PRIVATE ${TACHYON_DEBUG_FLAGS})
-	target_compile_options(gtest_main PRIVATE ${TACHYON_DEBUG_FLAGS})
-endif ()
+	if (TACHYON_SANITIZER STREQUAL "msan" AND TARGET gtest)
+		target_compile_options(gtest PRIVATE ${TACHYON_DEBUG_FLAGS})
+		target_compile_options(gtest_main PRIVATE ${TACHYON_DEBUG_FLAGS})
+	endif ()
 
-if (TARGET gtest)
-	target_compile_options(gtest PRIVATE -w)
-	target_compile_options(gtest_main PRIVATE -w)
+	if (TARGET gtest)
+		target_compile_options(gtest PRIVATE -w)
+		target_compile_options(gtest_main PRIVATE -w)
+	endif ()
 endif ()
 
 # Google Benchmark
@@ -80,8 +82,12 @@ if (TACHYON_ENABLE_TOP)
 	FetchContent_MakeAvailable(ftxui)
 endif ()
 
-message(STATUS "[deps] GoogleTest  : v1.17.0 (FetchContent)")
-message(STATUS "[deps] Benchmark   : v1.9.5  (FetchContent)")
+if (TACHYON_ENABLE_TESTS)
+	message(STATUS "[deps] GoogleTest  : v1.17.0 (FetchContent)")
+endif ()
+if (TACHYON_ENABLE_BENCH)
+	message(STATUS "[deps] Benchmark   : v1.9.5  (FetchContent)")
+endif ()
 message(STATUS "[deps] DLPack      : v1.3    (FetchContent)")
 message(STATUS "[deps] DLPack inc  : ${TACHYON_DLPACK_INCLUDE_DIR}")
 if (TACHYON_ENABLE_TOP)

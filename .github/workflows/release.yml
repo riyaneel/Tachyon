@@ -119,7 +119,7 @@ jobs:
           version: '16'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh rust
+        run: bash ci/setup/vendor.sh rust
 
       - name: Publish tachyon-sys
         env:
@@ -225,10 +225,10 @@ jobs:
         run: sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Linux FFM (${{ matrix.arch }})
         env:
@@ -269,7 +269,7 @@ jobs:
           cache: 'gradle'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         run: |
@@ -400,7 +400,7 @@ jobs:
 
       - name: Install LLVM 21 (Linux)
         if: matrix.platform == 'linux'
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -408,17 +408,17 @@ jobs:
           node-version: 20
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh node
+        run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies
-        working-directory: bindings/node
+        working-directory: bindings/js
         env:
           CC: ${{ matrix.platform == 'linux' && 'clang-21' || 'clang' }}
           CXX: ${{ matrix.platform == 'linux' && 'clang++-21' || 'clang++' }}
         run: npm install
 
       - name: Build Prebuilt
-        working-directory: bindings/node
+        working-directory: bindings/js
         env:
           CC: ${{ matrix.platform == 'linux' && 'clang-21' || 'clang' }}
           CXX: ${{ matrix.platform == 'linux' && 'clang++-21' || 'clang++' }}
@@ -436,13 +436,13 @@ jobs:
       - name: Create Tarball Asset
         run: |
           mkdir -p dist
-          tar -czf "dist/tachyon-node-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C bindings/node/prebuilds .
+          tar -czf "dist/tachyon-node-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C bindings/js/prebuilds .
 
       - name: Upload Prebuilt Artifact (NPM publish)
         uses: actions/upload-artifact@v7
         with:
           name: node-prebuild-${{ matrix.platform }}-${{ matrix.arch }}
-          path: bindings/node/prebuilds/
+          path: bindings/js/prebuilds/
           if-no-files-found: 'error'
 
       - name: Upload Tarball Asset (GH Release)
@@ -471,24 +471,24 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh node
+        run: bash ci/setup/vendor.sh node
 
       - name: Download all prebuilts
         uses: actions/download-artifact@v8
         with:
-          path: bindings/node/prebuilds
+          path: bindings/js/prebuilds
           pattern: node-prebuild-*
           merge-multiple: 'true'
 
       - name: Build TypeScript
-        working-directory: bindings/node
+        working-directory: bindings/js
         env:
           CC: 'clang'
           CXX: 'clang++'
         run: npm install --ignore-scripts && npm run build:ts
 
       - name: Publish to NPM
-        working-directory: bindings/node
+        working-directory: bindings/js
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
@@ -517,10 +517,10 @@ jobs:
         run: sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh c#
+        run: bash ci/setup/vendor.sh c#
 
       - name: Build libtachyon (x86-64)
         if: matrix.arch == 'amd64'
@@ -570,7 +570,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh c#
+        run: bash ci/setup/vendor.sh c#
 
       - name: Build libtachyon.dylib
         run: |
@@ -670,7 +670,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure and Build
         run: |

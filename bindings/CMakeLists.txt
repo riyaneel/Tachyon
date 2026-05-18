@@ -18,4 +18,4 @@ else ()
 	message(STATUS "Java Development or JNI not found - skipping Java bindings")
 endif ()
 
-add_subdirectory(node)
+add_subdirectory(js)

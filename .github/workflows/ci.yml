@@ -45,7 +45,7 @@ jobs:
 
       - name: Install Toolchain (Clang)
         if: matrix.compiler == 'clang'
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure (${{ matrix.compiler }}-${{ matrix.build_type}})
         run: |
@@ -80,7 +80,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libstdc++-14-dev-arm64-cross
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset clang-aarch64-release -DTACHYON_ENABLE_BENCH=OFF
@@ -111,7 +111,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset asan -DTACHYON_ENABLE_BENCH=OFF
@@ -143,10 +143,10 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Build Instrumented libc++
-        run: bash ci/build_msan_libcxx.sh 21
+        run: bash ci/setup/build_msan_libcxx.sh 21
 
       - name: Configure
         run: cmake --preset msan -DTACHYON_ENABLE_BENCH=OFF
@@ -177,7 +177,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset tsan -DTACHYON_ENABLE_BENCH=OFF
@@ -212,6 +212,44 @@ jobs:
       - name: Test
         run: ctest --test-dir build/macos-${{ matrix.build_type }}/test --output-on-failure --parallel 4
 
+  cpp_wasm:
+    name: C++ (Emscripten, ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [ debug, release ]
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup ccache
+        uses: ./.github/actions/setup-ccache
+
+      - name: Setup Kitware
+        uses: ./.github/actions/kitware-apt
+
+      - name: Install LLVM 21
+        run: bash ci/setup/install_llvm.sh 21
+
+      - name: Setup Emscripten
+        uses: ./.github/actions/setup-emsdk
+
+      - name: Configure
+        run: cmake --preset emscripten-${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build --preset emscripten-${{ matrix.build_type }}
+
+      - name: Check WASM artefacts
+        run: |
+          ls -lh build/emscripten-${{ matrix.build_type }}/core/libtachyon.a || exit 1
+          ls -lh build/emscripten-${{ matrix.build_type }}/core/tachyon.js || exit 1
+          ls -lh build/emscripten-${{ matrix.build_type }}/core/tachyon.wasm || exit 1
+
   cpp_format_check:
     name: C++ Format Check
     runs-on: ubuntu-24.04
@@ -223,7 +261,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Install Clang Format
         run: |
@@ -251,7 +289,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Configure
         run: cmake --preset tachyon-top
@@ -343,6 +381,12 @@ jobs:
         run: cargo test
         working-directory: bindings/rust
 
+      - name: Check WASM target
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check -p tachyon-ipc --target wasm32-unknown-unknown
+        working-directory: bindings/rust
+
   rust_macos:
     name: Rust bindings (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
@@ -382,7 +426,7 @@ jobs:
           cache-dependency-path: 'bindings/go'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh go
+        run: bash ci/setup/vendor.sh go
 
       - name: Go Test
         env:
@@ -419,7 +463,7 @@ jobs:
           cache-dependency-path: 'bindings/go'
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh go
+        run: bash ci/setup/vendor.sh go
 
       - name: Go Test
         env:
@@ -445,7 +489,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -458,7 +502,7 @@ jobs:
             bindings/java/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         env:
@@ -495,7 +539,7 @@ jobs:
             bindings/java/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         run: |
@@ -519,7 +563,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -532,7 +576,7 @@ jobs:
             bindings/kotlin/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         env:
@@ -569,7 +613,7 @@ jobs:
             bindings/kotlin/**/gradle-wrapper.properties
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh java
+        run: bash ci/setup/vendor.sh java
 
       - name: Build Native library
         run: |
@@ -596,44 +640,74 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: bindings/js/package-lock.json
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh node
+        run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies & build native library
-        working-directory: bindings/node
+        working-directory: bindings/js
         env:
           CC: clang-21
           CXX: clang++-21
         run: npm install && npm run build:native
 
       - name: Type check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npx tsc --noEmit
 
       - name: Format check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run format:check
 
       - name: Lint check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run lint
 
       - name: Build TypeScript
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run build:ts
 
       - name: Tests
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm test
+
+  nodejs_browser_wasm:
+    name: Browser WASM tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: bindings/js/package-lock.json
+
+      - name: Install dependencies
+        working-directory: bindings/js
+        run: npm install --ignore-scripts
+
+      - name: Check Chromium
+        run: /usr/bin/chromium --version
+
+      # - name: Browser WASM tests
+        # working-directory: bindings/js
+        # env:
+        # CHROMIUM_BIN: /usr/bin/chromium
+        # Do not run build:wasm in this test job. The generated WASM bindings are
+        # committed, and CI should validate the committed artifacts instead of
+        # regenerating them and potentially masking a stale generated-code diff.
+        # run: npm run test:browser
 
   nodejs_macos:
     name: Node.js bindings ${{ matrix.runner }} (Node ${{ matrix.node-version }})
@@ -652,33 +726,33 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: bindings/js/package-lock.json
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh node
+        run: bash ci/setup/vendor.sh node
 
       - name: Install dependencies & build native library
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm install && npm run build:native
 
       - name: Type check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npx tsc --noEmit
 
       - name: Format check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run format:check
 
       - name: Lint check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run lint
 
       - name: Build TypeScript
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run build:ts
 
       - name: Tests
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm test
 
   csharp_linux:
@@ -692,7 +766,7 @@ jobs:
         uses: ./.github/actions/kitware-apt
 
       - name: Install LLVM 21
-        run: bash ci/install_llvm.sh 21
+        run: bash ci/setup/install_llvm.sh 21
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -702,7 +776,7 @@ jobs:
             10.x
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh c#
+        run: bash ci/setup/vendor.sh c#
 
       - name: Build native library
         env:
@@ -740,7 +814,7 @@ jobs:
             10.x
 
       - name: Vendor C++ core
-        run: bash ci/vendor.sh c#
+        run: bash ci/setup/vendor.sh c#
 
       - name: Build Native library
         run: |

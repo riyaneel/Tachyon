@@ -74,6 +74,10 @@ pip install tachyon-ipc
 npm install @tachyon-ipc/core
 ```
 
+The same npm package also includes a browser WASM build for bundlers. Browser code keeps the same
+`import { Bus } from '@tachyon-ipc/core'` shape; bundlers that honor the package `browser` field resolve to the
+page-local WASM transport automatically.
+
 **Java (Maven):**
 
 ```xml

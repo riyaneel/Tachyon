@@ -17,6 +17,9 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"browser": {
+		"./dist/index.js": "./dist/browser.js"
+	},
 	"engines": {
 		"node": ">=20.0.0"
 	},
@@ -24,9 +27,12 @@
 		"build": "npm run build:native && npm run build:ts",
 		"build:native": "cmake-js compile",
 		"build:ts": "tsc",
+		"build:wasm": "npm run cmake:wasm && npm run copy:wasm",
 		"clean": "rm -rf build dist",
 		"format": "prettier --write src/ts test/",
 		"format:check": "prettier --check src/ts test/",
+		"cmake:wasm": "cd ../.. && cmake --preset emscripten-release && cmake --build --preset emscripten-release",
+		"copy:wasm": "node scripts/copy-wasm.mjs",
 		"install": "cmake-js compile",
 		"lint": "eslint src/ts",
 		"prebuild": "cmake-js compile --runtime node --runtime-version $(node -v | cut -c2-)",

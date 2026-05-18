@@ -61,6 +61,20 @@
       }
     },
     {
+      "name": "emscripten-base",
+      "hidden": true,
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/emscripten.cmake",
+      "cacheVariables": {
+        "TACHYON_ENABLE_TESTS": "OFF",
+        "TACHYON_ENABLE_BENCH": "OFF",
+        "TACHYON_ENABLE_TOP": "OFF",
+        "TACHYON_ENABLE_FUZZING": "OFF",
+        "TACHYON_ENABLE_SECCOMP": "OFF",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
       "name": "clang-release",
       "displayName": "Clang - Release",
       "inherits": "clang-base",
@@ -117,6 +131,22 @@
       "name": "macos-debug",
       "displayName": "macOS - Debug",
       "inherits": "macos-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "emscripten-release",
+      "displayName": "Emscripten - Release",
+      "inherits": "emscripten-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "emscripten-debug",
+      "displayName": "Emscripten - Debug",
+      "inherits": "emscripten-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -280,6 +310,16 @@
     {
       "name": "macos-debug",
       "configurePreset": "macos-debug",
+      "jobs": 0
+    },
+    {
+      "name": "emscripten-release",
+      "configurePreset": "emscripten-release",
+      "jobs": 0
+    },
+    {
+      "name": "emscripten-debug",
+      "configurePreset": "emscripten-debug",
       "jobs": 0
     },
     {

@@ -4,6 +4,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+
+#define TACHYON_ABI EMSCRIPTEN_KEEPALIVE
+#elif defined(_WIN32) || defined(__CYGWIN__) // #if defined(__EMSCRIPTEN__)
+#define TACHYON_ABI __declspec(dllexport)
+#else // #elif defined(_WIN32) || defined(__CYGWIN__)
+#define TACHYON_ABI __attribute__((visibility("default")))
+#endif // #elif defined(_WIN32) || defined(__CYGWIN__) #else
+
 #ifdef __cplusplus
 #define TACHYON_NOEXCEPT noexcept
 #define TACHYON_ALIGNAS(n) alignas(n)
@@ -12,12 +22,6 @@ extern "C" {
 #define TACHYON_NOEXCEPT
 #define TACHYON_ALIGNAS(n) _Alignas(n)
 #endif // #ifdef __cplusplus #else
-
-#if defined(_WIN32) || defined(__CYGWIN__)
-#define TACHYON_ABI __declspec(dllexport)
-#else // #if defined(_WIN32) || defined(__CYGWIN__)
-#define TACHYON_ABI __attribute__((visibility("default")))
-#endif // #if defined(_WIN32) || defined(__CYGWIN__) #else
 
 #define TACHYON_TYPE_ID(route, type) (((uint32_t)(route) << 16) | (uint32_t)(type))
 #define TACHYON_ROUTE_ID(type_id) ((uint16_t)((type_id) >> 16))
@@ -112,6 +116,8 @@ TACHYON_ABI void tachyon_bus_set_polling_mode(const tachyon_bus_t *bus, int pure
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
+TACHYON_ABI void *tachyon_bus_get_shm_ptr(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_error_t tachyon_rpc_listen(
 	const char *socket_path, size_t cap_fwd, size_t cap_rev, tachyon_rpc_bus_t **out_rpc

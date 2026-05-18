@@ -1,0 +1,21 @@
+name: Setup Emscripten
+description: Install Emscripten SDK
+inputs:
+  version:
+    description: Emscripten Version
+    required: false
+    default: 'latest'
+runs:
+  using: composite
+  steps:
+    - name: Run setup script
+      shell: bash
+      run: bash ci/setup/install_emsdk.sh ${{ inputs.version }}
+
+    - name: Inject Global Environment
+      shell: bash
+      run: |
+        EMSDK_DIR="${GITHUB_WORKSPACE}/.emsdk"
+        source "${EMSDK_DIR}/emsdk_env.sh" > /dev/null 2>&1
+        env | grep '^EMSDK' >> $GITHUB_ENV
+        echo "$PATH" | tr ':' '\n' | grep "${EMSDK_DIR}" >> $GITHUB_PATH

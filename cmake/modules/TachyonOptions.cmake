@@ -14,6 +14,7 @@ set_property(CACHE TACHYON_SANITIZER PROPERTY STRINGS none asan_ubsan tsan msan)
 
 # Build
 option(TACHYON_PORTABLE_BUILD "Disable -march=native for redistributable binaries" OFF)
+option(TACHYON_ENABLE_TESTS "Enable tests" ON)
 option(TACHYON_ENABLE_BENCH "Build benchmarks" ON)
 option(TACHYON_ENABLE_FUZZING "Build libFuzzer harnesses (Clang only)" OFF)
 option(TACHYON_ENABLE_TOP "Build tachyon-top CLI" OFF)
