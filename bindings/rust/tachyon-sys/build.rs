@@ -27,10 +27,13 @@ fn main() {
         .flag("-Wall")
         .flag("-Wextra")
         .include(&include_dir)
+        .include(&src_dir)
         .file(src_dir.join("arena.cpp"))
         .file(src_dir.join("shm.cpp"))
+        .file(src_dir.join("star.cpp"))
         .file(src_dir.join("tachyon_c.cpp"))
         .file(src_dir.join("tachyon_rpc.cpp"))
+        .file(src_dir.join("tachyon_star.cpp"))
         .file(src_dir.join("transport_uds.cpp"))
         .compile("tachyon");
 
@@ -39,10 +42,13 @@ fn main() {
     }
 
     for src in &[
+        "bus_impl.h",
         "arena.cpp",
         "shm.cpp",
+        "star.cpp",
         "tachyon_c.cpp",
         "tachyon_rpc.cpp",
+        "tachyon_star.cpp",
         "transport_uds.cpp",
     ] {
         println!("cargo:rerun-if-changed={}", src_dir.join(src).display())
@@ -53,6 +59,7 @@ fn main() {
         "tachyon.hpp",
         "tachyon/arena.hpp",
         "tachyon/shm.hpp",
+        "tachyon/star.hpp",
         "tachyon/transport.hpp",
     ] {
         println!("cargo:rerun-if-changed={}", include_dir.join(hdr).display());
