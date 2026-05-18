@@ -155,6 +155,14 @@ namespace tachyon::core {
 
 		uint64_t get_producer_heartbeat() const noexcept;
 
+		uint64_t get_consumer_heartbeat() const noexcept;
+
+		uint32_t get_consumer_sleeping_raw() const noexcept;
+
+		size_t get_capacity() const noexcept;
+
+		size_t get_ring_occupancy() const noexcept;
+
 		void set_fatal_error() const noexcept;
 
 		[[nodiscard]] TACHYON_INLINE BusState get_state() const noexcept {

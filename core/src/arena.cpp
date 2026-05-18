@@ -553,6 +553,24 @@ namespace tachyon::core {
 		return layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
 	}
 
+	uint64_t Arena::get_consumer_heartbeat() const noexcept {
+		return layout_->indices.consumer_heartbeat.load(std::memory_order_relaxed);
+	}
+
+	uint32_t Arena::get_consumer_sleeping_raw() const noexcept {
+		return layout_->indices.consumer_sleeping.load(std::memory_order_relaxed);
+	}
+
+	size_t Arena::get_capacity() const noexcept {
+		return capacity_mask_ + 1;
+	}
+
+	size_t Arena::get_ring_occupancy() const noexcept {
+		const size_t head = layout_->indices.head.load(std::memory_order_relaxed);
+		const size_t tail = layout_->indices.tail.load(std::memory_order_relaxed);
+		return head - tail;
+	}
+
 	void Arena::set_fatal_error() const noexcept {
 		layout_->header.state.store(BusState::FatalError, std::memory_order_release);
 	}
