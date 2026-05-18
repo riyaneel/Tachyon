@@ -1,11 +1,13 @@
 mod bus;
 mod error;
 mod rpc;
+mod star;
 mod type_id;
 
 pub use bus::{BatchIter, Bus, RxBatchGuard, RxGuard, RxMsgView, TxGuard};
 pub use error::TachyonError;
 pub use rpc::{RpcBus, RpcRxGuard, RpcTxGuard};
+pub use star::{StarBus, StarMsgView, StarPollGuard, StarTxGuard};
 pub use type_id::{make_type_id, msg_type, route_id};
 
 #[cfg(test)]
@@ -457,5 +459,117 @@ mod rpc_tests {
 
         srv.join().unwrap();
         cleanup(&path);
+    }
+
+    fn make_pair(path: &str) -> (Bus, Bus) {
+        let path_srv = path.to_owned();
+        let (tx, rx) = std::sync::mpsc::channel::<Bus>();
+        thread::spawn(move || {
+            tx.send(Bus::listen(&path_srv, CAP).unwrap()).unwrap();
+        });
+        thread::sleep(Duration::from_millis(20));
+        let connector = Bus::connect(path).unwrap();
+        let listener = rx.recv().unwrap();
+        (listener, connector)
+    }
+
+    #[test]
+    fn test_star_n_spokes() {
+        let p0 = sock("ns0");
+        let p1 = sock("ns1");
+        cleanup(&p0);
+        cleanup(&p1);
+
+        let (l0, c0) = make_pair(&p0);
+        let (l1, c1) = make_pair(&p1);
+        let _ = (l0, l1); // keep listeners alive
+
+        let star = StarBus::create(&[&c0, &c1], None).unwrap();
+        assert_eq!(star.n_spokes(), 2);
+
+        cleanup(&p0);
+        cleanup(&p1);
+    }
+
+    #[test]
+    fn test_star_poll_drains_all() {
+        let p0 = sock("poll0");
+        let p1 = sock("poll1");
+        cleanup(&p0);
+        cleanup(&p1);
+
+        let (l0, c0) = make_pair(&p0);
+        let (l1, c1) = make_pair(&p1);
+
+        l0.send(b"spoke0", make_type_id(0, 1)).unwrap();
+        l1.send(b"spoke1", make_type_id(1, 1)).unwrap();
+
+        let star = StarBus::create(&[&c0, &c1], None).unwrap();
+        let guard = star.poll(2, 5_000);
+        assert_eq!(guard.len(), 2);
+
+        for msg in guard.iter() {
+            let expected = format!("spoke{}", msg.spoke_idx());
+            assert_eq!(msg.data(), expected.as_bytes());
+            assert_eq!(route_id(msg.type_id()), msg.spoke_idx() as u16);
+        }
+        guard.commit().unwrap();
+
+        cleanup(&p0);
+        cleanup(&p1);
+    }
+
+    #[test]
+    fn test_star_tx_commit_and_rollback() {
+        let p0 = sock("tx0");
+        cleanup(&p0);
+
+        let (l0, c0) = make_pair(&p0);
+        let star = StarBus::create(&[&c0], None).unwrap();
+
+        {
+            let _guard = star.acquire_tx(0, 8).unwrap();
+        }
+
+        {
+            let guard = star.acquire_tx(0, 4).unwrap();
+            guard.write(&42u32.to_le_bytes());
+            guard.commit(4, 7).unwrap();
+        }
+
+        let rx = l0.acquire_rx(100_000).unwrap();
+        assert_eq!(rx.type_id, 7);
+        let val = u32::from_le_bytes(rx.data().try_into().unwrap());
+        assert_eq!(val, 42u32);
+        rx.commit().unwrap();
+
+        cleanup(&p0);
+    }
+
+    #[test]
+    fn test_star_bus_ref_held_after_caller_drops() {
+        let p0 = sock("ref0");
+        cleanup(&p0);
+
+        let (l0, c0) = make_pair(&p0);
+        let star = StarBus::create(&[&c0], None).unwrap();
+        drop(c0);
+        l0.send(b"still_alive", 99).unwrap();
+
+        let guard = star.poll(1, 5_000);
+        assert_eq!(guard.len(), 1);
+        assert_eq!(guard.iter().next().unwrap().data(), b"still_alive");
+        guard.commit().unwrap();
+        cleanup(&p0);
+    }
+
+    #[test]
+    fn test_star_oob_spoke_returns_none() {
+        let p0 = sock("oob0");
+        cleanup(&p0);
+        let (_l0, c0) = make_pair(&p0);
+        let star = StarBus::create(&[&c0], None).unwrap();
+        assert!(star.acquire_tx(99, 8).is_none());
+        cleanup(&p0);
     }
 }
