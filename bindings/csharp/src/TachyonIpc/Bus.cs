@@ -74,10 +74,7 @@ public sealed unsafe class Bus : IDisposable
     }
 
     /// <summary>
-    /// Returns a read-only snapshot of bus state: ring capacity / occupancy,
-    /// consumer-sleeping state, and bus state. Cheap (relaxed atomic loads only)
-    /// and safe to call from either side. Per-field consistent, not struct-consistent —
-    /// fine for monitoring, not for synchronization.
+    /// Returns a read-only snapshot of bus state: ring capacity / occupancy, consumer state, and bus state.
     /// </summary>
     public TachyonBusStats Stats()
     {

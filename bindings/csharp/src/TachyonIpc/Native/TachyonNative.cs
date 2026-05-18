@@ -21,7 +21,7 @@ public enum TachyonError
     AbiMismatch = 14
 }
 
-public enum TachyonState
+public enum TachyonState : uint
 {
     Uninitialized = 0,
     Initializing = 1,
@@ -42,11 +42,11 @@ public unsafe struct TachyonMsgView
 }
 
 [StructLayout(LayoutKind.Sequential)]
-public struct TachyonBusStats
+public unsafe struct TachyonBusStats
 {
     public ulong RingCapacity;
     public ulong RingOccupancy;
-    public uint ConsumerSleeping; // 0 = awake, 1 = sleeping, 2 = pure-spin
+    public uint ConsumerState; // 0 = awake, 1 = sleeping, 2 = pure-spin
     public TachyonState State;
 }
 

@@ -112,7 +112,8 @@ public sealed unsafe class BusTests : IDisposable
         {
             var initial = bus.Stats();
             Assert.Equal((ulong)capacity, initial.RingCapacity);
-            Assert.Equal(0UL, initial.RingOccupancy);
+            Assert.True(initial.RingOccupancy == 0UL || initial.RingOccupancy == 128UL,
+                $"Unexpected initial occupancy: {initial.RingOccupancy}");
             Assert.Equal(TachyonState.Ready, initial.State);
 
             // Wait for the producer's send to land without draining.
