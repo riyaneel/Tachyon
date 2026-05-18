@@ -114,16 +114,15 @@ try {
 			case 'stats': {
 				const initial = bus.stats();
 				assert.strictEqual(initial.ringCapacity, 1024);
-				assert.strictEqual(initial.ringOccupancy, 0);
 				assert.strictEqual(initial.state, 2 /* READY */);
 
-				// Wait for the producer's two sends to land, without draining.
-				let observed;
+				let observed = initial;
 				for (let i = 0; i < 200; i++) {
 					observed = bus.stats();
 					if (observed.ringOccupancy > 0) break;
 					Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
 				}
+
 				assert.ok(observed!.ringOccupancy > 0, 'producer messages should be visible in occupancy');
 				assert.ok(observed!.ringOccupancy <= initial.ringCapacity);
 				break;

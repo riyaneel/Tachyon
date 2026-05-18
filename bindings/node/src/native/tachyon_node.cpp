@@ -519,7 +519,7 @@ private:
 		Napi::Object obj = Napi::Object::New(env);
 		obj.Set("ringCapacity", Napi::Number::New(env, static_cast<double>(stats.ring_capacity)));
 		obj.Set("ringOccupancy", Napi::Number::New(env, static_cast<double>(stats.ring_occupancy)));
-		obj.Set("consumerSleeping", Napi::Number::New(env, static_cast<int>(stats.consumer_sleeping)));
+		obj.Set("consumerState", Napi::Number::New(env, static_cast<int>(stats.consumer_state)));
 		obj.Set("state", Napi::Number::New(env, static_cast<int>(stats.state)));
 		return obj;
 	}

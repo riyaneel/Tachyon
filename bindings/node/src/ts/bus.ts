@@ -11,13 +11,13 @@ const _require = createRequire(import.meta.url);
 
 /**
  * Read-only snapshot of bus state. Returned by {@link Bus.stats}.
- * `consumerSleeping`: 0 = awake, 1 = sleeping on futex, 2 = pure-spin mode.
+ * `consumerState`: 0 = awake, 1 = sleeping on futex, 2 = pure-spin mode.
  * `state`: same numeric values as {@link Bus.getState} / tachyon_state_t.
  */
 export interface BusStats {
 	ringCapacity: number;
 	ringOccupancy: number;
-	consumerSleeping: number;
+	consumerState: number;
 	state: number;
 }
 
