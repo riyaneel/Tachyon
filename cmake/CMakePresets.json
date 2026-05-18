@@ -307,6 +307,7 @@
         "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
         "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_star",
         "tachyon_fuzz_toctou"
       ],
       "jobs": 0
@@ -321,6 +322,7 @@
         "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
         "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_star",
         "tachyon_fuzz_toctou"
       ],
       "jobs": 0
@@ -335,6 +337,7 @@
         "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
         "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_star",
         "tachyon_fuzz_toctou"
       ],
       "jobs": 0
@@ -349,6 +352,7 @@
         "tachyon_fuzz_arena_tx",
         "tachyon_fuzz_header_parser",
         "tachyon_fuzz_shm_attach",
+        "tachyon_fuzz_star",
         "tachyon_fuzz_toctou"
       ],
       "jobs": 0
