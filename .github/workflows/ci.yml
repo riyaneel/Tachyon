@@ -254,14 +254,14 @@ jobs:
         run: bash ci/install_llvm.sh 21
 
       - name: Configure
-        run: cmake --preset tachyon-top
+        run: cmake --preset tachyon-top-ci
 
       - name: Build
-        run: cmake --build --preset tachyon-top --parallel
+        run: cmake --build --preset tachyon-top-ci --parallel
 
       - name: Smoke test
         run: |
-          OUTPUT=$(./build/tachyon-top/tools/tachyon-top/tachyon_top --json)
+          OUTPUT=$(./build/tachyon-top-ci/tools/tachyon-top/tachyon_top --json)
           echo "Raw output: $OUTPUT"
           PARSED=$(echo "$OUTPUT" | jq -c '.')
           if [ "$PARSED" != "[]" ]; then
