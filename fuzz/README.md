@@ -24,6 +24,7 @@ python ci/fuzz/gen_seeds.py
 ./build/fuzz/fuzz/tachyon_fuzz_arena_tx fuzz/corpus/arena_tx -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ./build/fuzz/fuzz/tachyon_fuzz_header_parser fuzz/corpus/header_parser -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ./build/fuzz/fuzz/tachyon_fuzz_shm_attach fuzz/corpus/shm_attach -dict=fuzz/dict/tachyon.dict -max_total_time=300
+./build/fuzz/fuzz/tachyon_fuzz_star fuzz/corpus/star -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ./build/fuzz/fuzz/tachyon_fuzz_toctou fuzz/corpus/toctou -dict=fuzz/dict/tachyon.dict -max_total_time=300
 ```
 
@@ -38,6 +39,7 @@ Replays the existing corpus only. No new inputs are generated. Use this in CI.
 ./build/fuzz/fuzz/tachyon_fuzz_arena_tx fuzz/corpus/arena_tx -runs=0
 ./build/fuzz/fuzz/tachyon_fuzz_header_parser fuzz/corpus/header_parser -runs=0
 ./build/fuzz/fuzz/tachyon_fuzz_shm_attach fuzz/corpus/shm_attach -runs=0
+./build/fuzz/fuzz/tachyon_fuzz_star fuzz/corpus/star -runs=0
 ./build/fuzz/fuzz/tachyon_fuzz_toctou fuzz/corpus/toctou -runs=0
 ```
 
@@ -58,15 +60,16 @@ Move it to `fuzz/corpus/crashes/` before minimizing.
 
 ## Targets
 
-| Target                | Entry point                                | Notes                                                  |
-|-----------------------|--------------------------------------------|--------------------------------------------------------|
-| `fuzz_arena_rpc`      | `commit_tx_rpc` / `acquire_rx_rpc`         | RpcPackedMeta offsets, `correlation_id` edge cases     |
-| `fuzz_arena_rx`       | `acquire_rx` / `commit_rx`                 | Drain loop, SKIP_MARKER, wrap-around                   |
-| `fuzz_arena_rx_batch` | `acquire_rx_batch` / `commit_rx_batch`     | `current_tail` accumulation, `reserved_size=0` stall   |
-| `fuzz_arena_tx`       | `acquire_tx` / `commit_tx` / `rollback_tx` | Corrupted `tail` index, integer overflow on space calc |
-| `fuzz_header_parser`  | `acquire_rx` (single call)                 | Isolated header parsing, double-SKIP path              |
-| `fuzz_shm_attach`     | `Arena::attach` / `acquire_rx`             | Header validation, `capacity_mask_` near-end OOB       |
-| `fuzz_toctou`         | `acquire_rx` with `__builtin_trap`         | Integer underflow, misalignment, bounds invariants     |
+| Target                | Entry point                                | Notes                                                           |
+|-----------------------|--------------------------------------------|-----------------------------------------------------------------|
+| `fuzz_arena_rpc`      | `commit_tx_rpc` / `acquire_rx_rpc`         | RpcPackedMeta offsets, `correlation_id` edge cases              |
+| `fuzz_arena_rx`       | `acquire_rx` / `commit_rx`                 | Drain loop, SKIP_MARKER, wrap-around                            |
+| `fuzz_arena_rx_batch` | `acquire_rx_batch` / `commit_rx_batch`     | `current_tail` accumulation, `reserved_size=0` stall            |
+| `fuzz_arena_tx`       | `acquire_tx` / `commit_tx` / `rollback_tx` | Corrupted `tail` index, integer overflow on space calc          |
+| `fuzz_header_parser`  | `acquire_rx` (single call)                 | Isolated header parsing, double-SKIP path                       |
+| `fuzz_shm_attach`     | `Arena::attach` / `acquire_rx`             | Header validation, `capacity_mask_` near-end OOB                |
+| `fuzz_star`           | `StarBus::create` / `poll`                 | N-spoke round-robin drain, TX path OOB, refcount teardown order |
+| `fuzz_toctou`         | `acquire_rx` with `__builtin_trap`         | Integer underflow, misalignment, bounds invariants              |
 
 `transport_uds.cpp`, `Arena::format()`, and language bindings are out of scope.
 
@@ -145,7 +148,7 @@ Download, extract, then reproduce locally:
 
 ```bash
 # Build the fuzz target locally with the same sanitizer
-cmake --preset fuzz # ASan by default (preset: fuzz 
+cmake --preset fuzz # ASan by default (presets: fuzz / fuzz-ubsan / fuzz-msan / fuzz-tsan) 
 cmake --build --preset fuzz --parallel
 
 # Reproduce
