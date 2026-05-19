@@ -125,7 +125,7 @@ func (b *RpcBus) Call(payload []byte, msgType uint32) (uint64, error) {
 			break
 		}
 
-		if C.tachyon_rpc_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_rpc_get_state(b.raw)) == StateFatalError {
 			return 0, &TachyonError{
 				Code:    int(C.TACHYON_ERR_SYSTEM),
 				Message: "Peer dead (fatal error on arena_fwd)",
@@ -169,7 +169,7 @@ func (b *RpcBus) Wait(correlationId uint64, spinThreshold uint32) (*RpcRxGuard, 
 			break
 		}
 
-		if C.tachyon_rpc_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_rpc_get_state(b.raw)) == StateFatalError {
 			return nil, &TachyonError{
 				Code:    int(C.TACHYON_ERR_SYSTEM),
 				Message: "correlation mismatch or peer dead (fatal error on arena_rev)",
@@ -213,7 +213,7 @@ func (b *RpcBus) Serve(spinThreshold uint32) (*RpcRxGuard, error) {
 			break
 		}
 
-		if C.tachyon_rpc_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_rpc_get_state(b.raw)) == StateFatalError {
 			return nil, &TachyonError{
 				Code:    int(C.TACHYON_ERR_SYSTEM),
 				Message: "peer dead (fatal error on arena_fwd)",
@@ -252,7 +252,7 @@ func (b *RpcBus) Reply(correlationID uint64, payload []byte, msgType uint32) err
 			break
 		}
 
-		if C.tachyon_rpc_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_rpc_get_state(b.raw)) == StateFatalError {
 			return &TachyonError{
 				Code:    int(C.TACHYON_ERR_SYSTEM),
 				Message: "peer dead (fatal error on arena_rev)",

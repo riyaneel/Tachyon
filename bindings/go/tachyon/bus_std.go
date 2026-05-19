@@ -26,7 +26,7 @@ func (b *Bus) Send(data []byte, typeID uint32) error {
 		if ptr != nil {
 			break
 		}
-		if C.tachyon_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_get_state(b.raw)) == StateFatalError {
 			return &TachyonError{Code: int(C.TACHYON_ERR_SYSTEM), Message: "peer dead (fatal error state)"}
 		}
 	}
@@ -66,7 +66,7 @@ func (b *Bus) Recv(spinThreshold uint32) ([]byte, uint32, error) {
 		if ptr != nil {
 			break
 		}
-		if C.tachyon_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_get_state(b.raw)) == StateFatalError {
 			return nil, 0, &TachyonError{Code: int(C.TACHYON_ERR_SYSTEM), Message: "peer dead (fatal error state)"}
 		}
 	}

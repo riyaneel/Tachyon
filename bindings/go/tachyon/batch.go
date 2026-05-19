@@ -128,7 +128,7 @@ func (b *Bus) DrainBatch(maxMsgs int, spinThreshold uint32) (*RxBatch, error) {
 		if count > 0 {
 			break
 		}
-		if C.tachyon_get_state(b.raw) == C.TACHYON_STATE_FATAL_ERROR {
+		if stateFromC(C.tachyon_get_state(b.raw)) == StateFatalError {
 			return nil, &TachyonError{Code: int(C.TACHYON_ERR_SYSTEM), Message: "peer dead (fatal error state)"}
 		}
 	}
