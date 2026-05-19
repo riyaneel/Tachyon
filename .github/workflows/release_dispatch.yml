@@ -1,0 +1,52 @@
+name: Release Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag to release'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare_release:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_BOT_TOKEN }}
+
+      - name: Validate SemVer
+        run: |
+          if [[ ! "${{ inputs.version_tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Error: '${{ inputs.version_tag }}' is not a valid SemVer tag"
+            exit 1
+          else
+            echo "Version format is valid: ${{ inputs.version_tag }}"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Generate CHANGELOG section
+        run: python3 ci/release/gen_changelog.py "${{ inputs.version_tag }}"
+
+      - name: Commit, Tag, and Push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG
+          git diff --cached --quiet || git commit -m "docs(changelog): update for ${{ inputs.version_tag }}"
+          git tag ${{ inputs.version_tag }} -m "${{ inputs.version_tag }}"
+          git push origin main
+          git push origin ${{ inputs.version_tag }}
