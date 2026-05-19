@@ -9,14 +9,14 @@ namespace tachyon::core {
 	namespace {
 		double calibrate_tsc_per_us() noexcept {
 			struct timespec ts_start, ts_end;
-			::clock_gettime(CLOCK_MONOTONIC, &ts_start);
+			clock_gettime(CLOCK_MONOTONIC, &ts_start);
 			const uint64_t tsc_start = rdtsc();
 
 			constexpr struct timespec req = {0, 10'000'000};
-			::nanosleep(&req, nullptr);
+			nanosleep(&req, nullptr);
 
-			const uint64_t tsc_end = tachyon::rdtsc();
-			::clock_gettime(CLOCK_MONOTONIC, &ts_end);
+			const uint64_t tsc_end = rdtsc();
+			clock_gettime(CLOCK_MONOTONIC, &ts_end);
 			const uint64_t elapsed_ns = static_cast<uint64_t>(ts_end.tv_sec - ts_start.tv_sec) * 1'000'000'000ULL +
 										static_cast<uint64_t>(ts_end.tv_nsec) - static_cast<uint64_t>(ts_start.tv_nsec);
 
@@ -129,11 +129,15 @@ namespace tachyon::core {
 						}
 					}
 
-					auto &[count, total_reserved_bytes] = pending_[i];
-					for (std::size_t j = 0; j < k; ++j) {
-						total_reserved_bytes += views[total + j].reserved_;
+					size_t batch_reserved = 0;
+					for (size_t j = 0; j < k; ++j) {
+						batch_reserved += views[total + j].reserved_;
 					}
 
+					buses_[i]->arena.advance_local_rx_cursor(batch_reserved);
+
+					auto &[count, total_reserved_bytes] = pending_[i];
+					total_reserved_bytes += batch_reserved;
 					count += k;
 					total += k;
 					any_data = true;
@@ -159,10 +163,7 @@ namespace tachyon::core {
 				continue;
 			}
 
-			if (!buses_[i]->arena.advance_tail_batch(total_reserved_bytes, count)) [[unlikely]] {
-				return false;
-			}
-
+			buses_[i]->arena.flush_rx();
 			count				 = 0;
 			total_reserved_bytes = 0;
 		}

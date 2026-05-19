@@ -60,7 +60,7 @@ namespace tachyon::core {
 		ArenaHeader header;
 		SPSCIndices indices;
 
-		[[nodiscard]] inline std::byte *data_arena() noexcept {
+		[[nodiscard]] TACHYON_INLINE std::byte *data_arena() noexcept {
 			return reinterpret_cast<std::byte *>(this + 1);
 		}
 	};
@@ -161,6 +161,14 @@ namespace tachyon::core {
 
 		[[nodiscard]] TACHYON_INLINE BusState get_state() const noexcept {
 			return layout_->header.state.load(std::memory_order_acquire);
+		}
+
+		TACHYON_INLINE void flush_rx() noexcept {
+			do_flush_rx();
+		}
+
+		TACHYON_INLINE void advance_local_rx_cursor(const size_t reserved_bytes) noexcept {
+			local_tail_ += reserved_bytes;
 		}
 	};
 } // namespace tachyon::core
