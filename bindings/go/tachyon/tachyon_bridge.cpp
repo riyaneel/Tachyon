@@ -1,5 +1,7 @@
 #include "_core_local/src/arena.cpp"
 #include "_core_local/src/shm.cpp"
+#include "_core_local/src/star.cpp"
 #include "_core_local/src/tachyon_c.cpp"
 #include "_core_local/src/tachyon_rpc.cpp"
+#include "_core_local/src/tachyon_star.cpp"
 #include "_core_local/src/transport_uds.cpp"
