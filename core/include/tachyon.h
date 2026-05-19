@@ -64,6 +64,13 @@ typedef struct {
 	uint32_t padding_;
 } tachyon_msg_view_t;
 
+typedef struct {
+	uint64_t		ring_capacity;
+	uint64_t		ring_occupancy;
+	uint32_t		consumer_state; /* 0=awake, 1=sleeping, 2=pure-spin */
+	tachyon_state_t state;
+} tachyon_bus_stats_t;
+
 TACHYON_ABI void tachyon_memory_barrier_acquire(void) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_error_t
@@ -112,6 +119,9 @@ TACHYON_ABI void tachyon_bus_set_polling_mode(const tachyon_bus_t *bus, int pure
 TACHYON_ABI void tachyon_flush(tachyon_bus_t *bus) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+
+TACHYON_ABI tachyon_error_t
+tachyon_bus_stats(const tachyon_bus_t *bus, tachyon_bus_stats_t *out_stats) TACHYON_NOEXCEPT;
 
 TACHYON_ABI tachyon_error_t tachyon_rpc_listen(
 	const char *socket_path, size_t cap_fwd, size_t cap_rev, tachyon_rpc_bus_t **out_rpc

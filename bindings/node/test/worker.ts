@@ -56,6 +56,11 @@ try {
 				}
 				bus.flush();
 				break;
+
+			case 'stats':
+				bus.send(Buffer.from('s'), 1);
+				bus.send(Buffer.from('s'), 1);
+				break;
 		}
 		bus.close();
 	} else {
@@ -103,6 +108,23 @@ try {
 				}
 				batch.commit();
 				assert.throws(() => batch.at(0), /already been committed/);
+				break;
+			}
+
+			case 'stats': {
+				const initial = bus.stats();
+				assert.strictEqual(initial.ringCapacity, 1024);
+				assert.strictEqual(initial.state, 2 /* READY */);
+
+				let observed = initial;
+				for (let i = 0; i < 200; i++) {
+					observed = bus.stats();
+					if (observed.ringOccupancy > 0) break;
+					Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+				}
+
+				assert.ok(observed!.ringOccupancy > 0, 'producer messages should be visible in occupancy');
+				assert.ok(observed!.ringOccupancy <= initial.ringCapacity);
 				break;
 			}
 		}

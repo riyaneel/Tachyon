@@ -9,6 +9,16 @@ import { RxGuard, TxGuard } from './guards.ts';
 
 const _require = createRequire(import.meta.url);
 
+/**
+ * Read-only snapshot of bus state. Returned by {@link Bus.stats}.
+ */
+export interface BusStats {
+	ringCapacity: number;
+	ringOccupancy: number;
+	consumerState: number;
+	state: number;
+}
+
 // Raw shape of a native instance returned by TachyonBusNode.listen / .connect.
 interface NativeBinding {
 	close(): void;
@@ -38,6 +48,8 @@ interface NativeBinding {
 	setNumaNode(nodeId: number): void;
 
 	getState(): number;
+
+	stats(): BusStats;
 }
 
 interface NativeModule {
@@ -48,7 +60,12 @@ interface NativeModule {
 }
 
 function loadNative(): NativeModule {
+	// Resolves correctly both when executed from compiled `dist/bus.js` (one level
+	// above the file is the package root) and from source `src/ts/bus.ts` (two
+	// levels above the file is the package root).
 	const candidates = [
+		new URL('../build/Release/tachyon_node.node', import.meta.url).pathname,
+		new URL('../build/Debug/tachyon_node.node', import.meta.url).pathname,
 		new URL('../../build/Release/tachyon_node.node', import.meta.url).pathname,
 		new URL('../../build/Debug/tachyon_node.node', import.meta.url).pathname,
 	];
@@ -247,6 +264,14 @@ export class Bus implements Disposable {
 			getState: () => this.#handle.getState(),
 		};
 		return new RxBatch(ctrl, messages);
+	}
+
+	/**
+	 * Returns a read-only snapshot of the bus state.
+	 */
+	public stats(): BusStats {
+		this.#assertOpen();
+		return this.#handle.stats();
 	}
 
 	/** Closes the bus and unmaps shared memory. Safe to call multiple times. */

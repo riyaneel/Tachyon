@@ -157,8 +157,6 @@ namespace tachyon::core {
 		layout->indices.head.store(0, std::memory_order_relaxed);
 		layout->indices.tail.store(0, std::memory_order_relaxed);
 		layout->indices.consumer_sleeping.store(CONSUMER_AWAKE, std::memory_order_relaxed);
-		layout->indices.producer_heartbeat.store(0, std::memory_order_relaxed);
-		layout->indices.consumer_heartbeat.store(0, std::memory_order_relaxed);
 		layout->header.state.store(BusState::Ready, std::memory_order_release);
 
 		return Arena(layout, capacity);
@@ -549,8 +547,18 @@ namespace tachyon::core {
 		return static_cast<int>(platform_wait(&layout_->indices.consumer_sleeping));
 	}
 
-	uint64_t Arena::get_producer_heartbeat() const noexcept {
-		return layout_->indices.producer_heartbeat.load(std::memory_order_relaxed);
+	uint32_t Arena::get_consumer_state() const noexcept {
+		return layout_->indices.consumer_sleeping.load(std::memory_order_acquire);
+	}
+
+	size_t Arena::get_capacity() const noexcept {
+		return layout_->header.capacity;
+	}
+
+	size_t Arena::get_ring_occupancy() const noexcept {
+		const size_t head = layout_->indices.head.load(std::memory_order_acquire);
+		const size_t tail = layout_->indices.tail.load(std::memory_order_acquire);
+		return head >= tail ? head - tail : 0;
 	}
 
 	void Arena::set_fatal_error() const noexcept {

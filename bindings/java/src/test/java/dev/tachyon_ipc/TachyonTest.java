@@ -266,4 +266,43 @@ public class TachyonTest {
 		assertTrue(ex instanceof AbiMismatchException, "Must be an instance of AbiMismatchException");
 		assertEquals(14, ex.getCode(), "The error code must be 14");
 	}
+
+	@Test
+	void testStats(@TempDir Path tempDir) throws Exception {
+		String socketPath = tempDir.resolve("stats.sock").toString();
+		AtomicReference<TachyonBus> producerRef = new AtomicReference<>();
+		CountDownLatch latch = new CountDownLatch(1);
+		Thread listenThread = spawnListener(socketPath, producerRef, latch);
+
+		try (TachyonBus consumer = connectWithRetry(socketPath)) {
+			assertTrue(latch.await(2, TimeUnit.SECONDS));
+			try (TachyonBus producer = producerRef.get()) {
+				BusStats initial = consumer.stats();
+				assertEquals(DEFAULT_CAPACITY, initial.ringCapacity());
+				assertEquals(0L, initial.ringOccupancy());
+				// 2 == TACHYON_STATE_READY
+				assertEquals(2, initial.state());
+
+				try (TxGuard tx = producer.acquireTx(1)) {
+					tx.getData().set(ValueLayout.JAVA_BYTE, 0, (byte) 's');
+					tx.commit(1, 1);
+				}
+
+				BusStats observed = initial;
+				for (int i = 0; i < 200; i++) {
+					observed = consumer.stats();
+					if (observed.ringOccupancy() > 0) break;
+					Thread.sleep(5);
+				}
+				assertTrue(observed.ringOccupancy() > 0, "producer send should be visible in occupancy");
+				assertTrue(observed.ringOccupancy() <= initial.ringCapacity());
+
+				// Drain so the bus shuts down cleanly.
+				try (RxGuard rx = consumer.acquireRx(SPIN_THRESHOLD)) {
+					assertNotNull(rx);
+				}
+			}
+		}
+		listenThread.join(2000);
+	}
 }

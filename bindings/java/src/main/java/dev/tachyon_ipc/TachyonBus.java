@@ -36,7 +36,7 @@ public final class TachyonBus implements AutoCloseable {
 	 * @implSpec The native bus pointer is strictly bound to a shared FFM {@link Arena}
 	 * that dictates the spatial bounds of further memory segments mapped to this bus.
 	 */
-	 @SuppressWarnings("removal")
+	@SuppressWarnings("removal")
 	public static TachyonBus listen(String path, long capacity) {
 		Objects.requireNonNull(path, "Path cannot be null");
 		if (capacity <= 0 || (capacity & (capacity - 1)) != 0) {
@@ -56,7 +56,7 @@ public final class TachyonBus implements AutoCloseable {
 	 * @param path The absolute filesystem path of the target UDS socket.
 	 * @return A new active {@link TachyonBus} instance mapped to the remote arena.
 	 */
-	 @SuppressWarnings("removal")
+	@SuppressWarnings("removal")
 	public static TachyonBus connect(String path) {
 		Objects.requireNonNull(path, "Path cannot be null");
 
@@ -79,6 +79,18 @@ public final class TachyonBus implements AutoCloseable {
 	public void setPollingMode(int spinMode) {
 		checkOpen();
 		TachyonABI.setPollingMode(busHandle, spinMode);
+	}
+
+	/**
+	 * Returns a read-only snapshot of bus state: ring capacity / occupancy,
+	 * consumer-sleeping state, and bus state.
+	 *
+	 * @return {@link BusStats} record.
+	 * @apiNote Not use this inside a hot loop.
+	 */
+	public BusStats stats() {
+		checkOpen();
+		return TachyonABI.busStats(busHandle);
 	}
 
 	/**
@@ -130,7 +142,7 @@ public final class TachyonBus implements AutoCloseable {
 	 * @param spinThreshold The number of {@code cpu_relax()} spin iterations before falling
 	 *                      back to an OS-level futex wait.
 	 * @return An {@link RxGuard} representing the read-only projection of the message,
-	 *         or {@code null} if the blocking call was interrupted by a signal (EINTR).
+	 * or {@code null} if the blocking call was interrupted by a signal (EINTR).
 	 * @implSpec Deserialization must be performed directly on the returned zero-copy memory segment.
 	 */
 	public RxGuard acquireRx(int spinThreshold) {

@@ -158,10 +158,6 @@ namespace tachyon::top::ui {
 					 {text(std::format(" Head: 0x{:016X} ", view.head)) | flex,
 					  text(std::format(" Tail: 0x{:016X} ", view.tail)) | flex}
 				 ),
-				 hbox(
-					 {text(std::format(" Prod HB Age: {} µs ", view.producer_hb_age_us)) | flex,
-					  text(std::format(" Cons HB Age: {} µs ", view.consumer_hb_age_us)) | flex}
-				 ),
 				 separator(),
 				 text(std::format(" Throughput (Max: {:.2f} MB/s) ", max_val)) | dim,
 				 canvas(std::move(c)) | color(Color::Cyan) | border}

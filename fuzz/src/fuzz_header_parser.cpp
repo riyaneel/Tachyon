@@ -27,8 +27,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, const size_t size) {
 	layout->indices.head.store(ARENA_CAPACITY, std::memory_order_relaxed);
 	layout->indices.tail.store(0, std::memory_order_relaxed);
 	layout->indices.consumer_sleeping.store(0, std::memory_order_relaxed);
-	layout->indices.producer_heartbeat.store(0, std::memory_order_relaxed);
-	layout->indices.consumer_heartbeat.store(0, std::memory_order_relaxed);
 
 	std::byte *arena_region = layout->data_arena();
 	std::memcpy(arena_region, data, std::min(size, ARENA_CAPACITY));

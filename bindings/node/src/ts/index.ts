@@ -1,6 +1,7 @@
 export { RxBatch } from './batch.ts';
 export type { RxMessage } from './batch.ts';
 export { Bus } from './bus.ts';
+export type { BusStats } from './bus.ts';
 export {
 	TachyonError,
 	AbiMismatchError,

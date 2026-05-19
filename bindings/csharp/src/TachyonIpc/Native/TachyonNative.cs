@@ -21,7 +21,7 @@ public enum TachyonError
     AbiMismatch = 14
 }
 
-public enum TachyonState
+public enum TachyonState : uint
 {
     Uninitialized = 0,
     Initializing = 1,
@@ -39,6 +39,15 @@ public unsafe struct TachyonMsgView
     public nuint Reserved;
     public uint TypeId;
     public uint Padding;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct TachyonBusStats
+{
+    public ulong RingCapacity;
+    public ulong RingOccupancy;
+    public uint ConsumerState; // 0 = awake, 1 = sleeping, 2 = pure-spin
+    public TachyonState State;
 }
 
 internal static unsafe partial class TachyonNative
@@ -130,6 +139,9 @@ internal static unsafe partial class TachyonNative
 
     [LibraryImport(Lib)]
     internal static partial TachyonState tachyon_get_state(nint bus);
+
+    [LibraryImport(Lib)]
+    internal static partial TachyonError tachyon_bus_stats(nint bus, TachyonBusStats* outStats);
 
     [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial TachyonError tachyon_rpc_listen(

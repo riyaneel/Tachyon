@@ -102,6 +102,51 @@ public sealed unsafe class BusTests : IDisposable
     }
 
     [Fact]
+    public void Stats_ReflectsCapacity_OccupancyAndState()
+    {
+        const nuint capacity = 1024 * 1024;
+        var observed = new TachyonBusStats();
+        var observedSet = new ManualResetEventSlim(false);
+
+        var t = StartListener(_socketPath, capacity, bus =>
+        {
+            var initial = bus.Stats();
+            Assert.Equal((ulong)capacity, initial.RingCapacity);
+            Assert.True(initial.RingOccupancy == 0UL || initial.RingOccupancy == 128UL,
+                $"Unexpected initial occupancy: {initial.RingOccupancy}");
+            Assert.Equal(TachyonState.Ready, initial.State);
+
+            // Wait for the producer's send to land without draining.
+            for (var i = 0; i < 200; i++)
+            {
+                var snap = bus.Stats();
+                if (snap.RingOccupancy > 0)
+                {
+                    observed = snap;
+                    observedSet.Set();
+                    break;
+                }
+                Thread.Sleep(5);
+            }
+
+            // Drain so the bus shuts down cleanly.
+            using var rx = bus.ReceiveBlocking();
+        });
+
+        Thread.Sleep(20);
+        using (var client = ConnectWithRetry(_socketPath))
+        {
+            Assert.True(client.TryAcquireTx(8, out var tx));
+            using (tx) tx.Commit(1, 0, 1);
+            client.Flush();
+        }
+        t.Join(2000);
+
+        Assert.True(observedSet.IsSet, "producer send should be visible in occupancy");
+        Assert.InRange(observed.RingOccupancy, 1UL, (ulong)capacity);
+    }
+
+    [Fact]
     public void TryAcquireTx_ReturnsFalse_WhenFull()
     {
         var t = StartListener(_socketPath, 4096, _ => { });

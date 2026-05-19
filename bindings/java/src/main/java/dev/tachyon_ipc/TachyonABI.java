@@ -136,6 +136,12 @@ final class TachyonABI {
 			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
 	/**
+	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_bus_stats(const tachyon_bus_t*, tachyon_bus_stats_t*)}
+	 */
+	private static final MethodHandle MH_BUS_STATS = downcall("tachyon_bus_stats",
+			FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+
+	/**
 	 * Maps to: {@code TACHYON_ABI tachyon_error_t tachyon_rpc_listen(const char*, size_t, size_t, tachyon_rpc_bus_t**)}
 	 */
 	private static final MethodHandle MH_RPC_LISTEN = downcall("tachyon_rpc_listen",
@@ -499,6 +505,27 @@ final class TachyonABI {
 			return (int) MH_GET_STATE.invokeExact(handle);
 		} catch (Throwable t) {
 			throw handleException(t, "tachyon_get_state");
+		}
+	}
+
+	/**
+	 * Reads a {@code tachyon_bus_stats_t} snapshot from the native arena.
+	 *
+	 * @param handle The native bus pointer.
+	 * @return An immutable {@link BusStats} record.
+	 */
+	static BusStats busStats(MemorySegment handle) {
+		try (Arena arena = Arena.ofConfined()) {
+			MemorySegment outStats = arena.allocate(24);
+			checkError((int) MH_BUS_STATS.invokeExact(handle, outStats));
+			return new BusStats(
+					outStats.get(ValueLayout.JAVA_LONG, 0),
+					outStats.get(ValueLayout.JAVA_LONG, 8),
+					outStats.get(ValueLayout.JAVA_INT, 16),
+					outStats.get(ValueLayout.JAVA_INT, 20)
+			);
+		} catch (Throwable t) {
+			throw handleException(t, "tachyon_bus_stats");
 		}
 	}
 

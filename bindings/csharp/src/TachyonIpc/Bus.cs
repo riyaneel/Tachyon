@@ -74,6 +74,18 @@ public sealed unsafe class Bus : IDisposable
     }
 
     /// <summary>
+    /// Returns a read-only snapshot of bus state: ring capacity / occupancy, consumer state, and bus state.
+    /// </summary>
+    public TachyonBusStats Stats()
+    {
+        ThrowIfDisposed();
+        TachyonBusStats stats;
+        TachyonException.ThrowIfError(
+            TachyonNative.tachyon_bus_stats(_bus, &stats), nameof(TachyonNative.tachyon_bus_stats));
+        return stats;
+    }
+
+    /// <summary>
     /// Non-blocking TX slot acquisition. Returns <c>false</c> if the ring is full.
     /// The returned <see cref="TxGuard"/> must be committed or rolled back before the next call.
     /// </summary>

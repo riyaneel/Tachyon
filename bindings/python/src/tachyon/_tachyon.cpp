@@ -1023,10 +1023,31 @@ static PyObject *TachyonBus_set_polling_mode(const TachyonBus *self, PyObject *a
 	Py_RETURN_NONE;
 }
 
+static PyObject *TachyonBus_stats(const TachyonBus *self, PyObject *Py_UNUSED(args)) {
+	if (self->bus == nullptr) {
+		PyErr_SetString(PyExc_RuntimeError, "TachyonBus is not initialized.");
+		return nullptr;
+	}
+
+	tachyon_bus_stats_t	  stats;
+	const tachyon_error_t err = tachyon_bus_stats(self->bus, &stats);
+	if (err != TACHYON_SUCCESS) {
+		return raise_tachyon_error(err);
+	}
+
+	return Py_BuildValue(
+		"KKii",
+		static_cast<unsigned long long>(stats.ring_capacity),
+		static_cast<unsigned long long>(stats.ring_occupancy),
+		static_cast<unsigned int>(stats.consumer_state),
+		static_cast<int>(stats.state)
+	);
+}
+
 /**
  * @brief Array of methods exposed by TachyonBus object
  */
-static PyMethodDef TachyonBusMethods[10] = {
+static PyMethodDef TachyonBusMethods[11] = {
 	{"listen", reinterpret_cast<PyCFunction>(TachyonBus_listen), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"connect", reinterpret_cast<PyCFunction>(TachyonBus_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
 	{"destroy", reinterpret_cast<PyCFunction>(TachyonBus_destroy), METH_NOARGS, nullptr},
@@ -1039,6 +1060,7 @@ static PyMethodDef TachyonBusMethods[10] = {
 	 reinterpret_cast<PyCFunction>(TachyonBus_set_polling_mode),
 	 METH_VARARGS | METH_KEYWORDS,
 	 nullptr},
+	{"stats", reinterpret_cast<PyCFunction>(TachyonBus_stats), METH_NOARGS, nullptr},
 	{nullptr, nullptr, 0, nullptr}
 };
 

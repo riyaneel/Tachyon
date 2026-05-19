@@ -441,3 +441,60 @@ func TestTypeIDRoundTripOverBus(t *testing.T) {
 		t.Error("data: empty")
 	}
 }
+
+func TestStats(t *testing.T) {
+	path := sockPath(t)
+	srvCh := listenAsync(t, path)
+
+	time.Sleep(20 * time.Millisecond)
+
+	client := connectWithRetry(t, path)
+	defer client.Close()
+
+	srv := <-srvCh
+	if srv == nil {
+		t.Fatal("Listen failed")
+	}
+	defer srv.Close()
+
+	initial, err := srv.Stats()
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if initial.RingCapacity != capacity {
+		t.Errorf("RingCapacity: got %d, want %d", initial.RingCapacity, capacity)
+	}
+	if initial.RingOccupancy != 0 {
+		t.Errorf("RingOccupancy: got %d, want 0", initial.RingOccupancy)
+	}
+	if initial.State != 2 {
+		t.Errorf("State: got %d, want 2 (READY)", initial.State)
+	}
+
+	if err := client.Send([]byte("s"), 1); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	var observed tachyon.BusStats
+	for i := 0; i < 200; i++ {
+		observed, err = srv.Stats()
+		if err != nil {
+			t.Fatalf("Stats: %v", err)
+		}
+		if observed.RingOccupancy > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if observed.RingOccupancy == 0 {
+		t.Fatal("producer send should be visible in occupancy")
+	}
+	if observed.RingOccupancy > initial.RingCapacity {
+		t.Errorf("RingOccupancy %d > capacity %d", observed.RingOccupancy, initial.RingCapacity)
+	}
+
+	if _, _, err := srv.Recv(10_000); err != nil {
+		t.Errorf("drain Recv: %v", err)
+	}
+	_ = runtime.GOMAXPROCS(runtime.GOMAXPROCS(0))
+}

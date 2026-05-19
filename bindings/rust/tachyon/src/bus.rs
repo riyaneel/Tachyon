@@ -5,6 +5,20 @@ use tachyon_sys::*;
 
 const STATE_FATAL_ERROR: u32 = tachyon_state_t_TACHYON_STATE_FATAL_ERROR as u32;
 
+/// Read-only snapshot of bus state.
+///
+/// Not to use inside hot-loop.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct BusStats {
+    pub ring_capacity: u64,
+    pub ring_occupancy: u64,
+    /// 0 = awake, 1 = sleeping on futex, 2 = pure-spin mode.
+    pub consumer_state: u32,
+    /// Same numeric values as `tachyon_state_t`.
+    pub state: u32,
+}
+
 /// SPSC IPC bus. `Send` but not `Sync`, one `Bus` per thread.
 pub struct Bus {
     inner: NonNull<tachyon_bus_t>,
@@ -90,6 +104,21 @@ impl Bus {
     pub fn set_polling_mode(&self, spin_mode: i32) {
         unsafe {
             tachyon_bus_set_polling_mode(self.inner.as_ptr(), spin_mode);
+        }
+    }
+
+    /// Returns a read-only snapshot of bus state.
+    pub fn stats(&self) -> BusStats {
+        let mut raw = std::mem::MaybeUninit::<tachyon_bus_stats_t>::uninit();
+        unsafe {
+            tachyon_bus_stats(self.inner.as_ptr(), raw.as_mut_ptr());
+        };
+        let raw = unsafe { raw.assume_init() };
+        BusStats {
+            ring_capacity: raw.ring_capacity,
+            ring_occupancy: raw.ring_occupancy,
+            consumer_state: raw.consumer_state,
+            state: raw.state as u32,
         }
     }
 

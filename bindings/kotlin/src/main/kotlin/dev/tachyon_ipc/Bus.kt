@@ -116,6 +116,11 @@ public class Bus private constructor(private val inner: TachyonBus) : AutoClosea
         inner.flush()
     }
 
+    /**
+     * Returns a read-only snapshot of bus state: ring capacity / occupancy, consumer sleeping state, and bus state.
+     */
+    public fun stats(): BusStats = inner.stats()
+
     override fun close() {
         inner.close()
     }

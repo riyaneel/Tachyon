@@ -10,6 +10,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class BusTest {
     private lateinit var socketPath: String
@@ -143,6 +144,41 @@ class BusTest {
         assertEquals(99, TypeId.msgType(id))
 
         assertEquals(0, TypeId.of(0, 0))
+    }
+
+    @Test
+    fun `should expose ring capacity, occupancy, and bus state via stats`() = runBlocking {
+        val capacity = 1024L * 16L
+
+        val consumerJob = async(Dispatchers.IO) {
+            Bus.listen(socketPath, capacity).use { bus ->
+                val initial = bus.stats()
+                assertEquals(capacity, initial.ringCapacity())
+                assertEquals(0L, initial.ringOccupancy())
+                // 2 == TACHYON_STATE_READY
+                assertEquals(2, initial.state())
+
+                var observed = initial
+                repeat(200) {
+                    observed = bus.stats()
+                    if (observed.ringOccupancy() > 0L) return@repeat
+                    delay(5)
+                }
+                assertTrue(observed.ringOccupancy() > 0L, "producer send should be visible in occupancy")
+                assertTrue(observed.ringOccupancy() <= initial.ringCapacity())
+
+                // Drain so the bus shuts down cleanly.
+                bus.acquireRx(10_000)?.close()
+            }
+        }
+
+        launch(Dispatchers.IO) {
+            connectWithRetry(socketPath).use { bus ->
+                bus.send(byteArrayOf(0x73), typeId = 1)
+            }
+        }.join()
+
+        consumerJob.await()
     }
 
     @Test

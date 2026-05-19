@@ -138,3 +138,30 @@ func (b *Bus) SetPollingMode(spinMode int) error {
 	C.tachyon_bus_set_polling_mode(b.raw, C.int(spinMode))
 	return nil
 }
+
+// BusStats is a read-only snapshot of bus state returned by Bus.Stats.
+type BusStats struct {
+	RingCapacity  uint64
+	RingOccupancy uint64
+	ConsumerState uint32 // 0 = awake, 1 = sleeping on futex, 2 = pure-spin
+	State         uint32 // same numeric values as tachyon_state_t
+}
+
+// Stats returns a read-only snapshot of bus state.
+func (b *Bus) Stats() (BusStats, error) {
+	if b.raw == nil {
+		return BusStats{}, &TachyonError{Code: int(C.TACHYON_ERR_NULL_PTR), Message: "bus is closed"}
+	}
+
+	var raw C.tachyon_bus_stats_t
+	if err := C.tachyon_bus_stats(b.raw, &raw); err != C.TACHYON_SUCCESS {
+		return BusStats{}, fromErrorT(err)
+	}
+
+	return BusStats{
+		RingCapacity:  uint64(raw.ring_capacity),
+		RingOccupancy: uint64(raw.ring_occupancy),
+		ConsumerState: uint32(raw.consumer_state),
+		State:         uint32(raw.state),
+	}, nil
+}

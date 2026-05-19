@@ -113,6 +113,7 @@ public:
 				InstanceMethod<&TachyonBusNode::SetPollingMode>("setPollingMode"),
 				InstanceMethod<&TachyonBusNode::SetNumaNode>("setNumaNode"),
 				InstanceMethod<&TachyonBusNode::GetState>("getState"),
+				InstanceMethod<&TachyonBusNode::Stats>("stats"),
 			}
 		);
 
@@ -501,6 +502,26 @@ private:
 			return env.Undefined();
 
 		return Napi::Number::New(env, static_cast<int>(tachyon_get_state(bus_)));
+	}
+
+	Napi::Value Stats(const Napi::CallbackInfo &info) {
+		Napi::Env env = info.Env();
+		if (!assert_open(env))
+			return env.Undefined();
+
+		tachyon_bus_stats_t stats;
+		const tachyon_error_t err = tachyon_bus_stats(bus_, &stats);
+		if (err != TACHYON_SUCCESS) {
+			set_tachyon_error(env, err);
+			return env.Undefined();
+		}
+
+		Napi::Object obj = Napi::Object::New(env);
+		obj.Set("ringCapacity", Napi::Number::New(env, static_cast<double>(stats.ring_capacity)));
+		obj.Set("ringOccupancy", Napi::Number::New(env, static_cast<double>(stats.ring_occupancy)));
+		obj.Set("consumerState", Napi::Number::New(env, static_cast<int>(stats.consumer_state)));
+		obj.Set("state", Napi::Number::New(env, static_cast<int>(stats.state)));
+		return obj;
 	}
 };
 

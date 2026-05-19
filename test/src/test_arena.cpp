@@ -362,4 +362,29 @@ namespace tachyon::core::test {
 		EXPECT_EQ(TACHYON_MSG_TYPE(type_id_out2), 42U);
 		EXPECT_TRUE(consumer.commit_rx());
 	}
+
+	TEST_F(ArenaTest, Stats) {
+		auto	   producer = Arena::format(shm_owner->data(), arena_capacity).value();
+		const auto consumer = Arena::attach(shm_owner->data()).value();
+
+		EXPECT_EQ(producer.get_capacity(), arena_capacity);
+		EXPECT_EQ(producer.get_ring_occupancy(), 0U);
+		EXPECT_EQ(producer.get_consumer_state(), CONSUMER_AWAKE);
+		EXPECT_EQ(producer.get_state(), BusState::Ready);
+
+		for (int i = 0; i < 3; ++i) {
+			std::byte *tx_ptr = producer.acquire_tx(sizeof(DummyOrder));
+			ASSERT_NE(tx_ptr, nullptr);
+			new (tx_ptr) DummyOrder{static_cast<uint64_t>(i), 1.0, 1};
+			ASSERT_TRUE(producer.commit_tx(sizeof(DummyOrder), 1));
+		}
+		producer.flush();
+
+		const size_t occupancy = consumer.get_ring_occupancy();
+		EXPECT_GT(occupancy, 0U);
+		EXPECT_LE(occupancy, arena_capacity);
+
+		consumer.set_consumer_sleeping(true);
+		EXPECT_EQ(producer.get_consumer_state(), CONSUMER_SLEEPING);
+	}
 } // namespace tachyon::core::test

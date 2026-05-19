@@ -54,8 +54,6 @@ namespace tachyon::core {
 		alignas(128) std::atomic<size_t> head{0};
 		alignas(128) std::atomic<size_t> tail{0};
 		alignas(128) std::atomic<uint32_t> consumer_sleeping{0};
-		alignas(128) std::atomic<uint64_t> producer_heartbeat{0};
-		alignas(128) std::atomic<uint64_t> consumer_heartbeat{0};
 	};
 
 	struct alignas(128) MemoryLayout {
@@ -153,7 +151,11 @@ namespace tachyon::core {
 
 		int wait_consumer_sleeping() const noexcept;
 
-		uint64_t get_producer_heartbeat() const noexcept;
+		uint32_t get_consumer_state() const noexcept;
+
+		size_t get_capacity() const noexcept;
+
+		size_t get_ring_occupancy() const noexcept;
 
 		void set_fatal_error() const noexcept;
 

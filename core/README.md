@@ -50,8 +50,6 @@ A single `memfd` region holds everything. Layout from offset 0:
 │ head atomic<size_t>  (alignas(128))                          │ producer-owned
 │ tail atomic<size_t>  (alignas(128))                          │ consumer-owned
 │ consumer_sleeping    atomic<uint32>  (alignas(128))          │ futex word
-│ producer_heartbeat   atomic<uint64>  (alignas(128))          │ rdtsc stamp
-│ consumer_heartbeat   atomic<uint64>  (alignas(128))          │ rdtsc stamp
 ├──────────────────────────────────────────────────────────────┤
 │ Ring buffer data     (capacity bytes, power of two)          │
 │  [ MessageHeader | payload ] [ MessageHeader | payload ] ... │
