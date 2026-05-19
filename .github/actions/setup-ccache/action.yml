@@ -26,4 +26,4 @@ runs:
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends ccache
-        ccache --max-size=512M --set-config=compression=true
+        ccache --max-size=1024M --set-config=compression=true
