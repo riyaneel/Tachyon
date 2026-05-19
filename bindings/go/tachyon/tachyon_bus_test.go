@@ -467,7 +467,6 @@ func TestStats(t *testing.T) {
 	if initial.RingOccupancy != 0 {
 		t.Errorf("RingOccupancy: got %d, want 0", initial.RingOccupancy)
 	}
-	// 2 == TACHYON_STATE_READY
 	if initial.State != 2 {
 		t.Errorf("State: got %d, want 2 (READY)", initial.State)
 	}
@@ -494,7 +493,6 @@ func TestStats(t *testing.T) {
 		t.Errorf("RingOccupancy %d > capacity %d", observed.RingOccupancy, initial.RingCapacity)
 	}
 
-	// Drain so the bus shuts down cleanly.
 	if _, _, err := srv.Recv(10_000); err != nil {
 		t.Errorf("drain Recv: %v", err)
 	}

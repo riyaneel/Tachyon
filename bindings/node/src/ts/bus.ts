@@ -11,8 +11,6 @@ const _require = createRequire(import.meta.url);
 
 /**
  * Read-only snapshot of bus state. Returned by {@link Bus.stats}.
- * `consumerState`: 0 = awake, 1 = sleeping on futex, 2 = pure-spin mode.
- * `state`: same numeric values as {@link Bus.getState} / tachyon_state_t.
  */
 export interface BusStats {
 	ringCapacity: number;
@@ -269,9 +267,7 @@ export class Bus implements Disposable {
 	}
 
 	/**
-	 * Returns a read-only snapshot of bus state. Cheap (relaxed atomic loads only)
-	 * and safe to call from either side of the bus. Per-field consistent, not
-	 * struct-consistent — fine for monitoring, not for synchronization.
+	 * Returns a read-only snapshot of the bus state.
 	 */
 	public stats(): BusStats {
 		this.#assertOpen();

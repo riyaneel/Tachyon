@@ -140,15 +140,11 @@ func (b *Bus) SetPollingMode(spinMode int) error {
 }
 
 // BusStats is a read-only snapshot of bus state returned by Bus.Stats.
-//
-// Cheap (relaxed atomic loads only) and safe to call from either side of the
-// bus. Per-field consistent, not struct-consistent — fine for monitoring,
-// not for synchronization.
 type BusStats struct {
-	RingCapacity     uint64
-	RingOccupancy    uint64
-	ConsumerSleeping uint32 // 0 = awake, 1 = sleeping on futex, 2 = pure-spin
-	State            uint32 // same numeric values as tachyon_state_t
+	RingCapacity  uint64
+	RingOccupancy uint64
+	ConsumerState uint32 // 0 = awake, 1 = sleeping on futex, 2 = pure-spin
+	State         uint32 // same numeric values as tachyon_state_t
 }
 
 // Stats returns a read-only snapshot of bus state.
@@ -163,9 +159,9 @@ func (b *Bus) Stats() (BusStats, error) {
 	}
 
 	return BusStats{
-		RingCapacity:     uint64(raw.ring_capacity),
-		RingOccupancy:    uint64(raw.ring_occupancy),
-		ConsumerSleeping: uint32(raw.consumer_sleeping),
-		State:            uint32(raw.state),
+		RingCapacity:  uint64(raw.ring_capacity),
+		RingOccupancy: uint64(raw.ring_occupancy),
+		ConsumerState: uint32(raw.consumer_state),
+		State:         uint32(raw.state),
 	}, nil
 }
