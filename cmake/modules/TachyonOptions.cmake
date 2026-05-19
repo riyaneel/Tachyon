@@ -9,11 +9,12 @@ set(TACHYON_MSAN_LIBCXX_DIR "${CMAKE_SOURCE_DIR}/.msan_toolchain/llvm-${TACHYON_
 set(GCC_VERSION "16" CACHE STRING "GCC version to use")
 
 # Sanitizers
-set(TACHYON_SANITIZER "asan_ubsan" CACHE STRING "Sanitizer preset: none | asan_ubsan | tsan | msan")
+set(TACHYON_SANITIZER "none" CACHE STRING "Sanitizer preset: none | asan_ubsan | tsan | msan")
 set_property(CACHE TACHYON_SANITIZER PROPERTY STRINGS none asan_ubsan tsan msan)
 
 # Build
 option(TACHYON_PORTABLE_BUILD "Disable -march=native for redistributable binaries" OFF)
+option(TACHYON_ENABLE_TESTS "Build tests" ON)
 option(TACHYON_ENABLE_BENCH "Build benchmarks" ON)
 option(TACHYON_ENABLE_FUZZING "Build libFuzzer harnesses (Clang only)" OFF)
 option(TACHYON_ENABLE_TOP "Build tachyon-top CLI" OFF)

@@ -1,7 +1,5 @@
 include_guard(GLOBAL)
 
-
-
 set(_tachyon_san_valid none asan_ubsan tsan msan)
 
 if (NOT TACHYON_SANITIZER IN_LIST _tachyon_san_valid)

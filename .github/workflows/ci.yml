@@ -465,9 +465,8 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
-          cmake --build --preset clang-release --parallel
-          cmake --build --preset clang-release --target tachyon_java_resources
+          cmake --preset clang-ci
+          cmake --build --preset clang-ci --target tachyon_java_resources
 
       - name: Gradle Test
         working-directory: bindings/java
@@ -499,9 +498,8 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
-          cmake --build --preset macos-release --parallel
-          cmake --build --preset macos-release --target tachyon_java_resources
+          cmake --preset macos-ci
+          cmake --build --preset macos-ci --target tachyon_java_resources --parallel
 
       - name: Gradle Test
         working-directory: bindings/java
@@ -539,9 +537,8 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
-          cmake --build --preset clang-release --parallel
-          cmake --build --preset clang-release --target tachyon_java_resources
+          cmake --preset clang-ci
+          cmake --build --preset clang-ci --target tachyon_java_resources
 
       - name: Gradle Test
         working-directory: bindings/kotlin
@@ -573,9 +570,8 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
-          cmake --build --preset macos-release --parallel
-          cmake --build --preset macos-release --target tachyon_java_resources
+          cmake --preset macos-ci
+          cmake --build --preset macos-ci --target tachyon_java_resources --parallel
 
       - name: Gradle Test
         working-directory: bindings/kotlin
@@ -709,10 +705,10 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          cmake --preset clang-release -DTACHYON_ENABLE_BENCH=OFF
-          cmake --build --preset clang-release --parallel
+          cmake --preset clang-ci
+          cmake --build --preset clang-ci --parallel
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
-          cp build/clang-release/core/libtachyon.so bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native/
+          cp build/clang-ci/core/libtachyon.so bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native/
 
       - name: Build
         working-directory: bindings/csharp
@@ -744,8 +740,8 @@ jobs:
 
       - name: Build Native library
         run: |
-          cmake --preset macos-release -DTACHYON_ENABLE_BENCH=OFF
-          cmake --build --preset macos-release --parallel
+          cmake --preset macos-ci
+          cmake --build --preset macos-ci --parallel
           ARCH=$(uname -m)
           if [ "$ARCH" = "arm64" ]; then 
             RID="osx-arm64"; 
@@ -753,7 +749,7 @@ jobs:
             RID="osx-x64";
           fi
           mkdir -p bindings/csharp/src/TachyonIpc/runtimes/${RID}/native
-          cp build/macos-release/core/libtachyon.dylib bindings/csharp/src/TachyonIpc/runtimes/${RID}/native/
+          cp build/macos-ci/core/libtachyon.dylib bindings/csharp/src/TachyonIpc/runtimes/${RID}/native/
 
       - name: Build
         working-directory: bindings/csharp

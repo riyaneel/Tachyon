@@ -68,8 +68,11 @@ elseif (NOT TACHYON_PGO_PHASE STREQUAL "")
 endif ()
 
 add_subdirectory(core)
-add_subdirectory(test)
 add_subdirectory(bindings)
+
+if (TACHYON_ENABLE_TESTS)
+	add_subdirectory(test)
+endif ()
 
 if (TACHYON_ENABLE_BENCH)
 	add_subdirectory(benchmark)

@@ -106,6 +106,17 @@
       }
     },
     {
+      "name": "clang-ci",
+      "displayName": "Clang - CI",
+      "inherits": "clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_ENABLE_TESTS": "OFF",
+        "TACHYON_ENABLE_BENCH": "OFF",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
       "name": "macos-release",
       "displayName": "macOS - Release",
       "inherits": "macos-base",
@@ -119,6 +130,16 @@
       "inherits": "macos-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "macos-ci",
+      "displayName": "macOS - CI",
+      "inherits": "macos-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "TACHYON_ENABLE_TESTS": "OFF",
+        "TACHYON_ENABLE_BENCH": "OFF"
       }
     },
     {
@@ -273,6 +294,11 @@
       "jobs": 0
     },
     {
+      "name": "clang-ci",
+      "configurePreset": "clang-ci",
+      "jobs": 0
+    },
+    {
       "name": "macos-release",
       "configurePreset": "macos-release",
       "jobs": 0
@@ -280,6 +306,11 @@
     {
       "name": "macos-debug",
       "configurePreset": "macos-debug",
+      "jobs": 0
+    },
+    {
+      "name": "macos-ci",
+      "configurePreset": "macos-ci",
       "jobs": 0
     },
     {
