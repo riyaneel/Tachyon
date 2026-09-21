@@ -9,9 +9,9 @@ messages plus a sentinel, then exits.
 From the repo root:
 
 ```bash
-bash ci/vendor.sh node                                # copy core/ into bindings/node/src/native/_core_local
-CXX=g++-14 CC=gcc-14 npm --prefix bindings/node install   # also builds the native addon
-npm --prefix bindings/node run build:ts               # tsc -> dist/
+bash ci/vendor.sh node                                # copy core/ into bindings/js/src/native/_core_local
+CXX=g++-14 CC=gcc-14 npm --prefix bindings/js install   # also builds the native addon
+npm --prefix bindings/js run build:ts               # tsc -> dist/
 ```
 
 Requires gcc 14+ or clang 17+ (same toolchain as the core).
@@ -21,13 +21,13 @@ Requires gcc 14+ or clang 17+ (same toolchain as the core).
 Terminal 1 — consumer (start first):
 
 ```bash
-node bindings/node/examples/consumer.mjs
+node bindings/js/examples/consumer.mjs
 ```
 
 Terminal 2 — producer:
 
 ```bash
-node bindings/node/examples/producer.mjs
+node bindings/js/examples/producer.mjs
 ```
 
 ## What to expect
@@ -49,5 +49,5 @@ explicitly rather than crashing.
 The headline throughput (~500K msg/s) is dominated by the Node ↔ N-API boundary,
 not the underlying Tachyon transport (which the C++ benchmarks clock at ~50 ns
 p50 = 20M RTT/s). To approach the transport floor, use `bus.acquireTx` /
-`bus.drainBatch` from a Worker thread — see `bindings/node/test/` for the
+`bus.drainBatch` from a Worker thread — see `bindings/js/test/` for the
 patterns.

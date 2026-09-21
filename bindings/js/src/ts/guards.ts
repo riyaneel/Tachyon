@@ -1,19 +1,33 @@
 import { PeerDeadError } from './error.ts';
 
-// Branded slot types, nominal subtypes of Buffer.
+/** A detached ArrayBuffer (WASM) reports zero byteLength; a live slot never does. */
+function assertAttached(buffer: Uint8Array, what: string): void {
+	if (buffer.byteLength === 0) {
+		throw new Error(`${what}: the underlying buffer has been detached.`);
+	}
+}
+
+// Branded slot types, nominal subtypes of the underlying byte buffer.
 // Brand symbols are not accessible outside this module, so only
 // TxGuard and RxGuard can produce these types.
 declare const txSlotBrand: unique symbol;
 declare const rxSlotBrand: unique symbol;
 
-/** Zero-copy write window into the ring buffer. Valid only until commit or rollback. */
-export type TxSlot = Buffer & { readonly [txSlotBrand]: true };
+/**
+ * Zero-copy write window into the ring buffer. Valid only until commit or rollback.
+ *
+ * The backing type is platform-specific: native Node exposes a `Buffer`, while the
+ * browser WASM transport exposes a plain `Uint8Array`. The window is never cast across
+ * those shapes, so browser code can never call a Node-only `Buffer` method on it.
+ */
+export type TxSlot<S extends Uint8Array = Uint8Array> = S & { readonly [txSlotBrand]: true };
 
 /** Zero-copy read window into the ring buffer. Valid only until commit. */
-export type RxSlot = Buffer & { readonly [rxSlotBrand]: true };
+export type RxSlot<S extends Uint8Array = Uint8Array> = S & { readonly [rxSlotBrand]: true };
 
 /** @internal */
 export interface TxController {
+	assertOpen?(): void;
 	commitTx(actualSize: number, typeId: number): void;
 
 	commitTxUnflushed(actualSize: number, typeId: number): void;
@@ -42,29 +56,31 @@ export interface RxController {
  * tx.commit(5, 1);
  * ```
  */
-export class TxGuard {
+export class TxGuard<S extends Uint8Array = Uint8Array> {
 	#ctrl: TxController;
-	#buffer: TxSlot | null;
+	#buffer: TxSlot<S> | null;
 	#done = false;
 
 	/** @internal */
-	public constructor(ctrl: TxController, buffer: Buffer) {
+	public constructor(ctrl: TxController, buffer: S) {
 		this.#ctrl = ctrl;
-		this.#buffer = buffer as TxSlot;
+		this.#buffer = buffer as TxSlot<S>;
 	}
 
 	/**
 	 * Returns the writable zero-copy window into shared memory.
-	 * The reference is invalidated on commit or rollback, any cached reference
-	 * will throw `TypeError` on subsequent access (underlying ArrayBuffer detached).
+	 * The reference is invalidated on commit or rollback, cached browser views must not be used afterward. WASM memory cannot
+	 * detach individual slots, and memory growth can detach earlier views.
 	 *
 	 * @throws {Error} If the slot has already been finalized.
 	 */
-	public bytes(): TxSlot {
+	public bytes(): TxSlot<S> {
 		if (this.#done || this.#buffer === null) {
 			throw new Error('TxGuard: slot has already been committed or rolled back.');
 		}
 
+		this.#ctrl.assertOpen?.();
+		assertAttached(this.#buffer, 'TxGuard');
 		return this.#buffer;
 	}
 
@@ -76,8 +92,8 @@ export class TxGuard {
 	 */
 	public commit(actualSize: number, typeId: number): void {
 		this.#assertOpen();
-		this.#invalidate();
 		this.#ctrl.commitTx(actualSize, typeId);
+		this.#invalidate();
 	}
 
 	/**
@@ -87,8 +103,8 @@ export class TxGuard {
 	 */
 	public commitUnflushed(actualSize: number, typeId: number): void {
 		this.#assertOpen();
-		this.#invalidate();
 		this.#ctrl.commitTxUnflushed(actualSize, typeId);
+		this.#invalidate();
 	}
 
 	/** Cancels the transaction without publishing. No-op if already finalized. */
@@ -127,9 +143,9 @@ export class TxGuard {
  * process(rx.data());
  * ```
  */
-export class RxGuard {
+export class RxGuard<S extends Uint8Array = Uint8Array> {
 	#ctrl: RxController;
-	#buffer: RxSlot | null;
+	#buffer: RxSlot<S> | null;
 	#done = false;
 
 	/** Message type discriminator set by the producer. */
@@ -139,23 +155,25 @@ export class RxGuard {
 	public readonly actualSize: number;
 
 	/** @internal */
-	public constructor(ctrl: RxController, buffer: Buffer, typeId: number, actualSize: number) {
+	public constructor(ctrl: RxController, buffer: S, typeId: number, actualSize: number) {
 		this.#ctrl = ctrl;
-		this.#buffer = buffer as RxSlot;
+		this.#buffer = buffer as RxSlot<S>;
 		this.typeId = typeId;
 		this.actualSize = actualSize;
 	}
 
 	/**
 	 * Returns the read-only zero-copy window into shared memory.
-	 * The reference is invalidated on commit, any cached reference will throw `TypeError`.
+	 * The reference is invalidated on commit, cached browser views must not be used afterward.
 	 *
 	 * @throws {Error} If the slot has already been committed.
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	public data(): RxSlot {
+	public data(): RxSlot<S> {
 		this.#assertOpen();
 		if (this.#ctrl.getState() === 4 /* TACHYON_STATE_FATAL_ERROR */) throw new PeerDeadError();
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		assertAttached(this.#buffer!, 'RxGuard');
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		return this.#buffer!;
 	}
@@ -172,7 +190,7 @@ export class RxGuard {
 
 	/** Called automatically by the `using` keyword. Commits if not already released. */
 	public [Symbol.dispose](): void {
-		this.commit();
+		if (!this.#done) this.commit();
 	}
 
 	#assertOpen(): void {

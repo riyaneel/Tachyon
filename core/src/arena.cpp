@@ -8,6 +8,10 @@
 #include <unistd.h>
 #endif // #if defined(__linux__)
 
+#if !defined(__linux__) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+#include <thread>
+#endif // #if	!defined(__linux__) && !defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+
 #include <tachyon/arena.hpp>
 
 #if defined(__has_feature)
@@ -30,10 +34,10 @@ extern "C" void __tsan_release(void *addr);
 
 namespace tachyon::core {
 	namespace {
-		constexpr uint32_t SKIP_MARKER		   = 0xFFFFFFFF;
-		constexpr uint32_t WATCHDOG_TIMEOUT_US = 200'000;
-		constexpr uint32_t HDR_SIZE			   = TACHYON_MSG_ALIGNMENT;
-		constexpr uint32_t ALIGN_MASK		   = TACHYON_MSG_ALIGNMENT - 1U;
+		constexpr uint32_t					SKIP_MARKER			= 0xFFFFFFFF;
+		[[maybe_unused]] constexpr uint32_t WATCHDOG_TIMEOUT_US = 200'000;
+		constexpr uint32_t					HDR_SIZE			= TACHYON_MSG_ALIGNMENT;
+		constexpr uint32_t					ALIGN_MASK			= TACHYON_MSG_ALIGNMENT - 1U;
 
 		static_assert(
 			sizeof(MessageHeader) == TACHYON_MSG_ALIGNMENT,
@@ -65,7 +69,10 @@ namespace tachyon::core {
 #endif // #if defined(__APPLE__)
 
 		inline WaitResult platform_wait(std::atomic<uint32_t> *addr) noexcept {
-#if defined(__linux__)
+#if defined(__EMSCRIPTEN__)
+			(void)addr;
+			return WaitResult::Timeout;
+#elif defined(__linux__)
 			struct timespec ts = {
 				.tv_sec	 = static_cast<time_t>(WATCHDOG_TIMEOUT_US / 1'000'000),
 				.tv_nsec = static_cast<long>((WATCHDOG_TIMEOUT_US % 1'000'000) * 1000)
@@ -88,8 +95,6 @@ namespace tachyon::core {
 			TACHYON_TSAN_ACQUIRE(addr);
 			return WaitResult::Woken;
 #else
-#include <thread>
-
 			std::this_thread::yield();
 			return WaitResult::Woken;
 #endif
@@ -97,7 +102,8 @@ namespace tachyon::core {
 
 		inline void platform_wake(std::atomic<uint32_t> *addr) noexcept {
 			TACHYON_TSAN_RELEASE(addr);
-#if defined(__linux__)
+#if defined(__EMSCRIPTEN__)
+#elif defined(__linux__)
 			syscall(SYS_futex, addr, FUTEX_WAKE, 1, nullptr, nullptr, 0);
 #elif defined(__APPLE__)
 			__ulock_wake(UL_COMPARE_AND_WAIT | ULF_WAKE_ALL, addr, 0);
@@ -184,11 +190,14 @@ namespace tachyon::core {
 	}
 
 	std::byte *Arena::acquire_tx(const size_t max_size) noexcept {
+		const size_t capacity = capacity_mask_ + 1;
+		if (max_size > capacity - sizeof(MessageHeader)) [[unlikely]]
+			return nullptr;
+
 		const size_t total_msg_size = sizeof(MessageHeader) + max_size;
 		const size_t aligned_msg_size =
 			(total_msg_size + (TACHYON_MSG_ALIGNMENT - 1)) & ~(TACHYON_MSG_ALIGNMENT - 1ULL);
-		const size_t capacity = capacity_mask_ + 1;
-		if (aligned_msg_size > capacity || max_size > SKIP_MARKER - sizeof(MessageHeader)) [[unlikely]]
+		if (aligned_msg_size > capacity) [[unlikely]]
 			return nullptr;
 
 		size_t		 physical_idx	 = local_head_ & capacity_mask_;
@@ -251,9 +260,11 @@ namespace tachyon::core {
 	}
 
 	const std::byte *Arena::acquire_rx(uint32_t &out_type_id, size_t &out_actual_size) noexcept {
-		if (cached_head_ <= local_tail_) {
+		// Unsigned indices wrap on wasm32 after 4 GiB of traffic. Only equality
+		// denotes an empty ring; ordering comparisons fail across that wrap.
+		if (cached_head_ == local_tail_) {
 			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
-			if (cached_head_ <= local_tail_) [[likely]]
+			if (cached_head_ == local_tail_) [[likely]]
 				return nullptr;
 		}
 
@@ -305,9 +316,9 @@ namespace tachyon::core {
 			return 0;
 
 		size_t current_tail = local_tail_;
-		if (cached_head_ <= current_tail) {
+		if (cached_head_ == current_tail) {
 			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
-			if (cached_head_ <= current_tail) [[likely]] {
+			if (cached_head_ == current_tail) [[likely]] {
 				return 0;
 			}
 		}
@@ -315,7 +326,7 @@ namespace tachyon::core {
 		size_t		 count	  = 0;
 		const size_t capacity = capacity_mask_ + 1;
 
-		while (count < max_msgs && current_tail < cached_head_) {
+		while (count < max_msgs && current_tail != cached_head_) {
 			size_t physical_idx = current_tail & capacity_mask_;
 			if (capacity - physical_idx < sizeof(PackedMeta)) [[unlikely]] {
 				layout_->header.state.store(BusState::FatalError, std::memory_order_relaxed);
@@ -383,6 +394,10 @@ namespace tachyon::core {
 
 	const std::byte *
 	Arena::acquire_rx_spin(uint32_t &out_type_id, size_t &out_actual_size, const uint32_t max_spins) noexcept {
+#if defined(__EMSCRIPTEN__)
+		(void)max_spins;
+		return acquire_rx(out_type_id, out_actual_size);
+#else
 		uint32_t		 spins = 0;
 		const std::byte *ptr   = nullptr;
 
@@ -396,10 +411,15 @@ namespace tachyon::core {
 			spins++;
 		}
 		return ptr;
+#endif
 	}
 
 	const std::byte *
 	Arena::acquire_rx_blocking(uint32_t &out_type_id, size_t &out_actual_size, const uint32_t spin_threshold) noexcept {
+#if defined(__EMSCRIPTEN__)
+		(void)spin_threshold;
+		return acquire_rx(out_type_id, out_actual_size);
+#else
 		uint32_t		 spins = 0;
 		const std::byte *ptr   = nullptr;
 
@@ -430,6 +450,7 @@ namespace tachyon::core {
 		}
 
 		return ptr;
+#endif
 	}
 
 	bool
@@ -458,9 +479,9 @@ namespace tachyon::core {
 
 	const std::byte *
 	Arena::acquire_rx_rpc(uint32_t &out_type_id, size_t &out_actual_size, uint64_t &out_correlation_id) noexcept {
-		if (cached_head_ <= local_tail_) {
+		if (cached_head_ == local_tail_) {
 			cached_head_ = layout_->indices.head.load(std::memory_order_acquire);
-			if (cached_head_ <= local_tail_) [[likely]]
+			if (cached_head_ == local_tail_) [[likely]]
 				return nullptr;
 		}
 

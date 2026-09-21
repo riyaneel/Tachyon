@@ -1,0 +1,16 @@
+{
+  "name": "tachyon-browser-wasm-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "cd ../.. && cmake --preset emscripten-release && cmake --build --preset emscripten-release --target tachyon_example_stage",
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run build:wasm && vite build"
+  },
+  "devDependencies": {
+    "vite": "latest"
+  },
+  "dependencies": {
+    "@tachyon-ipc/core": "file:../../bindings/js"
+  }
+}

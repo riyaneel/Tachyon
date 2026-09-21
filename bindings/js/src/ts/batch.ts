@@ -9,8 +9,8 @@ export interface BatchController {
 }
 
 /** A single message inside an {@link RxBatch}. Valid only until the batch is committed. */
-export interface RxMessage {
-	readonly data: RxSlot;
+export interface RxMessage<S extends Uint8Array = Uint8Array> {
+	readonly data: RxSlot<S>;
 	readonly typeId: number;
 	readonly size: number;
 }
@@ -22,7 +22,7 @@ export interface RxMessage {
  * `using` commits automatically.
  *
  * All `RxMessage.data` references are invalidated on commit. Any cached reference
- * will throw `TypeError` (underlying ArrayBuffers are detached by the C++ side).
+ * will throw `TypeError` where the platform can detach the underlying ArrayBuffers.
  *
  * @example
  * ```ts
@@ -32,13 +32,13 @@ export interface RxMessage {
  * }
  * ```
  */
-export class RxBatch {
+export class RxBatch<S extends Uint8Array = Uint8Array> {
 	#ctrl: BatchController;
-	#messages: RxMessage[];
+	#messages: RxMessage<S>[];
 	#done = false;
 
 	/** @internal */
-	public constructor(ctrl: BatchController, messages: RxMessage[]) {
+	public constructor(ctrl: BatchController, messages: RxMessage<S>[]) {
 		this.#ctrl = ctrl;
 		this.#messages = messages;
 	}
@@ -55,7 +55,7 @@ export class RxBatch {
 	 * @throws {Error} If the batch has already been committed.
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	public at(i: number): RxMessage {
+	public at(i: number): RxMessage<S> {
 		this.#assertOpen();
 		if (this.#ctrl.getState() === 4 /* TACHYON_STATE_FATAL_ERROR */) throw new PeerDeadError();
 
@@ -74,10 +74,10 @@ export class RxBatch {
 	 *
 	 * @throws {PeerDeadError} If the bus has transitioned to TACHYON_STATE_FATAL_ERROR.
 	 */
-	public [Symbol.iterator](): Iterator<RxMessage> {
+	public [Symbol.iterator](): Iterator<RxMessage<S>> {
 		let i = 0;
 		return {
-			next: (): IteratorResult<RxMessage> => {
+			next: (): IteratorResult<RxMessage<S>> => {
 				if (this.#done || i >= this.#messages.length) {
 					return { value: undefined, done: true };
 				}

@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   check_release_type:
     name: Evaluate Release Tag
@@ -32,11 +36,11 @@ jobs:
       id-token: write
       contents: read
     environment:
-      name: pypi
+      name: release
       url: https://pypi.org/p/tachyon-ipc
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup environment
         uses: ./.github/actions/setup-tachyon-env
@@ -45,7 +49,7 @@ jobs:
           compiler: 'clang'
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.14"
 
@@ -63,7 +67,7 @@ jobs:
           python -m build --sdist
 
       - name: Upload sdist artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-sdist
           path: bindings/python/dist/*.tar.gz
@@ -71,7 +75,7 @@ jobs:
 
       - name: Publish to PyPI
         if: needs.check_release_type.outputs.is_stable == 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: bindings/python/dist/
 
@@ -83,9 +87,11 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    environment:
+      name: release
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -94,11 +100,13 @@ jobs:
           compiler: 'clang'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          toolchain: 'stable'
 
       - name: Authenticate with crates.io
         id: auth
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
 
       - name: Publish tachyon-sys
         env:
@@ -122,9 +130,11 @@ jobs:
     if: needs.check_release_type.outputs.is_stable == 'true'
     permissions:
       contents: write
+    environment:
+      name: release
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_BOT_TOKEN }}
@@ -151,7 +161,6 @@ jobs:
           GO_TAG="${{ steps.gotag.outputs.tag }}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
           if git rev-parse "${GO_TAG}" >/dev/null 2>&1; then
             echo "Tag ${GO_TAG} already exists - skipping."
           else
@@ -185,7 +194,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -203,7 +212,7 @@ jobs:
           cmake --build --preset ${{ matrix.preset }} --target tachyon_java_resources
 
       - name: Upload Linux Native asset
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-linux-${{ matrix.arch }}
           path: bindings/java/src/main/resources/native
@@ -223,10 +232,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -244,7 +253,7 @@ jobs:
           cmake --build --preset macos-release --target tachyon_java_resources
 
       - name: Upload macOS Native asset
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-macos-${{ matrix.arch }}
           path: bindings/java/src/main/resources/native
@@ -255,23 +264,25 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [ check_release_type, java_native_linux, java_native_macos ]
     if: needs.check_release_type.outputs.is_stable == 'true'
+    environment:
+      name: release
     strategy:
       fail-fast: false
       matrix:
         lang: [ java, kotlin ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: 'gradle'
 
       - name: Download Native Assets
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: native-*
           path: bindings/java/src/main/resources/native
@@ -291,7 +302,7 @@ jobs:
         run: ./gradlew jar --no-daemon
 
       - name: Upload Fat JAR artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: '${{ matrix.lang }}-fat-jar'
           path: bindings/${{ matrix.lang }}/build/libs/tachyon-${{ matrix.lang }}-*.jar
@@ -315,7 +326,7 @@ jobs:
             platform: darwin
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -324,16 +335,16 @@ jobs:
           compiler: 'clang'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 20
 
       - name: Install dependencies
-        working-directory: bindings/node
-        run: npm install
+        working-directory: bindings/js
+        run: npm ci --ignore-scripts
 
       - name: Build Prebuilt
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: |
           npx cmake-js compile --arch ${{ matrix.arch }}
           TARGET_DIR="prebuilds/${{ matrix.platform }}-${{ matrix.arch }}"
@@ -348,17 +359,17 @@ jobs:
       - name: Create Tarball Asset
         run: |
           mkdir -p dist
-          tar -czf "dist/tachyon-node-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C bindings/node/prebuilds .
+          tar -czf "dist/tachyon-js-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" -C bindings/js/prebuilds .
 
       - name: Upload Prebuilt Artifact (NPM publish)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: node-prebuild-${{ matrix.platform }}-${{ matrix.arch }}
-          path: bindings/node/prebuilds/
+          name: js-prebuild-${{ matrix.platform }}-${{ matrix.arch }}
+          path: bindings/js/prebuilds/
           if-no-files-found: 'error'
 
       - name: Upload Tarball Asset (GH Release)
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: node-tarball-${{ matrix.platform }}-${{ matrix.arch }}
           path: dist/*.tar.gz
@@ -372,36 +383,43 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    environment:
+      name: release
+      url: https://www.npmjs.com/package/@tachyon-ipc/core
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
         with:
           lang: 'node'
-          compiler: 'clang'
+          sdk: 'emscripten'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
 
       - name: Download all prebuilts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: bindings/node/prebuilds
-          pattern: node-prebuild-*
+          path: bindings/js/prebuilds
+          pattern: js-prebuild-*
           merge-multiple: 'true'
 
-      - name: Build TypeScript
-        working-directory: bindings/node
-        run: npm install --ignore-scripts && npm run build:ts
+      - name: Build WASM core and TypeScript
+        working-directory: bindings/js
+        run: |
+          npm ci --ignore-scripts
+          npm run build:wasm
+          npm run build:ts
+          npm run stage:wasm
 
       - name: Publish to NPM
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm publish --access public
 
   csharp_native_linux:
@@ -418,7 +436,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -449,7 +467,7 @@ jobs:
             bindings/csharp/src/TachyonIpc/runtimes/linux-arm64/native/libtachyon.so
 
       - name: Upload native artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: csharp-native-${{ matrix.rid }}
           path: bindings/csharp/src/TachyonIpc/runtimes/${{ matrix.rid }}/native/libtachyon.so
@@ -469,7 +487,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -485,7 +503,7 @@ jobs:
             bindings/csharp/src/TachyonIpc/runtimes/${{ matrix.rid }}/native/libtachyon.dylib
 
       - name: Upload native artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: csharp-native-${{ matrix.rid }}
           path: bindings/csharp/src/TachyonIpc/runtimes/${{ matrix.rid }}/native/libtachyon.dylib
@@ -499,37 +517,39 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    environment:
+      name: release
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: |
             8.x
             10.x
 
       - name: Download linux-x64 native
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: csharp-native-linux-x64
           path: bindings/csharp/src/TachyonIpc/runtimes/linux-x64/native
 
       - name: Download linux-arm64 native
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: csharp-native-linux-arm64
           path: bindings/csharp/src/TachyonIpc/runtimes/linux-arm64/native
 
       - name: Download osx-arm64 native
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: csharp-native-osx-arm64
           path: bindings/csharp/src/TachyonIpc/runtimes/osx-arm64/native
 
       - name: Download osx-x64 native
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: csharp-native-osx-x64
           path: bindings/csharp/src/TachyonIpc/runtimes/osx-x64/native
@@ -539,7 +559,7 @@ jobs:
         run: dotnet pack -c Release -o dist/
 
       - name: NuGet Login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         id: login
         with:
           user: ${{ secrets.NUGET_USERNAME }}
@@ -553,7 +573,7 @@ jobs:
             --skip-duplicate
 
       - name: Upload NuGet artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: csharp-nupkg
           path: bindings/csharp/src/TachyonIpc/dist/*.nupkg
@@ -564,7 +584,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -579,7 +599,7 @@ jobs:
           mv build/tachyon-top-ci/tools/tachyon-top/tachyon_top tachyon-top-linux-x86_64
 
       - name: Upload tachyon-top artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: tachyon-top-linux-x86_64
           path: tachyon-top-linux-x86_64
@@ -594,27 +614,29 @@ jobs:
       attestations: write
       contents: write
       id-token: write
+    environment:
+      name: release
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
 
       - name: Download Python sdist
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: python-sdist
           path: dist/
 
       - name: Download Java Fat JAR
         if: needs.jvm_publish.result == 'success'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: dist/
           pattern: '*-fat-jar'
           merge-multiple: 'true'
 
       - name: Download Node Tarballs
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: dist/
           pattern: node-tarball-*
@@ -622,13 +644,13 @@ jobs:
 
       - name: Download NuGet package
         if: needs.csharp_publish.result == 'success'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: csharp-nupkg
           path: dist/
 
       - name: Download tachyon-top binary
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: tachyon-top-linux-x86_64
           path: dist/
@@ -649,12 +671,12 @@ jobs:
           cat SHA256SUMS
 
       - name: Generate SLSA provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'dist/*'
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Sign artifacts
         run: |

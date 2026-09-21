@@ -13,6 +13,7 @@ compiled from source at installation time via `cmake-js`.
 - [Requirements](#requirements)
 - [Install](#install)
 - [Quickstart](#quickstart)
+- [Browser WASM](#browser-wasm)
 - [API](#api)
 - [Zero-copy pattern](#zero-copy-pattern)
 - [Batch pattern](#batch-pattern)
@@ -48,6 +49,9 @@ Clang 17+ must be available on the build machine.
 
 The package ships as **ESM** (`"type": "module"`). CommonJS consumers must use dynamic `import()`.
 
+Browser bundlers that honor the package `browser` field resolve `@tachyon-ipc/core` to the WASM browser build. Node.js
+continues to resolve the native N-API entrypoint through the existing `main` and `types` fields.
+
 ## Quickstart
 
 The consumer must start first, it owns the UNIX socket and the SHM arena.
@@ -71,6 +75,69 @@ bus.send(Buffer.from('hello tachyon'), 1);
 
 `Bus` implements `Disposable`. The `using` keyword (TypeScript 5.2+, ES2023 Explicit Resource Management) guarantees
 `close()` is called on scope exit regardless of exceptions.
+
+## Browser WASM
+
+The browser build is shipped from the same npm package and keeps the same import and constructor shape:
+
+```typescript
+import {Bus} from '@tachyon-ipc/core/browser';
+
+using consumer = Bus.listen('/page/demo', 1 << 20);
+using producer = Bus.connect('/page/demo');
+
+producer.send(new Uint8Array([1, 2, 3, 4]), 7);
+const message = consumer.recv();
+if (message) console.log(message.data, message.typeId);
+```
+
+The browser build runs the same C++ core compiled to WebAssembly with Emscripten, so message framing, header validation,
+and cursor arithmetic are the same fuzzed code as the native binding. The attach path is not: a page has no file
+descriptors, so `connect()` aliases the local ring instead of running the handshake.
+
+Browsers do not expose POSIX shared memory or UNIX sockets, so `socketPath` is a page-local endpoint key rather than a
+filesystem socket. `listen()` creates the in-page WASM ring; `connect()` takes a second handle onto it. The message
+layout still uses Tachyon's 64-byte header, `type_id`, alignment, and skip-marker rules. Capacity must be a power of
+two and no larger than `INT32_MAX` (`size_t` is 32-bit on wasm32), so the largest usable ring is 2^30 (1 GiB).
+
+The browser implementation is intentionally direct-doorbell oriented. After JavaScript commits a message, call the WASM
+work function immediately instead of scheduling a browser event or spinning in a poll loop. This avoids event-loop
+latency and keeps sub-microsecond round trips possible for in-page communication. Because the browser ring is
+non-blocking, `recv()` returns `null` when the ring is empty rather than throwing.
+
+Browser differences:
+
+- Repeated browser `connect()` calls return aliases to the same page-local ring; they are not independent subscribers,
+  and multiple consumers compete for the same ordered SPSC stream.
+- `recv()` and `acquireRx()` are non-blocking because the main browser thread cannot park like a native futex wait.
+- Browser `drainBatch()` is zero-copy and non-blocking: entries point into WASM memory, slots are released on `commit()`
+- `setNumaNode()` is a no-op; `setPollingMode()` forwards the core hint without enabling blocking waits.
+- A bus permits one active TX guard and one active RX guard across its aliases. Close releases its reservations.
+- WASM memory cannot detach a single slot, so a view kept past its commit stays readable but aliases a slot the producer
+  may already have reused. Growing the heap detaches every view at once: `listen()` refuses while a guard is held, and
+  guards throw rather than return a dead window.
+- `Buffer` is not a browser primitive; returned data is a `Uint8Array`.
+- Native cross-process IPC still requires Node.js or another native binding.
+- The browser build uses wasm32 for now, so WASM pointers, capacities, and slot sizes are `u32`-bounded; it can move to
+  wasm64/Memory64 later if a single linear-memory arena above 4 GiB becomes necessary.
+
+For browser-only installation use `npm install --ignore-scripts @tachyon-ipc/core`; this skips the native addon build.
+The explicit `/browser` entry selects browser types without requiring TypeScript `customConditions`. The root entry
+also supports the `browser` export condition. Serve emitted `.wasm` assets with `application/wasm` over HTTP.
+
+To call your own C++ exports, link them with `libtachyon.a` into one Emscripten module and bind that module directly:
+
+```typescript
+import {createBrowserBindings} from '@tachyon-ipc/core/browser/bindings';
+
+const {Bus} = createBrowserBindings(await createMyModule());
+const inbound = Bus.listen('/inbound', 1 << 20);
+// Pass inbound.wasmPointer to C exports from this same module only.
+```
+
+This factory does not load another WASM module. Reusing the same module returns the same endpoint registry.
+The pointer is borrowed until `close()`; do not destroy it from C or use raw C calls while a JS guard is active.
+The browser demo uses this path for its Send To C++ button.
 
 ## API
 

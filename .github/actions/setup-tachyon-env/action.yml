@@ -7,7 +7,7 @@ inputs:
   compiler:
     description: 'Compiler to use (clang or gcc)'
     required: false
-    default: clang
+    default: 'clang'
   llvm-version:
     description: 'LLVM Version'
     required: false
@@ -24,6 +24,14 @@ inputs:
     description: 'Sanitizer profile to prevent cache trashing'
     required: false
     default: 'none'
+  sdk:
+    description: 'SDK to install (none, emscripten)'
+    required: false
+    default: 'none'
+  sdk-version:
+    description: 'Version of the SDK selected by `sdk`'
+    required: false
+    default: '4.0.10'
 
 runs:
   using: composite
@@ -38,16 +46,27 @@ runs:
       shell: bash
       run: brew install ccache
 
+    - name: Fingerprint host CPU
+      id: cpu
+      shell: bash
+      run: |
+        if [ -r /proc/cpuinfo ]; then
+          id=$(grep -m1 -E '^(flags|Features)' /proc/cpuinfo)
+        else
+          id=$(sysctl -n machdep.cpu.brand_string)
+        fi
+        echo "key=$(echo "$id" | cksum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
     - name: Configure ccache
-      uses: actions/cache@v5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
-        key: ccache-${{ runner.os }}-${{ github.job }}-${{ inputs.compiler }}-${{ inputs.build-type }}-sanitizer_${{ inputs.sanitizer }}-${{ github.sha }}
+        key: ccache-${{ runner.os }}-cpu_${{ steps.cpu.outputs.key }}-${{ github.job }}-${{ inputs.compiler }}-${{ inputs.build-type }}-sanitizer_${{ inputs.sanitizer }}-${{ github.sha }}
         path: |
           ~/.cache/ccache
           ~/Library/Caches/ccache
         restore-keys: |
-          ccache-${{ runner.os }}-${{ github.job }}-${{ inputs.compiler }}-${{ inputs.build-type }}-sanitizer_${{ inputs.sanitizer }}-
-          ccache-${{ runner.os }}-${{ github.job }}-
+          ccache-${{ runner.os }}-cpu_${{ steps.cpu.outputs.key }}-${{ github.job }}-${{ inputs.compiler }}-${{ inputs.build-type }}-sanitizer_${{ inputs.sanitizer }}-
+          ccache-${{ runner.os }}-cpu_${{ steps.cpu.outputs.key }}-${{ github.job }}-
 
     - name: Setup Kitware APT repository (Linux)
       if: runner.os == 'Linux'
@@ -73,20 +92,46 @@ runs:
         sudo apt install gcc-${{ inputs.gcc-version }} g++-${{ inputs.gcc-version }}
 
     - name: Install LLVM (Linux)
-      if: runner.os == 'Linux' && inputs.compiler == 'clang'
+      if: runner.os == 'Linux' && inputs.compiler == 'clang' && inputs.sdk == 'none'
       shell: bash
       run: bash ci/install_llvm.sh ${{ inputs.llvm-version }}
+
+    - name: Cache Emscripten SDK
+      if: inputs.sdk == 'emscripten'
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      with:
+        key: emsdk-${{ runner.os }}-${{ inputs.sdk-version }}
+        path: ${{ github.workspace }}/.emsdk
+
+    - name: Install Emscripten SDK
+      if: inputs.sdk == 'emscripten'
+      shell: bash
+      run: bash ci/setup/install_emsdk.sh ${{ inputs.sdk-version }}
+
+    - name: Export Emscripten environment
+      if: inputs.sdk == 'emscripten'
+      shell: bash
+      run: |
+        EMSDK_DIR="${GITHUB_WORKSPACE}/.emsdk"
+        source "${EMSDK_DIR}/emsdk_env.sh" >/dev/null
+        env | grep '^EMSDK' >> $GITHUB_ENV
+        echo "$PATH" | tr ':' '\n' | grep "${EMSDK_DIR}" >> $GITHUB_PATH
 
     - name: Vendor C++ core
       if: inputs.lang != 'cpp' && inputs.lang != 'python'
       shell: bash
       run: bash ci/vendor.sh ${{ inputs.lang }}
 
-    - name: Export environments
+    - name: Export ccache launchers
       shell: bash
       run: |
         echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
         echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+
+    - name: Export host compiler
+      if: inputs.sdk == 'none'
+      shell: bash
+      run: |
         if [ "${{ runner.os }}" = "Linux" ]; then
           if [ "${{ inputs.compiler }}" = "gcc" ]; then
             echo "CC=gcc-${{ inputs.gcc-version }}" >> $GITHUB_ENV

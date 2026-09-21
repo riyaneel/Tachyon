@@ -61,6 +61,20 @@
       }
     },
     {
+      "name": "emscripten-base",
+      "hidden": true,
+      "inherits": "base",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/emscripten.cmake",
+      "cacheVariables": {
+        "TACHYON_ENABLE_TESTS": "OFF",
+        "TACHYON_ENABLE_BENCH": "OFF",
+        "TACHYON_ENABLE_TOP": "OFF",
+        "TACHYON_ENABLE_FUZZING": "OFF",
+        "TACHYON_ENABLE_SECCOMP": "OFF",
+        "TACHYON_SANITIZER": "none"
+      }
+    },
+    {
       "name": "clang-release",
       "displayName": "Clang - Release",
       "inherits": "clang-base",
@@ -140,6 +154,40 @@
         "CMAKE_BUILD_TYPE": "Release",
         "TACHYON_ENABLE_TESTS": "OFF",
         "TACHYON_ENABLE_BENCH": "OFF"
+      }
+    },
+    {
+      "name": "emscripten-release",
+      "displayName": "Emscripten - Release",
+      "inherits": "emscripten-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "emscripten-debug",
+      "displayName": "Emscripten - Debug",
+      "inherits": "emscripten-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "emscripten-test",
+      "displayName": "Emscripten - Tests",
+      "inherits": "emscripten-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TACHYON_ENABLE_TESTS": "ON",
+        "CMAKE_CROSSCOMPILING_EMULATOR": "node"
+      }
+    },
+    {
+      "name": "emscripten-asan",
+      "displayName": "Emscripten - ASan",
+      "inherits": "emscripten-test",
+      "cacheVariables": {
+        "TACHYON_SANITIZER": "asan_ubsan"
       }
     },
     {
@@ -314,6 +362,26 @@
       "jobs": 0
     },
     {
+      "name": "emscripten-release",
+      "configurePreset": "emscripten-release",
+      "jobs": 0
+    },
+    {
+      "name": "emscripten-debug",
+      "configurePreset": "emscripten-debug",
+      "jobs": 0
+    },
+    {
+      "name": "emscripten-test",
+      "configurePreset": "emscripten-test",
+      "jobs": 0
+    },
+    {
+      "name": "emscripten-asan",
+      "configurePreset": "emscripten-asan",
+      "jobs": 0
+    },
+    {
       "name": "asan",
       "configurePreset": "asan",
       "jobs": 0
@@ -429,6 +497,19 @@
       "name": "clang-release",
       "inherits": "base-test",
       "configurePreset": "clang-release"
+    },
+    {
+      "name": "emscripten-test",
+      "inherits": "base-test",
+      "configurePreset": "emscripten-test"
+    },
+    {
+      "name": "emscripten-asan",
+      "inherits": "emscripten-test",
+      "configurePreset": "emscripten-asan",
+      "execution": {
+        "jobs": 1
+      }
     },
     {
       "name": "asan",

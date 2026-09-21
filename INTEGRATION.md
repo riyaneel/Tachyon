@@ -378,11 +378,23 @@ If the producer returns `TachyonError` / `TACHYON_ERR_FULL`, the buffer is too s
 capacity or reduce burst size. The anti-overwrite shield never drops messages silently; the producer blocks or returns
 an error instead.
 
+### Browser WASM
+
+`size_t` is 32-bit on wasm32, so the core rejects any capacity above `INT32_MAX`. Combined with the power-of-two rule,
+the largest usable ring is `1 << 30` (1 GiB).
+
+Sizing is otherwise the same formula, but the budget is not: rings live in the module's linear memory alongside
+everything else the page allocates. Treat the browser as a memory-constrained target and size for the burst, not for
+headroom.
+
 ### Memory cost
 
 Tachyon uses `memfd_create` + `mmap(MAP_POPULATE)`, which allocates physical pages at `listen()` time.
 `CAPACITY = 1 << 23` (8 MB) costs 8 MB of RAM in the producer process and 8 MB in the consumer process (two `mmap`
 mappings of the same `memfd`). The physical pages are shared, total RAM cost is 8 MB, not 16.
+
+On wasm32 there is no `memfd` and no second mapping: the ring is a single `aligned_alloc` in the module's linear memory,
+so the cost is the capacity, once.
 
 ---
 

@@ -13,17 +13,19 @@ set(TACHYON_RELEASE_FLAGS
 		-fno-exceptions -fno-rtti
 )
 
-if (NOT APPLE)
+if (NOT APPLE AND NOT EMSCRIPTEN)
 	list(APPEND TACHYON_RELEASE_FLAGS -fno-plt)
 endif ()
 
-if (NOT TACHYON_PORTABLE_BUILD)
-	list(APPEND TACHYON_RELEASE_FLAGS "-march=native" "-mtune=native")
-else ()
-	if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
-		list(APPEND TACHYON_FLAGS "-march=x86-64-v3")
-	elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-		list(APPEND TACHYON_FLAGS "-march=armv8-a")
+if (NOT EMSCRIPTEN)
+	if (NOT TACHYON_PORTABLE_BUILD)
+		list(APPEND TACHYON_RELEASE_FLAGS "-march=native" "-mtune=native")
+	else ()
+		if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+			list(APPEND TACHYON_FLAGS "-march=x86-64-v3")
+		elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+			list(APPEND TACHYON_FLAGS "-march=armv8-a")
+		endif ()
 	endif ()
 endif ()
 

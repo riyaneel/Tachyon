@@ -15,7 +15,7 @@ if (TACHYON_ENABLE_TESTS)
 			OVERRIDE_FIND_PACKAGE
 	)
 
-	set(BUILD_MOCK OFF CACHE INTERNAL "")
+	set(BUILD_GMOCK OFF CACHE INTERNAL "")
 	set(INSTALL_GTEST OFF CACHE INTERNAL "")
 	set(gtest_force_shared_crt ON CACHE INTERNAL "")
 	FetchContent_MakeAvailable(googletest)
@@ -55,17 +55,20 @@ if (TACHYON_ENABLE_BENCH)
 endif ()
 
 # DLPack
-FetchContent_Declare(
-		dlpack
-		GIT_REPOSITORY https://github.com/dmlc/dlpack.git
-		GIT_TAG v1.3
-		GIT_SHALLOW TRUE
-		GIT_PROGRESS FALSE
-		SYSTEM
-)
+if (NOT EMSCRIPTEN)
+	FetchContent_Declare(
+			dlpack
+			GIT_REPOSITORY https://github.com/dmlc/dlpack.git
+			GIT_TAG v1.3
+			GIT_SHALLOW TRUE
+			GIT_PROGRESS FALSE
+			SYSTEM
+	)
 
-FetchContent_MakeAvailable(dlpack)
-set(TACHYON_DLPACK_INCLUDE_DIR "${dlpack_SOURCE_DIR}/include" CACHE PATH "DLPack include dir")
+	set(BUILD_MOCK OFF CACHE INTERNAL "")
+	FetchContent_MakeAvailable(dlpack)
+	set(TACHYON_DLPACK_INCLUDE_DIR "${dlpack_SOURCE_DIR}/include" CACHE PATH "DLPack include dir")
+endif ()
 
 # FTXUI
 if (TACHYON_ENABLE_TOP)
@@ -88,8 +91,10 @@ endif ()
 if (TACHYON_ENABLE_BENCH)
 	message(STATUS "[deps] Benchmark   : v1.9.5  (FetchContent)")
 endif ()
-message(STATUS "[deps] DLPack      : v1.3    (FetchContent)")
-message(STATUS "[deps] DLPack inc  : ${TACHYON_DLPACK_INCLUDE_DIR}")
+if (NOT EMSCRIPTEN)
+	message(STATUS "[deps] DLPack      : v1.3    (FetchContent)")
+	message(STATUS "[deps] DLPack inc  : ${TACHYON_DLPACK_INCLUDE_DIR}")
+endif ()
 if (TACHYON_ENABLE_TOP)
 	message(STATUS "[deps] FTXUI       : v6.1.9  (FetchContent)")
 endif ()

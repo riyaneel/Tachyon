@@ -4,10 +4,11 @@
 
 #include <gtest/gtest.h>
 
+#include <tachyon/arena.hpp>
 #include <tachyon/shm.hpp>
 
 namespace tachyon::core::test {
-	class ShmTest : public ::testing::Test {
+	class ShmTest : public testing::Test {
 	protected:
 		const std::string test_name = "tachyon_test_memfd";
 		const size_t	  test_size = 4096;
@@ -18,11 +19,13 @@ namespace tachyon::core::test {
 		ASSERT_TRUE(result.has_value());
 		EXPECT_NE(result->get_ptr(), nullptr);
 		EXPECT_EQ(result->get_size(), test_size);
+		EXPECT_EQ(reinterpret_cast<uintptr_t>(result->get_ptr()) % alignof(MemoryLayout), 0U);
 		auto data = result->data();
 		data[0]	  = std::byte{0xAA};
 		EXPECT_EQ(data[0], std::byte{0xAA});
 	}
 
+#if !defined(__EMSCRIPTEN__)
 	TEST_F(ShmTest, JoinViaFD) {
 		const auto owner = SharedMemory::create(test_name, test_size);
 		ASSERT_TRUE(owner.has_value());
@@ -36,6 +39,7 @@ namespace tachyon::core::test {
 		guest_data[1] = std::byte{0x84};
 		EXPECT_EQ(owner_data[1], std::byte{0x84});
 	}
+#endif // #if !defined(__EMSCRIPTEN__)
 
 	TEST_F(ShmTest, JoinInvalidFD) {
 		const auto late_join = SharedMemory::join(-1, test_size);
@@ -52,6 +56,6 @@ namespace tachyon::core::test {
 		EXPECT_EQ(::ftruncate(fd, static_cast<off_t>(test_size * 2)), -1);
 		EXPECT_EQ(errno, EPERM);
 	}
-#endif
+#endif // #if defined(__linux__)
 
 } // namespace tachyon::core::test

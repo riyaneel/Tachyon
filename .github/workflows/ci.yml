@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
         build_type: [ debug, release ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -78,7 +78,7 @@ jobs:
         sanitizer: [ asan, msan, tsan ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -115,7 +115,7 @@ jobs:
         build_type: [ debug, release ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -185,7 +185,7 @@ jobs:
         runner: [ ubuntu-24.04, macos-26, macos-26-intel ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -193,7 +193,7 @@ jobs:
           lang: 'python'
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.13'
 
@@ -227,7 +227,7 @@ jobs:
         runner: [ ubuntu-24.04, macos-26, macos-26-intel ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -235,7 +235,9 @@ jobs:
           lang: 'rust'
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          toolchain: 'stable'
 
       - name: Format Check
         working-directory: bindings/rust
@@ -258,7 +260,7 @@ jobs:
         runner: [ ubuntu-24.04, macos-26, macos-26-intel ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -266,7 +268,7 @@ jobs:
           lang: 'go'
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: '1.23'
           cache-dependency-path: 'bindings/go'
@@ -293,7 +295,7 @@ jobs:
         lang: [ java, kotlin ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -301,7 +303,7 @@ jobs:
           lang: 'java'
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -336,7 +338,7 @@ jobs:
         node-version: [ 20, 22, 24 ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -344,35 +346,135 @@ jobs:
           lang: 'node'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: bindings/js/package-lock.json
 
       - name: Install dependencies & build native library
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm install && npm run build:native
 
       - name: Type check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npx tsc --noEmit
 
       - name: Format check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run format:check
 
       - name: Lint check
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run lint
 
       - name: Build TypeScript
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm run build:ts
 
       - name: Tests
-        working-directory: bindings/node
+        working-directory: bindings/js
         run: npm test
+
+  cpp_wasm:
+    name: C++ (Emscripten, ${{ matrix.build_type }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [ debug, release, test, asan ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-tachyon-env
+        with:
+          lang: 'cpp'
+          sdk: 'emscripten'
+
+      - name: Configure
+        run: cmake --preset emscripten-${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build --preset emscripten-${{ matrix.build_type }}
+
+      - name: Test
+        if: matrix.build_type == 'test' || matrix.build_type == 'asan'
+        env:
+          ASAN_OPTIONS: "abort_on_error=1:print_stacktrace=1"
+          UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1:print_summary=1"
+        run: ctest --test-dir build/emscripten-${{ matrix.build_type }}/test --output-on-failure --parallel 4
+
+      - name: Check WASM artefacts
+        if: matrix.build_type == 'debug' || matrix.build_type == 'release'
+        run: |
+          CORE="build/emscripten-${{ matrix.build_type }}/core"
+          ls -lh "${CORE}/libtachyon.a" "${CORE}/tachyon.js" "${CORE}/tachyon.wasm"
+
+      - name: Check WASM export surface
+        if: matrix.build_type == 'release'
+        run: python3 ci/checkers/check_wasm_exports.py build/emscripten-release/core/tachyon.wasm
+
+  nodejs_browser_wasm:
+    name: Browser WASM tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-tachyon-env
+        with:
+          lang: 'cpp'
+          sdk: 'emscripten'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: bindings/js/package-lock.json
+
+      - name: Setup Chromium
+        id: setup-chromium
+        uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        with:
+          chrome-version: 'stable'
+          install-dependencies: 'true'
+
+      - name: Install dependencies
+        working-directory: bindings/js
+        run: npm ci --ignore-scripts
+
+      - name: Build WASM core
+        working-directory: bindings/js
+        run: npm run build:wasm
+
+      - name: Browser WASM tests
+        working-directory: bindings/js
+        env:
+          CHROMIUM_BIN: ${{ steps.setup-chromium.outputs.chrome-path }}
+        run: npm run test:browser
+
+      - name: Packed browser package and type declarations
+        working-directory: bindings/js
+        env:
+          CHROMIUM_BIN: ${{ steps.setup-chromium.outputs.chrome-path }}
+        run: npm run test:package
+
+      - name: Build C++ browser demo
+        working-directory: examples/browser_wasm
+        run: |
+          npm ci
+          npm run build
+
+      - name: Browser demo integration
+        working-directory: bindings/js
+        env:
+          CHROMIUM_BIN: ${{ steps.setup-chromium.outputs.chrome-path }}
+          TACHYON_BROWSER_DEMO: '1'
+        run: npm run test:browser
 
   csharp:
     name: C# Bindings (${{ matrix.runner }})
@@ -383,7 +485,7 @@ jobs:
         runner: [ ubuntu-24.04, macos-26, macos-26-intel ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -391,7 +493,7 @@ jobs:
           lang: 'c#'
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: |
             8.x

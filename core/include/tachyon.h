@@ -4,6 +4,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define TACHYON_ABI __declspec(dllexport)
+#else // #if defined(_WIN32) || defined(__CYGWIN__)
+// On wasm targets the browser surface is not derived from this attribute: it is
+// declared explicitly in core/CMakeLists.txt (TACHYON_WASM_EXPORTS), so adding
+// a function here never widens what a page can reach.
+#define TACHYON_ABI __attribute__((visibility("default")))
+#endif // #if defined(_WIN32) || defined(__CYGWIN__) #else
+
 #ifdef __cplusplus
 #define TACHYON_NOEXCEPT noexcept
 #define TACHYON_ALIGNAS(n) alignas(n)
@@ -12,12 +21,6 @@ extern "C" {
 #define TACHYON_NOEXCEPT
 #define TACHYON_ALIGNAS(n) _Alignas(n)
 #endif // #ifdef __cplusplus #else
-
-#if defined(_WIN32) || defined(__CYGWIN__)
-#define TACHYON_ABI __declspec(dllexport)
-#else // #if defined(_WIN32) || defined(__CYGWIN__)
-#define TACHYON_ABI __attribute__((visibility("default")))
-#endif // #if defined(_WIN32) || defined(__CYGWIN__) #else
 
 #define TACHYON_TYPE_ID(route, type) (((uint32_t)(route) << 16) | (uint32_t)(type))
 #define TACHYON_ROUTE_ID(type_id) ((uint16_t)((type_id) >> 16))
@@ -122,6 +125,10 @@ TACHYON_ABI tachyon_state_t tachyon_get_state(const tachyon_bus_t *bus) TACHYON_
 
 TACHYON_ABI tachyon_error_t
 tachyon_bus_stats(const tachyon_bus_t *bus, tachyon_bus_stats_t *out_stats) TACHYON_NOEXCEPT;
+
+#if defined(__EMSCRIPTEN__)
+TACHYON_ABI void *tachyon_bus_get_shm_ptr(const tachyon_bus_t *bus) TACHYON_NOEXCEPT;
+#endif // #if defined(__EMSCRIPTEN__)
 
 TACHYON_ABI tachyon_error_t tachyon_rpc_listen(
 	const char *socket_path, size_t cap_fwd, size_t cap_rev, tachyon_rpc_bus_t **out_rpc

@@ -1,7 +1,7 @@
 {
 	"name": "@tachyon-ipc/core",
 	"version": "0.5.1",
-	"description": "Tachyon IPC bindings for Node.js",
+	"description": "Tachyon IPC bindings for Node.js and the browser (WASM)",
 	"keywords": [
 		"ipc",
 		"shm",
@@ -17,6 +17,9 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"browser": {
+		"./dist/index.js": "./dist/browser.js"
+	},
 	"engines": {
 		"node": ">=20.0.0"
 	},
@@ -24,13 +27,18 @@
 		"build": "npm run build:native && npm run build:ts",
 		"build:native": "cmake-js compile",
 		"build:ts": "tsc",
+		"build:wasm": "cd ../.. && cmake --preset emscripten-release && cmake --build --preset emscripten-release --target tachyon_wasm_stage",
 		"clean": "rm -rf build dist",
 		"format": "prettier --write src/ts test/",
 		"format:check": "prettier --check src/ts test/",
 		"install": "cmake-js compile",
 		"lint": "eslint src/ts",
 		"prebuild": "cmake-js compile --runtime node --runtime-version $(node -v | cut -c2-)",
-		"test": "mocha"
+		"test": "mocha",
+		"pretest:browser": "npm run build:ts && npm run stage:wasm",
+		"stage:wasm": "node scripts/stage-wasm.mjs",
+		"test:browser": "node test/browser_wasm.spec.mjs",
+		"test:package": "npm run build:ts && npm run stage:wasm && node test/package.spec.mjs"
 	},
 	"dependencies": {
 		"node-addon-api": "^8.7.0"
@@ -45,5 +53,32 @@
 		"tsx": "^4.21.0",
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.58.1"
-	}
+	},
+	"exports": {
+		".": {
+			"browser": {
+				"types": "./dist/browser.d.ts",
+				"default": "./dist/browser.js"
+			},
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./browser": {
+			"types": "./dist/browser.d.ts",
+			"default": "./dist/browser.js"
+		},
+		"./browser/bindings": {
+			"types": "./dist/browser_bindings.d.ts",
+			"default": "./dist/browser_bindings.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src/native",
+		"src/ts",
+		"CMakeLists.txt",
+		"README.md",
+		"LICENSE",
+		"prebuilds"
+	]
 }

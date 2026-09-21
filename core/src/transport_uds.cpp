@@ -1,9 +1,12 @@
 #include <cerrno>
 #include <cstring>
+
+#if !defined(__EMSCRIPTEN__)
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#endif // #if !defined(__EMSCRIPTEN__)
 
 #include <tachyon/transport.hpp>
 
@@ -11,6 +14,12 @@ namespace tachyon::core {
 	auto
 	uds_export_shm(const std::string_view socket_path, const int shm_fd, const TachyonHandshake &handshake) noexcept
 		-> std::expected<void, TransportError> {
+#if defined(__EMSCRIPTEN__)
+		(void)socket_path;
+		(void)shm_fd;
+		(void)handshake;
+		return {};
+#else
 		const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
 		if (sock < 0)
 			return std::unexpected(TransportError::SocketCreation);
@@ -103,9 +112,14 @@ namespace tachyon::core {
 		::unlink(addr.sun_path);
 
 		return {};
+#endif
 	}
 
 	auto uds_import_shm(const std::string_view socket_path) noexcept -> std::expected<ImportedShm, TransportError> {
+#if defined(__EMSCRIPTEN__)
+		(void)socket_path;
+		return std::unexpected(TransportError::SystemError);
+#else
 		const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
 		if (sock < 0)
 			return std::unexpected(TransportError::SocketCreation);
@@ -152,11 +166,19 @@ namespace tachyon::core {
 		}
 
 		return ImportedShm{received_fd, hs};
+#endif
 	}
 
 	auto uds_export_shm_rpc(
 		const std::string_view socket_path, const int fd_fwd, const int fd_rev, const TachyonHandshake &handshake
 	) noexcept -> std::expected<void, TransportError> {
+#if defined(__EMSCRIPTEN__)
+		(void)socket_path;
+		(void)fd_fwd;
+		(void)fd_rev;
+		(void)handshake;
+		return {};
+#else
 		const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
 		if (sock < 0)
 			return std::unexpected(TransportError::SocketCreation);
@@ -248,10 +270,15 @@ namespace tachyon::core {
 		::unlink(addr.sun_path);
 
 		return {};
+#endif
 	}
 
 	auto uds_import_shm_rpc(const std::string_view socket_path) noexcept
 		-> std::expected<RpcImportedShm, TransportError> {
+#if defined(__EMSCRIPTEN__)
+		(void)socket_path;
+		return std::unexpected(TransportError::SystemError);
+#else
 		const int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
 		if (sock < 0)
 			return std::unexpected(TransportError::SocketCreation);
@@ -304,5 +331,6 @@ namespace tachyon::core {
 		}
 
 		return RpcImportedShm{fds[0], fds[1], hs};
+#endif
 	}
 } // namespace tachyon::core

@@ -2,13 +2,14 @@ name: Fuzz regression
 
 on:
   push:
+    branches: [ "main", "development" ]
   pull_request:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +22,7 @@ jobs:
         preset: [ fuzz, fuzz-msan, fuzz-tsan, fuzz-ubsan ]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Environment
         uses: ./.github/actions/setup-tachyon-env
@@ -106,7 +107,7 @@ jobs:
 
       - name: Upload crashes
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fuzz-crashes-${{ github.sha }}
           path: fuzz/corpus/crashes/

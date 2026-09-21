@@ -2,12 +2,22 @@
 
 ---
 
+## v0.5.x → v0.6.0
+
+### Browser WASM transport
+
+`@tachyon-ipc/core` now ships a WebAssembly build alongside the native addon. Bundlers honoring the package `browser`
+field resolve to it automatically; Node.js keeps resolving the N-API entry point. See the binding README for the
+page-local semantics, which differ from cross-process IPC.
+
+---
+
 ## v0.4.x → v0.5.0
 
 ### Wire protocol
 
-v0.5.0 introduces `TACHYON_VERSION = 0x04`. The version check at `connect()` is strict equality.
-**Both producer and consumer must be rebuilt from the same release tag.**
+v0.5.0 introduces `TACHYON_VERSION = 0x04`. The version check at `connect()` is strict equality. **Both producer and
+consumer must be rebuilt from the same release tag.**
 
 There is no in-place upgrade path. Restart both sides simultaneously.
 

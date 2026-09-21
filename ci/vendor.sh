@@ -23,7 +23,7 @@ case "${TARGET}" in
 	DEST="${ROOT_DIR}/bindings/java/src/native/_core_local"
 	;;
 "node")
-	DEST="${ROOT_DIR}/bindings/node/src/native/_core_local"
+	DEST="${ROOT_DIR}/bindings/js/src/native/_core_local"
 	;;
 "rust")
 	DEST="${ROOT_DIR}/bindings/rust/tachyon-sys/vendor/core"

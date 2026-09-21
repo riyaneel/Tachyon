@@ -69,6 +69,9 @@ endif ()
 
 add_subdirectory(core)
 add_subdirectory(bindings)
+if (EMSCRIPTEN AND TACHYON_SANITIZER STREQUAL "none")
+	add_subdirectory(examples/browser_wasm)
+endif ()
 
 if (TACHYON_ENABLE_TESTS)
 	add_subdirectory(test)
