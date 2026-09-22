@@ -2,6 +2,7 @@ import os
 import threading
 import time
 import struct
+from array import array
 
 import pytest
 import tachyon
@@ -301,3 +302,161 @@ def test_dispatcher_handler_exception(clean_socket):
 				assert crashed_mt == 50
 
 	t.join(timeout=2.0)
+
+
+@pytest.mark.parametrize(
+	"bad_return",
+	[
+		pytest.param(lambda mv: None, id="none"),
+		pytest.param(lambda mv: "not bytes", id="str"),
+		pytest.param(lambda mv: 42, id="int"),
+		pytest.param(lambda mv: memoryview(array("I", [1, 2, 3])), id="array"),
+		pytest.param(lambda mv: mv, id="echo_mv"),
+		pytest.param(lambda mv: mv[:4], id="echo_slice"),
+	],
+)
+def test_dispatcher_handler_bad_return_value(clean_socket, bad_return):
+	from tachyon import RpcDispatcher
+
+	dispatcher = RpcDispatcher()
+	dispatcher.handler(msg_type=60)(bad_return)
+
+	callee_errors = []
+
+	def run_callee():
+		with tachyon.RpcBus.rpc_listen(clean_socket, CAP, CAP) as callee:
+			try:
+				dispatcher.serve_once(callee)
+			except Exception as exc:
+				callee_errors.append(exc)
+
+	t = threading.Thread(target=run_callee, daemon=True)
+	t.start()
+	time.sleep(0.05)
+
+	received = []
+
+	def run_caller():
+		with tachyon.RpcBus.rpc_connect(clean_socket) as caller:
+			cid = caller.call(b"bad", msg_type=60)
+			with caller.wait(cid) as rx:
+				with memoryview(rx) as mv:
+					received.append((rx.type_id, struct.unpack("!H", mv[:2])[0]))
+
+	c = threading.Thread(target=run_caller, daemon=True)
+	c.start()
+	c.join(timeout=2.0)
+	t.join(timeout=2.0)
+
+	assert not c.is_alive(), "caller is still blocked: no error reply was sent"
+	assert received == [(0xFFFF, 60)]
+	assert len(callee_errors) == 1
+	assert isinstance(callee_errors[0], RuntimeError)
+	assert callee_errors[0].__cause__ is not None
+
+
+def test_dispatcher_serve_forever_survives_bad_handler(clean_socket):
+	from tachyon import RpcDispatcher
+
+	dispatcher = RpcDispatcher()
+
+	@dispatcher.handler(msg_type=70)
+	def forgot_to_return(mv: memoryview) -> bytes:
+		mv.tobytes()
+
+	@dispatcher.handler(msg_type=71)
+	def echo(mv: memoryview) -> bytes:
+		return mv.tobytes()
+
+	@dispatcher.handler(msg_type=72)
+	def stop(mv: memoryview) -> bytes:
+		raise KeyboardInterrupt
+
+	@dispatcher.handler(msg_type=73)
+	def echo_slice(mv: memoryview) -> bytes:
+		# Keeps a view of the request alive past the call: the serve() guard
+		# commits the slot and raises BufferError on exit.
+		return mv[:4]
+
+	def run_callee():
+		with tachyon.RpcBus.rpc_listen(clean_socket, CAP, CAP) as callee:
+			try:
+				dispatcher.serve_forever(callee)
+			except KeyboardInterrupt:
+				pass
+
+	t = threading.Thread(target=run_callee, daemon=True)
+	t.start()
+	time.sleep(0.05)
+
+	received = []
+
+	def run_caller():
+		with tachyon.RpcBus.rpc_connect(clean_socket) as caller:
+			cid = caller.call(b"bad", msg_type=70)
+			with caller.wait(cid) as rx:
+				received.append(rx.type_id)
+			cid = caller.call(b"slice", msg_type=73)
+			with caller.wait(cid) as rx:
+				received.append(rx.type_id)
+			received.append(echo.call(caller, b"still alive"))
+			caller.call(b"stop", msg_type=72)
+
+	c = threading.Thread(target=run_caller, daemon=True)
+	c.start()
+	c.join(timeout=2.0)
+	t.join(timeout=2.0)
+
+	assert not c.is_alive(), "caller is still blocked after the bad handler"
+	assert received == [0xFFFF, 0xFFFF, b"still alive"]
+	assert not t.is_alive(), "serve_forever did not return on KeyboardInterrupt"
+
+
+@pytest.mark.parametrize(
+	"msg_type, reply_error, expected",
+	[
+		pytest.param(80, tachyon.TachyonError("arena_rev full"), RuntimeError, id="handler_ring_full"),
+		pytest.param(81, tachyon.TachyonError("arena_rev full"), KeyError, id="no_handler_ring_full"),
+		pytest.param(80, tachyon.PeerDeadError("peer gone"), tachyon.PeerDeadError, id="peer_dead"),
+	],
+)
+def test_dispatcher_error_reply_is_best_effort(clean_socket, monkeypatch, msg_type, reply_error, expected):
+	"""A failing error reply must not replace the failure being reported; only a
+	dead peer propagates (so serve_forever keeps going on a full arena_rev)."""
+	from tachyon import RpcDispatcher
+
+	dispatcher = RpcDispatcher()
+
+	@dispatcher.handler(msg_type=80)
+	def crash(mv: memoryview) -> bytes:
+		raise ValueError("handler failed")
+
+	def reply_fails(self, *args, **kwargs):
+		raise reply_error
+
+	monkeypatch.setattr(tachyon.RpcBus, "reply", reply_fails)
+
+	callee_errors = []
+
+	def run_callee():
+		with tachyon.RpcBus.rpc_listen(clean_socket, CAP, CAP) as callee:
+			try:
+				dispatcher.serve_once(callee)
+			except Exception as exc:
+				callee_errors.append(exc)
+
+	t = threading.Thread(target=run_callee, daemon=True)
+	t.start()
+	time.sleep(0.05)
+
+	with tachyon.RpcBus.rpc_connect(clean_socket) as caller:
+		caller.call(b"x", msg_type=msg_type)
+		t.join(timeout=2.0)
+
+	assert len(callee_errors) == 1
+	err = callee_errors[0]
+	assert isinstance(err, expected)
+	if expected is not tachyon.PeerDeadError:
+		assert "could not be sent" in str(err)
+	if expected is RuntimeError:
+		assert isinstance(err.__cause__, ValueError)

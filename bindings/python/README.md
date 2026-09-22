@@ -140,7 +140,8 @@ provided, the response `memoryview` is passed directly (zero-copy). If `None`, r
 
 ### Error sentinel
 
-`MSG_TYPE_ERROR = 0xFFFF`. When `serve_once` catches an unhandled msg_type or a handler exception, it sends a 2-byte
+`MSG_TYPE_ERROR = 0xFFFF`. When `serve_once` catches an unhandled msg_type or any handler failure (an exception, a
+return value `reply()` cannot send, or a view of the request buffer kept alive past the call), it sends a 2-byte
 error payload `struct.pack("!H", unhandled_msg_type)` with `msg_type=0xFFFF`. Callers can detect this with
 `_decode_error(payload)`.
 
